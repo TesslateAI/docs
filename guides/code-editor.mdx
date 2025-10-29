@@ -1,0 +1,378 @@
+---
+title: 'Code Editor'
+description: 'Using the Monaco code editor in Tesslate Studio'
+---
+
+## Overview
+
+Tesslate Studio uses the **Monaco Editor** (the same editor that powers VS Code) for a professional coding experience.
+
+<CardGroup cols={2}>
+  <Card title="Syntax Highlighting" icon="palette">
+    Full TypeScript, JavaScript, CSS, and HTML support
+  </Card>
+  <Card title="IntelliSense" icon="lightbulb">
+    Auto-completion and smart suggestions
+  </Card>
+  <Card title="Error Detection" icon="triangle-exclamation">
+    Real-time TypeScript and linting errors
+  </Card>
+  <Card title="Multi-File" icon="files">
+    Work with multiple files simultaneously
+  </Card>
+</CardGroup>
+
+## Editor Layout
+
+The code editor appears in the left panel of the project workspace:
+
+```
+┌─────────────────┬─────────────────┐
+│  File Tree      │  Live Preview   │
+│  ├── src/       │                 │
+│  │   └── ...    │                 │
+│  └── public/    │                 │
+│                 │                 │
+│  Code Editor    │                 │
+│  [Your code]    │                 │
+│                 │                 │
+│  Chat Panel     │                 │
+└─────────────────┴─────────────────┘
+```
+
+## Opening Files
+
+<Tabs>
+  <Tab title="File Tree">
+    - Click any file in the file tree
+    - File opens in editor
+    - Multiple files shown as tabs
+  </Tab>
+
+  <Tab title="AI Generated">
+    - When AI creates/edits files
+    - Automatically opens in editor
+    - Changes highlighted
+  </Tab>
+
+  <Tab title="Search">
+    - Use file search (Ctrl/Cmd + P)
+    - Type filename
+    - Quick navigation
+  </Tab>
+</Tabs>
+
+## Editing Files
+
+### Basic Operations
+
+<Steps>
+  <Step title="Select File">
+    Click file in tree or use Ctrl/Cmd + P
+  </Step>
+
+  <Step title="Edit Code">
+    Make changes in the Monaco editor
+  </Step>
+
+  <Step title="Auto-Save">
+    Changes save automatically
+  </Step>
+
+  <Step title="See Preview">
+    Preview updates instantly with HMR
+  </Step>
+</Steps>
+
+### Keyboard Shortcuts
+
+<AccordionGroup>
+  <Accordion icon="keyboard" title="File Operations">
+    - **Ctrl/Cmd + S**: Manual save
+    - **Ctrl/Cmd + P**: Quick file open
+    - **Ctrl/Cmd + W**: Close current tab
+    - **Ctrl/Cmd + Shift + F**: Search across files
+  </Accordion>
+
+  <Accordion icon="keyboard" title="Editing">
+    - **Ctrl/Cmd + Z**: Undo
+    - **Ctrl/Cmd + Shift + Z**: Redo
+    - **Ctrl/Cmd + F**: Find in file
+    - **Ctrl/Cmd + H**: Find and replace
+    - **Ctrl/Cmd + D**: Select next occurrence
+    - **Alt + Up/Down**: Move line up/down
+  </Accordion>
+
+  <Accordion icon="keyboard" title="Code">
+    - **Ctrl/Cmd + /**: Toggle comment
+    - **Ctrl/Cmd + ]**: Indent
+    - **Ctrl/Cmd + [**: Outdent
+    - **Alt + Shift + F**: Format document
+    - **F2**: Rename symbol
+  </Accordion>
+</AccordionGroup>
+
+## Editor Features
+
+### IntelliSense
+
+Get smart code completions:
+
+<CardGroup cols={2}>
+  <Card title="Auto-Complete" icon="wand-magic">
+    - Type to see suggestions
+    - Tab or Enter to accept
+    - Arrow keys to navigate
+  </Card>
+
+  <Card title="Type Information" icon="info-circle">
+    - Hover over code
+    - See type definitions
+    - View documentation
+  </Card>
+
+  <Card title="Import Suggestions" icon="file-import">
+    - Auto-import components
+    - Suggest missing imports
+    - Organize imports
+  </Card>
+
+  <Card title="Parameter Hints" icon="parentheses">
+    - See function signatures
+    - View parameter types
+    - Get usage examples
+  </Card>
+</CardGroup>
+
+### Error Detection
+
+Real-time error checking:
+
+- **Red Squiggles**: Syntax errors
+- **Yellow Squiggles**: Warnings
+- **Hover**: See error details
+- **Quick Fix**: Click lightbulb for fixes
+
+<Info>
+  TypeScript errors appear in real-time as you type, helping catch issues before runtime.
+</Info>
+
+### Code Formatting
+
+Keep code clean and consistent:
+
+1. **Auto-Format**: Ctrl/Cmd + Shift + F
+2. **Format on Save**: Enabled by default
+3. **Prettier Integration**: Built-in formatting
+4. **Customizable**: Adjust in settings
+
+## File Tree
+
+### Navigation
+
+The file tree shows your project structure:
+
+<Tabs>
+  <Tab title="Expand/Collapse">
+    - Click arrows to expand folders
+    - Double-click folder name
+    - See full project structure
+  </Tab>
+
+  <Tab title="File Operations">
+    - Right-click for context menu
+    - Create new files
+    - Rename files
+    - Delete files
+  </Tab>
+
+  <Tab title="Search">
+    - Filter files by name
+    - Show/hide node_modules
+    - Collapse all folders
+  </Tab>
+</Tabs>
+
+### File Icons
+
+Different icons for file types:
+- 📄 TypeScript (.ts, .tsx)
+- 🎨 Styles (.css, .scss)
+- ⚙️ Config (.json, .config.js)
+- 📦 Package files
+- 📁 Folders
+
+## Working with Multiple Files
+
+### Tabs
+
+Manage open files with tabs:
+
+- **Open Multiple**: Click files to open tabs
+- **Switch Tabs**: Click tab or Ctrl/Cmd + Tab
+- **Close Tab**: Click X or Ctrl/Cmd + W
+- **Close Others**: Right-click → Close Others
+- **Close All**: Right-click → Close All
+
+### Split View
+
+Coming soon:
+- Side-by-side editing
+- Compare files
+- Reference while coding
+
+## AI-Generated Code
+
+When AI agents create or modify code:
+
+<Steps>
+  <Step title="AI Creates File">
+    Agent generates new file or edits existing
+  </Step>
+
+  <Step title="Auto-Opens">
+    File automatically opens in editor
+  </Step>
+
+  <Step title="Changes Highlighted">
+    New/modified code briefly highlighted
+  </Step>
+
+  <Step title="Review">
+    Review changes before proceeding
+  </Step>
+
+  <Step title="Edit if Needed">
+    Make manual adjustments
+  </Step>
+</Steps>
+
+<Warning>
+  Always review AI-generated code before using in production. AI can make mistakes.
+</Warning>
+
+## Editor Settings
+
+Customize your editing experience:
+
+<AccordionGroup>
+  <Accordion icon="text-size" title="Font & Display">
+    - Font size (12-24px)
+    - Font family (Fira Code, Consolas, etc.)
+    - Line height
+    - Minimap on/off
+  </Accordion>
+
+  <Accordion icon="palette" title="Theme">
+    - VS Code Dark (default)
+    - VS Code Light
+    - High contrast themes
+    - Custom themes
+  </Accordion>
+
+  <Accordion icon="sliders" title="Behavior">
+    - Auto-save delay
+    - Format on save
+    - Tab size (2 or 4 spaces)
+    - Word wrap
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Review AI Changes" icon="eye">
+    - Always check generated code
+    - Understand what changed
+    - Test functionality
+    - Make refinements
+  </Card>
+
+  <Card title="Keep Files Focused" icon="bullseye">
+    - One component per file
+    - Logical file organization
+    - Clear naming conventions
+    - Reasonable file sizes
+  </Card>
+
+  <Card title="Use TypeScript" icon="shield">
+    - Catch errors early
+    - Better auto-completion
+    - Self-documenting code
+    - Easier refactoring
+  </Card>
+
+  <Card title="Format Regularly" icon="align-left">
+    - Use auto-format
+    - Consistent code style
+    - Easier to read
+    - Better diffs
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-exclamation" title="Editor Not Responding">
+    **Problem:** Editor frozen or laggy
+
+    **Solutions:**
+    - Refresh the browser
+    - Close unused tabs
+    - Check browser console for errors
+    - Disable browser extensions
+  </Accordion>
+
+  <Accordion icon="file-slash" title="File Won't Save">
+    **Problem:** Changes not persisting
+
+    **Solutions:**
+    - Check file permissions
+    - Ensure file isn't read-only
+    - Try manual save (Ctrl/Cmd + S)
+    - Refresh and try again
+  </Accordion>
+
+  <Accordion icon="lightbulb-slash" title="No IntelliSense">
+    **Problem:** Auto-complete not working
+
+    **Solutions:**
+    - Wait for TypeScript to initialize
+    - Check file has .ts or .tsx extension
+    - Ensure package.json is valid
+    - Restart development server
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Live Preview"
+    icon="eye"
+    href="/guides/live-preview"
+  >
+    See your changes in real-time
+  </Card>
+  <Card
+    title="Chat Interface"
+    icon="comments"
+    href="/guides/chat-interface"
+  >
+    Use AI to generate code
+  </Card>
+  <Card
+    title="GitHub Integration"
+    icon="github"
+    href="/guides/github-integration"
+  >
+    Commit and push changes
+  </Card>
+  <Card
+    title="Using Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Let AI write code for you
+  </Card>
+</CardGroup>

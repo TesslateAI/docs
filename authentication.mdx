@@ -1,0 +1,149 @@
+---
+title: 'Authentication'
+description: 'Create your account and start building with Tesslate Studio'
+---
+
+## Creating Your Account
+
+<Steps>
+  <Step title="Navigate to Tesslate Studio">
+    Go to [studio.tesslate.com](https://studio.tesslate.com) and click **Sign Up** in the top right.
+  </Step>
+
+  <Step title="Fill in Your Details">
+    Enter your information:
+    - **Full Name**: Your display name
+    - **Username**: Choose a unique username (used for login)
+    - **Email**: Your email address
+    - **Password**: Minimum 8 characters
+
+    <Info>Your username must be unique across all Tesslate Studio users.</Info>
+  </Step>
+
+  <Step title="Create Account">
+    Click **Sign Up** to create your account. You'll be automatically logged in and redirected to your dashboard.
+  </Step>
+</Steps>
+
+## Logging In
+
+<Steps>
+  <Step title="Go to Login Page">
+    Navigate to [studio.tesslate.com](https://studio.tesslate.com) and click **Login**.
+  </Step>
+
+  <Step title="Enter Credentials">
+    You can log in with either:
+    - Your **username** and password
+    - Your **email** and password
+  </Step>
+
+  <Step title="Access Dashboard">
+    After successful login, you'll be redirected to your project dashboard.
+  </Step>
+</Steps>
+
+## Session Management
+
+<AccordionGroup>
+  <Accordion icon="clock" title="Session Duration">
+    Your session remains active as long as your browser tab is open. Sessions use JWT tokens that automatically refresh when needed.
+  </Accordion>
+
+  <Accordion icon="shield-check" title="Security">
+    - All passwords are securely hashed
+    - Tokens are stored in browser localStorage
+    - HTTPS encryption for all data transfer
+    - Automatic token refresh prevents session timeouts
+  </Accordion>
+
+  <Accordion icon="arrow-right-from-bracket" title="Logging Out">
+    To log out:
+    1. Click your profile in the top right
+    2. Select **Logout**
+    3. Your session will be cleared and you'll be redirected to the login page
+  </Accordion>
+</AccordionGroup>
+
+## GitHub Integration (Optional)
+
+Connect your GitHub account to import private repositories and commit code directly from Tesslate Studio.
+
+<Steps>
+  <Step title="Navigate to Dashboard">
+    From your project dashboard, click **Connect GitHub** or go to your profile settings.
+  </Step>
+
+  <Step title="Authorize GitHub">
+    You'll be redirected to GitHub to authorize Tesslate Studio. Click **Authorize**.
+  </Step>
+
+  <Step title="Grant Permissions">
+    Tesslate Studio requests:
+    - Read access to your repositories
+    - Write access to commit code changes
+    - Access to repository metadata
+  </Step>
+
+  <Step title="Return to Dashboard">
+    After authorization, you'll be redirected back to Tesslate Studio with GitHub connected.
+  </Step>
+</Steps>
+
+<Note>
+  GitHub connection is **optional**. You can still import public repositories without connecting your account.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-exclamation" title="Forgot Password">
+    If you forgot your password:
+    1. Click **Forgot Password** on the login page
+    2. Enter your email address
+    3. Check your email for reset instructions
+    4. Follow the link to set a new password
+  </Accordion>
+
+  <Accordion icon="user-xmark" title="Username Already Taken">
+    If your desired username is taken:
+    - Try adding numbers or underscores (e.g., `john_doe_123`)
+    - Use a variation of your name
+    - Combine words (e.g., `johnbuilds`, `coderjohn`)
+  </Accordion>
+
+  <Accordion icon="ban" title="Can't Log In">
+    If you can't log in:
+    - Verify your username/email and password are correct
+    - Check that Caps Lock is off
+    - Clear your browser cache and cookies
+    - Try a different browser
+    - Contact support if the issue persists
+  </Accordion>
+
+  <Accordion icon="rotate" title="Session Expired">
+    If your session expires:
+    - Simply log in again
+    - Your projects and data are safe
+    - Sessions auto-refresh normally, but may expire if inactive for extended periods
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Create Your First Project"
+    icon="folder-plus"
+    href="/guides/creating-projects"
+  >
+    Start building with a new project
+  </Card>
+  <Card
+    title="Explore the Marketplace"
+    icon="store"
+    href="/guides/marketplace"
+  >
+    Discover AI agents and templates
+  </Card>
+</CardGroup>

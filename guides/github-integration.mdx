@@ -1,0 +1,456 @@
+---
+title: 'GitHub Integration'
+description: 'Connect GitHub, import repositories, and commit your code'
+---
+
+## Overview
+
+Tesslate Studio integrates with GitHub to help you:
+
+<CardGroup cols={2}>
+  <Card title="Import Repos" icon="download">
+    Bring existing projects into Tesslate
+  </Card>
+  <Card title="Commit Changes" icon="code-commit">
+    Save your work to GitHub
+  </Card>
+  <Card title="Push Code" icon="upload">
+    Sync changes to remote repository
+  </Card>
+  <Card title="Version Control" icon="code-branch">
+    Track project history and changes
+  </Card>
+</CardGroup>
+
+## Connecting GitHub
+
+<Steps>
+  <Step title="Open Settings">
+    Click your profile → **Settings**
+  </Step>
+
+  <Step title="GitHub Section">
+    Navigate to **GitHub Integration**
+  </Step>
+
+  <Step title="Connect">
+    Click **Connect GitHub Account**
+  </Step>
+
+  <Step title="Authorize">
+    Log in to GitHub and authorize Tesslate Studio
+  </Step>
+
+  <Step title="Confirm">
+    You'll be redirected back, connection confirmed
+  </Step>
+</Steps>
+
+<Info>
+  GitHub connection is **optional**. You can use Tesslate Studio without it, but you won't be able to import repos or commit code.
+</Info>
+
+## Permissions Requested
+
+Tesslate Studio requests access to:
+
+- **Read repositories**: Import your projects
+- **Write repositories**: Commit and push changes
+- **User email**: Associate commits with you
+- **Repository webhooks**: Coming soon for sync
+
+<Warning>
+  Tesslate Studio only accesses repositories you explicitly import. We never access other repos without permission.
+</Warning>
+
+## Importing Repositories
+
+### Import During Project Creation
+
+<Steps>
+  <Step title="Create Project">
+    Click **Create New Project** from dashboard
+  </Step>
+
+  <Step title="Select GitHub">
+    Choose **GitHub** as project source
+  </Step>
+
+  <Step title="Choose Repo">
+    Browse your repositories or search by name
+  </Step>
+
+  <Step title="Configure">
+    Set project name and status
+  </Step>
+
+  <Step title="Import">
+    Click **Import** - repo clones into Tesslate
+  </Step>
+</Steps>
+
+### Supported Repository Types
+
+<Tabs>
+  <Tab title="React">
+    ✅ Create React App
+    ✅ Vite + React
+    ✅ Next.js (static export)
+    ✅ React + TypeScript
+  </Tab>
+
+  <Tab title="Vue">
+    ✅ Vue 3 + Vite
+    ✅ Nuxt (static mode)
+    ✅ Vue + TypeScript
+  </Tab>
+
+  <Tab title="Static">
+    ✅ HTML/CSS/JS
+    ✅ TypeScript
+    ✅ Static site generators
+  </Tab>
+
+  <Tab title="Unsupported">
+    ❌ Backend-only projects
+    ❌ Mobile apps (React Native)
+    ❌ Desktop apps (Electron)
+    ❌ Projects without package.json
+  </Tab>
+</Tabs>
+
+## Committing Changes
+
+### Manual Commits
+
+Commit your changes to GitHub:
+
+<Steps>
+  <Step title="Make Changes">
+    Edit code manually or via AI agents
+  </Step>
+
+  <Step title="Open Git Panel">
+    Click **Git** icon in project toolbar
+  </Step>
+
+  <Step title="Review Changes">
+    See modified, added, and deleted files
+  </Step>
+
+  <Step title="Write Message">
+    Enter a descriptive commit message
+  </Step>
+
+  <Step title="Commit">
+    Click **Commit** to save changes
+  </Step>
+
+  <Step title="Push">
+    Click **Push** to upload to GitHub
+  </Step>
+</Steps>
+
+### Commit Best Practices
+
+<AccordionGroup>
+  <Accordion icon="message" title="Write Good Messages">
+    **Good:**
+    - "Add user authentication with email/password"
+    - "Fix responsive layout on mobile devices"
+    - "Update hero section styling and copy"
+
+    **Bad:**
+    - "Update"
+    - "Changes"
+    - "Fix bug"
+  </Accordion>
+
+  <Accordion icon="clock" title="Commit Regularly">
+    - After completing a feature
+    - Before major changes
+    - At natural stopping points
+    - End of work session
+  </Accordion>
+
+  <Accordion icon="list-check" title="Commit Related Changes">
+    - Group related changes together
+    - Don't mix unrelated features
+    - Keep commits focused
+    - Makes history clearer
+  </Accordion>
+</AccordionGroup>
+
+## Git Panel
+
+### Changed Files
+
+See what's been modified:
+
+<CardGroup cols={2}>
+  <Card title="Modified" icon="pen">
+    Files that were changed
+  </Card>
+  <Card title="Added" icon="plus">
+    New files created
+  </Card>
+  <Card title="Deleted" icon="trash">
+    Files removed
+  </Card>
+  <Card title="Renamed" icon="arrow-right">
+    Files moved or renamed
+  </Card>
+</CardGroup>
+
+### File Actions
+
+For each changed file:
+- **View Diff**: See exactly what changed
+- **Discard**: Undo changes to this file
+- **Stage**: Select for commit (coming soon)
+
+## Branching
+
+### Current Branch
+
+View and manage branches:
+
+<Tabs>
+  <Tab title="View Branch">
+    - See current branch name
+    - Default is usually `main` or `master`
+    - Shows in git panel
+  </Tab>
+
+  <Tab title="Switch Branch">
+    Coming soon:
+    - Create new branches
+    - Switch between branches
+    - Merge branches
+    - Delete branches
+  </Tab>
+
+  <Tab title="Pull Requests">
+    Coming soon:
+    - Create PRs from Tesslate
+    - Review PR status
+    - Merge approved PRs
+  </Tab>
+</Tabs>
+
+## Syncing Changes
+
+### Push to GitHub
+
+Upload your local commits:
+
+1. Click **Push** in git panel
+2. Changes upload to GitHub
+3. View on GitHub.com
+4. Share with team
+
+### Pull from GitHub
+
+Coming soon:
+- Pull latest changes from GitHub
+- Sync with team members
+- Resolve merge conflicts
+- Update local code
+
+<Warning>
+  Currently, pulling from GitHub requires re-importing the project. Two-way sync coming soon.
+</Warning>
+
+## Viewing on GitHub
+
+After pushing changes:
+
+<Steps>
+  <Step title="Go to GitHub">
+    Click **View on GitHub** in git panel
+  </Step>
+
+  <Step title="See Repository">
+    Opens your repo on GitHub.com
+  </Step>
+
+  <Step title="View Commits">
+    See commit history and changes
+  </Step>
+
+  <Step title="Share">
+    Share repo URL with others
+  </Step>
+</Steps>
+
+## Disconnecting GitHub
+
+To disconnect your GitHub account:
+
+1. Go to **Settings** → **GitHub Integration**
+2. Click **Disconnect GitHub**
+3. Confirm disconnection
+4. Existing imported projects remain
+5. Can't commit new changes until reconnected
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Can't Connect GitHub">
+    **Problem:** Authorization fails
+
+    **Solutions:**
+    - Clear browser cache and cookies
+    - Try different browser
+    - Check GitHub.com is accessible
+    - Disable browser extensions
+    - Contact support
+  </Accordion>
+
+  <Accordion icon="ban" title="Import Failed">
+    **Problem:** Repository won't import
+
+    **Solutions:**
+    - Ensure repo has package.json
+    - Check repo is not private (or you have access)
+    - Verify project type is supported
+    - Try smaller repository first
+    - Check repo isn't too large (>500MB)
+  </Accordion>
+
+  <Accordion icon="upload" title="Push Failed">
+    **Problem:** Can't push to GitHub
+
+    **Solutions:**
+    - Ensure you're connected to GitHub
+    - Check you have write access to repo
+    - Verify internet connection
+    - Try pull before push
+    - Check GitHub status
+  </Accordion>
+
+  <Accordion icon="exclamation-triangle" title="Merge Conflicts">
+    **Problem:** Conflicts when pushing
+
+    **Solutions:**
+    - Currently: Re-import project with latest code
+    - Coming soon: In-app conflict resolution
+    - Alternative: Clone repo locally and resolve
+  </Accordion>
+</AccordionGroup>
+
+## GitHub Features Roadmap
+
+### Coming Soon
+
+<CardGroup cols={3}>
+  <Card title="Pull Requests" icon="code-pull-request">
+    Create and manage PRs in Tesslate
+  </Card>
+  <Card title="Branches" icon="code-branch">
+    Full branch management
+  </Card>
+  <Card title="Pull Changes" icon="download">
+    Two-way sync with GitHub
+  </Card>
+  <Card title="Conflict Resolution" icon="code-merge">
+    Resolve merge conflicts
+  </Card>
+  <Card title="Webhooks" icon="webhook">
+    Auto-sync on GitHub changes
+  </Card>
+  <Card title="CI/CD" icon="gears">
+    GitHub Actions integration
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Commits" icon="calendar">
+    - Commit after each feature
+    - Push at least daily
+    - Don't lose work
+    - Track progress
+  </Card>
+
+  <Card title="Descriptive Messages" icon="message">
+    - Explain what and why
+    - Use present tense
+    - Be specific
+    - Reference issues if applicable
+  </Card>
+
+  <Card title="Review Before Push" icon="eye">
+    - Check changed files
+    - Review diffs
+    - Test functionality
+    - Ensure no secrets
+  </Card>
+
+  <Card title="Keep in Sync" icon="arrows-rotate">
+    - Pull before starting work
+    - Push when done
+    - Coordinate with team
+    - Resolve conflicts quickly
+  </Card>
+</CardGroup>
+
+## Alternative: Download Code
+
+If you don't want to use GitHub:
+
+<Steps>
+  <Step title="Export Project">
+    Click **Export** in project settings
+  </Step>
+
+  <Step title="Download ZIP">
+    Downloads complete project as .zip
+  </Step>
+
+  <Step title="Extract">
+    Unzip files locally
+  </Step>
+
+  <Step title="Use Locally">
+    Open in VS Code or your editor
+  </Step>
+
+  <Step title="Manual Git">
+    Initialize your own git repo if desired
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Creating Projects"
+    icon="plus"
+    href="/guides/creating-projects"
+  >
+    Import repos or start new projects
+  </Card>
+  <Card
+    title="Code Editor"
+    icon="code"
+    href="/guides/code-editor"
+  >
+    Edit your code
+  </Card>
+  <Card
+    title="Using Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Generate code with AI
+  </Card>
+  <Card
+    title="Settings"
+    icon="gear"
+    href="/guides/settings"
+  >
+    Manage account settings
+  </Card>
+</CardGroup>

@@ -1,0 +1,459 @@
+---
+title: 'API Keys & Secrets'
+description: 'Manage API keys and environment variables securely'
+---
+
+## Overview
+
+Tesslate Studio provides secure management for API keys, environment variables, and other sensitive data your projects need.
+
+<CardGroup cols={2}>
+  <Card title="Secure Storage" icon="lock">
+    Encrypted storage for sensitive data
+  </Card>
+  <Card title="Per-Project" icon="folder">
+    Different keys for different projects
+  </Card>
+  <Card title="Environment Variables" icon="code">
+    Access via process.env in your code
+  </Card>
+  <Card title="Never Committed" icon="shield">
+    Keys never appear in Git history
+  </Card>
+</CardGroup>
+
+## Types of Secrets
+
+<Tabs>
+  <Tab title="AI Provider Keys">
+    **For AI agents**
+    - OpenAI API keys
+    - Anthropic API keys
+    - OpenRouter keys
+    - Custom model providers
+
+    Required for: Using AI agents
+  </Tab>
+
+  <Tab title="Third-Party APIs">
+    **External services**
+    - Stripe API keys
+    - SendGrid keys
+    - Firebase credentials
+    - Any external API
+
+    Required for: Integrating services
+  </Tab>
+
+  <Tab title="Database">
+    **Database connections**
+    - Connection strings
+    - Database passwords
+    - Redis URLs
+    - MongoDB URIs
+
+    Required for: Database access
+  </Tab>
+
+  <Tab title="Authentication">
+    **Auth secrets**
+    - JWT secrets
+    - OAuth credentials
+    - Session keys
+    - Auth0 credentials
+
+    Required for: User authentication
+  </Tab>
+</Tabs>
+
+## Managing AI Provider Keys
+
+### Adding Your Keys
+
+<Steps>
+  <Step title="Open Settings">
+    Click profile → **Settings** → **API Keys**
+  </Step>
+
+  <Step title="Select Provider">
+    Choose OpenAI, Anthropic, or OpenRouter
+  </Step>
+
+  <Step title="Enter Key">
+    Paste your API key from the provider
+  </Step>
+
+  <Step title="Save">
+    Click **Save** - key is encrypted
+  </Step>
+
+  <Step title="Verify">
+    Test by using an AI agent
+  </Step>
+</Steps>
+
+### Getting API Keys
+
+<AccordionGroup>
+  <Accordion icon="openai" title="OpenAI">
+    **Where to get:**
+    1. Go to [platform.openai.com](https://platform.openai.com)
+    2. Sign up or log in
+    3. Go to API Keys section
+    4. Create new secret key
+    5. Copy and save (shown once)
+
+    **Models:** GPT-4, GPT-3.5, etc.
+  </Accordion>
+
+  <Accordion icon="brain" title="Anthropic (Claude)">
+    **Where to get:**
+    1. Go to [console.anthropic.com](https://console.anthropic.com)
+    2. Sign up or log in
+    3. Go to API Keys
+    4. Create new key
+    5. Copy immediately (shown once)
+
+    **Models:** Claude 3 Opus, Sonnet, Haiku
+  </Accordion>
+
+  <Accordion icon="route" title="OpenRouter">
+    **Where to get:**
+    1. Go to [openrouter.ai](https://openrouter.ai)
+    2. Sign up
+    3. Go to Keys
+    4. Generate API key
+    5. Copy key
+
+    **Models:** Access to 100+ models
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  API keys are like passwords - never share them publicly or commit them to GitHub!
+</Warning>
+
+## Project Environment Variables
+
+### Adding Variables
+
+<Steps>
+  <Step title="Open Project Settings">
+    In your project, click Settings icon
+  </Step>
+
+  <Step title="Go to Environment">
+    Navigate to **Environment Variables** tab
+  </Step>
+
+  <Step title="Add Variable">
+    Click **Add New Variable**
+  </Step>
+
+  <Step title="Enter Details">
+    - Variable name (e.g., `STRIPE_KEY`)
+    - Value (the actual key/secret)
+  </Step>
+
+  <Step title="Save">
+    Click **Save** - available in your code
+  </Step>
+</Steps>
+
+### Using in Code
+
+Access environment variables in your React code:
+
+```typescript
+// Access any environment variable
+const stripeKey = import.meta.env.VITE_STRIPE_KEY
+
+// Use in your code
+const stripe = new Stripe(stripeKey)
+```
+
+<Info>
+  Vite requires environment variables to be prefixed with `VITE_` to be exposed to client-side code.
+</Info>
+
+### Naming Conventions
+
+<CardGroup cols={2}>
+  <Card title="Client-Side" icon="browser">
+    **VITE_** prefix required
+    - `VITE_API_URL`
+    - `VITE_STRIPE_PUBLIC_KEY`
+    - Accessible in browser
+  </Card>
+
+  <Card title="Server-Side" icon="server">
+    **No prefix** needed
+    - `DATABASE_URL`
+    - `STRIPE_SECRET_KEY`
+    - Backend/API routes only
+  </Card>
+</CardGroup>
+
+## Secret Types
+
+### Public vs Private Keys
+
+<Tabs>
+  <Tab title="Public/Publishable">
+    **Safe to expose**
+    - Stripe publishable keys
+    - Firebase public config
+    - API base URLs
+    - Public app IDs
+
+    Can use: `VITE_` prefix
+  </Tab>
+
+  <Tab title="Secret/Private">
+    **Never expose**
+    - Stripe secret keys
+    - Database passwords
+    - JWT secrets
+    - Private API keys
+
+    Use: Server-side only
+  </Tab>
+</Tabs>
+
+<Warning>
+  Never use `VITE_` prefix for secret keys! This exposes them to client-side JavaScript and anyone can see them.
+</Warning>
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion icon="shield" title="Never Commit Secrets">
+    - Don't put keys in code files
+    - Use environment variables
+    - Add `.env` to `.gitignore`
+    - Verify before committing
+  </Accordion>
+
+  <Accordion icon="key" title="Rotate Keys Regularly">
+    - Change API keys periodically
+    - Rotate after team member leaves
+    - Update if potentially exposed
+    - Use different keys per environment
+  </Accordion>
+
+  <Accordion icon="eye-slash" title="Limit Key Permissions">
+    - Use read-only keys when possible
+    - Restrict API key scopes
+    - Set usage limits
+    - Monitor key usage
+  </Accordion>
+
+  <Accordion icon="users" title="Per-Project Keys">
+    - Different keys for each project
+    - Easier to track usage
+    - Better security isolation
+    - Simpler to rotate
+  </Accordion>
+</AccordionGroup>
+
+## Environment Files
+
+### .env Structure
+
+Tesslate projects use `.env` files:
+
+```bash
+# AI Provider Keys (Global)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Public Client Variables (VITE_ prefix)
+VITE_API_URL=https://api.example.com
+VITE_STRIPE_PUBLIC_KEY=pk_test_...
+VITE_FIREBASE_API_KEY=AIza...
+
+# Private Server Variables (No prefix)
+DATABASE_URL=postgresql://...
+STRIPE_SECRET_KEY=sk_test_...
+JWT_SECRET=your-secret-key
+```
+
+### File Location
+
+```
+my-project/
+├── .env                 # Local environment (gitignored)
+├── .env.example         # Template (committed to Git)
+├── .env.production      # Production values
+└── .env.development     # Development values
+```
+
+<Info>
+  Commit `.env.example` with placeholder values so team members know what variables are needed.
+</Info>
+
+## Managing Multiple Environments
+
+<Tabs>
+  <Tab title="Development">
+    **Local development**
+    - Test API keys
+    - Local database URLs
+    - Debug mode enabled
+    - Verbose logging
+
+    File: `.env` or `.env.development`
+  </Tab>
+
+  <Tab title="Staging">
+    **Pre-production testing**
+    - Staging API keys
+    - Test databases
+    - Production-like config
+    - Limited access
+
+    File: `.env.staging`
+  </Tab>
+
+  <Tab title="Production">
+    **Live environment**
+    - Production API keys
+    - Live databases
+    - Optimized settings
+    - Error tracking
+
+    File: `.env.production`
+  </Tab>
+</Tabs>
+
+## Viewing and Editing
+
+### In Tesslate Studio
+
+<Steps>
+  <Step title="Open Settings">
+    Project → Settings → Environment Variables
+  </Step>
+
+  <Step title="View Variables">
+    See all configured variables (values hidden)
+  </Step>
+
+  <Step title="Edit">
+    Click variable to edit value
+  </Step>
+
+  <Step title="Delete">
+    Remove unused variables
+  </Step>
+
+  <Step title="Restart">
+    Restart dev server to apply changes
+  </Step>
+</Steps>
+
+### Values are Hidden
+
+For security:
+- Values shown as `•••••••••`
+- Click "Reveal" to see temporarily
+- Never logged or displayed in console
+- Not included in exports
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Variable Not Working">
+    **Problem:** Can't access environment variable
+
+    **Solutions:**
+    - Check variable name spelling
+    - Ensure `VITE_` prefix for client-side
+    - Restart development server
+    - Verify variable is saved
+    - Check .env file location
+  </Accordion>
+
+  <Accordion icon="key" title="API Key Invalid">
+    **Problem:** API key not working
+
+    **Solutions:**
+    - Verify key is correct (no extra spaces)
+    - Check key hasn't expired
+    - Ensure sufficient API credits
+    - Verify key permissions/scope
+    - Try regenerating key
+  </Accordion>
+
+  <Accordion icon="ban" title="Variables in Git">
+    **Problem:** Accidentally committed secrets
+
+    **Solutions:**
+    - Immediately rotate all exposed keys
+    - Remove from Git history (git filter-branch)
+    - Add .env to .gitignore
+    - Use .env.example for templates
+    - Consider using git-secrets tool
+  </Accordion>
+
+  <Accordion icon="server" title="Server Not Restarting">
+    **Problem:** Changes not applying
+
+    **Solutions:**
+    - Manually restart dev server
+    - Check for syntax errors in .env
+    - Clear browser cache
+    - Verify file is saved
+    - Check file permissions
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use .env.example" icon="file">
+    Template for required variables
+  </Card>
+  <Card title="Document Variables" icon="book">
+    Comment what each variable does
+  </Card>
+  <Card title="Validate on Startup" icon="check">
+    Verify required variables exist
+  </Card>
+  <Card title="Rotate Regularly" icon="rotate">
+    Change keys periodically
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Model Management"
+    icon="brain"
+    href="/guides/model-management"
+  >
+    Configure AI models
+  </Card>
+  <Card
+    title="Customizing Agents"
+    icon="sliders"
+    href="/guides/customizing-agents"
+  >
+    Set up custom agents
+  </Card>
+  <Card
+    title="GitHub Integration"
+    icon="github"
+    href="/guides/github-integration"
+  >
+    Keep secrets out of Git
+  </Card>
+  <Card
+    title="Projects"
+    icon="folder"
+    href="/guides/projects"
+  >
+    Project configuration
+  </Card>
+</CardGroup>

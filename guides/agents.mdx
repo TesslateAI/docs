@@ -1,0 +1,198 @@
+---
+title: 'AI Agents'
+description: 'Understanding AI agents in Tesslate Studio'
+---
+
+## What are AI Agents?
+
+AI agents are specialized AI assistants that generate and modify code based on your natural language instructions. Each agent has unique capabilities optimized for specific tasks.
+
+## Agent Types
+
+Tesslate Studio has two core agent types:
+
+<CardGroup cols={2}>
+  <Card title="Stream Agent" icon="water">
+    **Best for:** UI building, fast iteration
+
+    - Real-time streaming responses
+    - Generates code continuously
+    - Perfect for visual components
+    - Faster for simple tasks
+  </Card>
+
+  <Card title="Iterative Agent" icon="rotate">
+    **Best for:** Complex logic, multi-step tasks
+
+    - Step-by-step reasoning
+    - Uses tools and thinks through problems
+    - Better for complex features
+    - More accurate for logic-heavy work
+  </Card>
+</CardGroup>
+
+## Agent Characteristics
+
+Every agent has:
+
+- **Icon & Name**: Visual identification
+- **System Prompt**: Instructions that guide behavior
+- **Model**: The AI model powering the agent (GPT-4, Claude, etc.)
+- **Mode**: Stream or Iterative processing
+- **Source Type**: Open source or closed source
+
+## Agent Lifecycle
+
+<Steps>
+  <Step title="Discover">
+    Browse agents in the [Marketplace](/guides/marketplace)
+  </Step>
+
+  <Step title="Install">
+    Add agents to your [Library](/guides/library)
+  </Step>
+
+  <Step title="Enable">
+    Toggle agents on/off in your library
+  </Step>
+
+  <Step title="Use">
+    Select agents in project chat to generate code
+  </Step>
+
+  <Step title="Customize">
+    Edit prompts and models for custom agents
+  </Step>
+</Steps>
+
+## Using Agents in Projects
+
+### Selecting an Agent
+
+In any project, you can choose which agent to use:
+
+1. Open the chat interface
+2. Click the agent selector dropdown
+3. Choose from your enabled agents
+4. Start chatting!
+
+### When to Use Each Type
+
+<Tabs>
+  <Tab title="Stream Agent">
+    Use Stream Agent when:
+    - Building UI components
+    - Creating landing pages
+    - Making quick visual changes
+    - Iterating rapidly on design
+    - Need fast responses
+  </Tab>
+
+  <Tab title="Iterative Agent">
+    Use Iterative Agent when:
+    - Implementing complex business logic
+    - Working with APIs and data
+    - Building multi-step features
+    - Need careful reasoning
+    - Debugging complex issues
+  </Tab>
+</Tabs>
+
+## Agent Marketplace
+
+The Marketplace offers:
+
+- **Official Agents**: Built and maintained by Tesslate
+- **Community Agents**: Created and shared by users
+- **Specialized Agents**: Focused on specific frameworks or tasks
+
+### Categories
+
+- **Builder**: General-purpose building agents
+- **Frontend**: UI-focused agents
+- **Full-stack**: End-to-end development
+- **Data & AI**: Data processing and ML
+
+## Custom Agents
+
+You can create custom agents by:
+
+1. Forking an existing open-source agent
+2. Creating from scratch in your library
+3. Customizing the system prompt
+4. Selecting the AI model
+5. Publishing to the community (optional)
+
+<Info>
+  Custom agents let you specialize behavior for your specific needs, like using particular libraries or coding styles.
+</Info>
+
+## Agent Models
+
+Agents can use different AI models:
+
+- **GPT-4**: OpenAI's most capable model
+- **Claude**: Anthropic's advanced model
+- **Qwen**: Fast, efficient coding model
+- **Custom Models**: Via OpenRouter integration
+
+<Note>
+  For closed-source agents, the model is fixed. For open-source agents, you can change the model in your library.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="robot" title="Choose the Right Agent">
+    - Use Stream for UI, Iterative for logic
+    - Switch agents mid-project as needed
+    - Try different agents to find what works
+  </Accordion>
+
+  <Accordion icon="message" title="Be Specific in Prompts">
+    - Describe exactly what you want
+    - Include technology preferences
+    - Mention styling requirements
+    - Specify behavior details
+  </Accordion>
+
+  <Accordion icon="arrows-rotate" title="Iterate Gradually">
+    - Build features one at a time
+    - Test after each change
+    - Refine through conversation
+    - Don't try to do everything at once
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Using Agents"
+    icon="comments"
+    href="/guides/using-agents"
+  >
+    Learn how to chat with agents
+  </Card>
+  <Card
+    title="Customizing Agents"
+    icon="sliders"
+    href="/guides/customizing-agents"
+  >
+    Create and customize agents
+  </Card>
+  <Card
+    title="Browse Marketplace"
+    icon="store"
+    href="/guides/marketplace"
+  >
+    Discover available agents
+  </Card>
+  <Card
+    title="Manage Library"
+    icon="books"
+    href="/guides/library"
+  >
+    Organize your agent library
+  </Card>
+</CardGroup>

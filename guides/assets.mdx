@@ -1,0 +1,449 @@
+---
+title: 'Assets & Media'
+description: 'Manage images, fonts, and other assets in your projects'
+---
+
+## Overview
+
+Assets are static files like images, fonts, videos, and icons used in your projects. Tesslate Studio provides easy asset management and optimization.
+
+<CardGroup cols={2}>
+  <Card title="Upload Files" icon="upload">
+    Drag-and-drop or browse to upload
+  </Card>
+  <Card title="Auto-Optimize" icon="gauge">
+    Automatic image optimization
+  </Card>
+  <Card title="CDN Delivery" icon="bolt">
+    Fast global asset delivery
+  </Card>
+  <Card title="Organized" icon="folder-tree">
+    Folder-based organization
+  </Card>
+</CardGroup>
+
+## Asset Types
+
+<Tabs>
+  <Tab title="Images">
+    **Photos and graphics**
+    - PNG, JPG, JPEG
+    - WebP, SVG
+    - GIF
+    - AVIF
+
+    **Auto-optimization:**
+    - Resize for web
+    - Compress automatically
+    - Generate responsive sizes
+    - Convert to modern formats
+  </Tab>
+
+  <Tab title="Fonts">
+    **Custom typography**
+    - TTF, OTF
+    - WOFF, WOFF2
+    - Variable fonts
+
+    **Auto-optimization:**
+    - Subset to used characters
+    - Generate font-face CSS
+    - Preload hints
+  </Tab>
+
+  <Tab title="Icons">
+    **Icon sets**
+    - SVG icons
+    - Icon fonts
+    - PNG sprites
+
+    **Integration:**
+    - Lucide React (built-in)
+    - Custom SVG imports
+    - Icon components
+  </Tab>
+
+  <Tab title="Media">
+    **Video and audio**
+    - MP4, WebM
+    - MP3, WAV
+    - Streaming support
+
+    **Best practices:**
+    - Use external hosting for large files
+    - YouTube/Vimeo embed for videos
+    - Compress before upload
+  </Tab>
+</Tabs>
+
+## Uploading Assets
+
+<Steps>
+  <Step title="Open Assets Panel">
+    Click **Assets** in project sidebar
+  </Step>
+
+  <Step title="Choose Upload Method">
+    - Drag-and-drop files
+    - Click **Upload** button
+    - Paste from clipboard
+  </Step>
+
+  <Step title="Select Files">
+    Choose one or multiple files
+  </Step>
+
+  <Step title="Auto-Process">
+    Files upload and optimize automatically
+  </Step>
+
+  <Step title="Use in Code">
+    Assets appear in file tree and are ready to use
+  </Step>
+</Steps>
+
+<Info>
+  Images under 1MB are automatically optimized. Larger images may take a moment to process.
+</Info>
+
+## Using Assets in Code
+
+### Importing Images
+
+```typescript
+// Import from assets folder
+import heroImage from './assets/hero.png'
+import logo from './assets/logo.svg'
+
+// Use in components
+function Hero() {
+  return (
+    <div>
+      <img src={logo} alt="Logo" />
+      <img src={heroImage} alt="Hero" />
+    </div>
+  )
+}
+```
+
+### Public Folder
+
+For assets that don't need import:
+
+```typescript
+// Files in public/ folder
+// Access directly by path
+<img src="/images/hero.png" alt="Hero" />
+<link rel="icon" href="/favicon.svg" />
+```
+
+### Background Images
+
+```typescript
+// CSS background images
+<div style={{
+  backgroundImage: `url('/images/background.jpg')`
+}} />
+
+// Or with Tailwind
+<div className="bg-[url('/images/bg.jpg')]" />
+```
+
+## Asset Organization
+
+### Folder Structure
+
+```
+src/assets/
+├── images/
+│   ├── hero/
+│   ├── products/
+│   └── icons/
+├── fonts/
+│   └── custom/
+└── videos/
+    └── demos/
+
+public/
+├── favicon.svg
+├── logo.png
+└── social-preview.jpg
+```
+
+<AccordionGroup>
+  <Accordion icon="folder" title="src/assets/">
+    **Processed by build**
+    - Imported in components
+    - Bundled and optimized
+    - Hashed filenames
+    - Good for: Component images
+  </Accordion>
+
+  <Accordion icon="globe" title="public/">
+    **Served directly**
+    - Not processed
+    - Keep same filename
+    - Referenced by path
+    - Good for: Favicon, social images, PDFs
+  </Accordion>
+</AccordionGroup>
+
+## Image Optimization
+
+### Automatic Optimization
+
+Tesslate automatically:
+- **Compresses**: Reduces file size
+- **Resizes**: Creates responsive sizes
+- **Converts**: Uses modern formats (WebP)
+- **Lazy loads**: Defers offscreen images
+
+### Manual Optimization
+
+For more control:
+
+<Steps>
+  <Step title="Right-Click Asset">
+    In assets panel, right-click image
+  </Step>
+
+  <Step title="Click Optimize">
+    Choose optimization settings
+  </Step>
+
+  <Step title="Configure">
+    - Target size
+    - Quality (1-100)
+    - Format conversion
+    - Responsive sizes
+  </Step>
+
+  <Step title="Apply">
+    Optimized version replaces original
+  </Step>
+</Steps>
+
+## Responsive Images
+
+### Generating Sizes
+
+Ask AI agent to create responsive image code:
+
+```
+"Create a responsive image component for the hero image
+that serves different sizes for mobile, tablet, and desktop"
+```
+
+AI generates:
+
+```typescript
+<picture>
+  <source
+    media="(min-width: 1024px)"
+    srcSet="/images/hero-large.webp"
+  />
+  <source
+    media="(min-width: 768px)"
+    srcSet="/images/hero-medium.webp"
+  />
+  <img
+    src="/images/hero-small.webp"
+    alt="Hero"
+    loading="lazy"
+  />
+</picture>
+```
+
+## Fonts
+
+### Adding Custom Fonts
+
+<Steps>
+  <Step title="Upload Font Files">
+    Upload .woff2, .woff, .ttf files
+  </Step>
+
+  <Step title="Create Font CSS">
+    Ask AI: "Add custom font Inter to the project"
+  </Step>
+
+  <Step title="AI Generates">
+    ```css
+    @font-face {
+      font-family: 'Inter';
+      src: url('/fonts/Inter-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+    }
+    ```
+  </Step>
+
+  <Step title="Use in Tailwind">
+    ```js
+    // tailwind.config.js
+    fontFamily: {
+      sans: ['Inter', 'sans-serif']
+    }
+    ```
+  </Step>
+</Steps>
+
+### Google Fonts
+
+Easier approach - use Google Fonts:
+
+```typescript
+// In index.html or main component
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+```
+
+## Icons
+
+### Using Lucide Icons
+
+Built-in icon library:
+
+```typescript
+import { Home, User, Settings, ShoppingCart } from 'lucide-react'
+
+function Navigation() {
+  return (
+    <nav>
+      <Home className="w-6 h-6" />
+      <User className="w-6 h-6" />
+      <Settings className="w-6 h-6" />
+      <ShoppingCart className="w-6 h-6" />
+    </nav>
+  )
+}
+```
+
+### Custom SVG Icons
+
+```typescript
+// Import SVG as component
+import { ReactComponent as CustomIcon } from './assets/icons/custom.svg'
+
+<CustomIcon className="w-6 h-6" />
+```
+
+## Asset Best Practices
+
+<AccordionGroup>
+  <Accordion icon="gauge" title="Optimize Before Upload">
+    - Compress images first
+    - Resize to needed dimensions
+    - Use appropriate formats
+    - Remove metadata
+  </Accordion>
+
+  <Accordion icon="palette" title="Use Modern Formats">
+    - WebP for photos
+    - SVG for logos/icons
+    - AVIF for best compression
+    - PNG only when needed
+  </Accordion>
+
+  <Accordion icon="network-wired" title="Use CDNs for Large Files">
+    - Host videos on YouTube/Vimeo
+    - Use Cloudinary for images
+    - External hosting for large assets
+    - Faster load times
+  </Accordion>
+
+  <Accordion icon="tag" title="Name Files Clearly">
+    - `hero-background.jpg` not `IMG_1234.jpg`
+    - `product-thumbnail.png` not `image-2.png`
+    - Descriptive names help organization
+    - Good for SEO
+  </Accordion>
+</AccordionGroup>
+
+## Deleting Assets
+
+<Steps>
+  <Step title="Find Unused Assets">
+    Use asset panel to see usage
+  </Step>
+
+  <Step title="Check References">
+    Ensure asset isn't used anywhere
+  </Step>
+
+  <Step title="Delete">
+    Right-click → Delete
+  </Step>
+
+  <Step title="Confirm">
+    Confirm deletion (cannot undo)
+  </Step>
+</Steps>
+
+<Warning>
+  Deleting assets that are still referenced in code will break your app. Always check usage first.
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Image Not Appearing">
+    **Solutions:**
+    - Check file path is correct
+    - Verify file uploaded successfully
+    - Check console for 404 errors
+    - Ensure correct import syntax
+    - Try absolute path (/images/file.jpg)
+  </Accordion>
+
+  <Accordion icon="snail" title="Slow Image Loading">
+    **Solutions:**
+    - Optimize/compress images
+    - Use WebP format
+    - Implement lazy loading
+    - Generate responsive sizes
+    - Use CDN for large files
+  </Accordion>
+
+  <Accordion icon="file-slash" title="Upload Failed">
+    **Solutions:**
+    - Check file size (max 10MB recommended)
+    - Verify file format is supported
+    - Check internet connection
+    - Try different browser
+    - Compress file and retry
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Code Editor"
+    icon="code"
+    href="/guides/code-editor"
+  >
+    Learn to import and use assets
+  </Card>
+  <Card
+    title="Using Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Ask AI to optimize images
+  </Card>
+  <Card
+    title="Projects"
+    icon="folder"
+    href="/guides/projects"
+  >
+    Understand project structure
+  </Card>
+  <Card
+    title="Live Preview"
+    icon="eye"
+    href="/guides/live-preview"
+  >
+    See assets in preview
+  </Card>
+</CardGroup>

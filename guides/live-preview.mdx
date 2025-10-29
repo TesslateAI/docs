@@ -1,0 +1,415 @@
+---
+title: 'Live Preview'
+description: 'Real-time application preview with hot module replacement'
+---
+
+## What is Live Preview?
+
+The Live Preview shows your application running in real-time. Every change you make in the code editor or via AI agents appears instantly in the preview window.
+
+<CardGroup cols={2}>
+  <Card title="Hot Module Replacement" icon="bolt">
+    Changes apply without full page reload
+  </Card>
+  <Card title="Real-Time Updates" icon="clock">
+    See changes as you type or as AI generates
+  </Card>
+  <Card title="Interactive" icon="hand-pointer">
+    Click, navigate, and interact like a real site
+  </Card>
+  <Card title="Responsive" icon="mobile">
+    Test different screen sizes and devices
+  </Card>
+</CardGroup>
+
+## Preview Layout
+
+The preview window appears on the right side of your workspace:
+
+```
+┌─────────────────┬─────────────────┐
+│                 │   Preview URL   │
+│   Code Editor   │   Browser Bar   │
+│                 ├─────────────────┤
+│                 │                 │
+│                 │                 │
+│                 │  Your App Here  │
+│                 │                 │
+│                 │                 │
+│   Chat Panel    │                 │
+└─────────────────┴─────────────────┘
+```
+
+## Preview Modes
+
+<Tabs>
+  <Tab title="Normal Mode">
+    **Single browser view**
+    - One preview window
+    - Full app interaction
+    - Fast and simple
+    - Default mode
+
+    Best for: Most development tasks
+  </Tab>
+
+  <Tab title="Browser Tabs">
+    **Multiple tabs support**
+    - Simulates real browser tabs
+    - Open links in new tabs
+    - Navigate between tabs
+    - More realistic testing
+
+    Best for: Multi-page apps, external links
+
+    <Info>
+      Enable Browser Tabs mode in Project Settings
+    </Info>
+  </Tab>
+</Tabs>
+
+## Browser Controls
+
+The preview includes browser-like controls:
+
+<AccordionGroup>
+  <Accordion icon="arrow-left" title="Back/Forward">
+    - Navigate through page history
+    - Click back arrow to go back
+    - Click forward arrow to go forward
+    - Works like a real browser
+  </Accordion>
+
+  <Accordion icon="rotate-right" title="Refresh">
+    - Reload the preview
+    - Click refresh icon
+    - Useful for clearing state
+    - Force full reload if needed
+  </Accordion>
+
+  <Accordion icon="external-link" title="Open in New Tab">
+    - Open preview in actual browser tab
+    - Test in different browsers
+    - Share with others
+    - Debug with DevTools
+  </Accordion>
+
+  <Accordion icon="link" title="URL Bar">
+    - View current route
+    - Copy preview URL
+    - Share with team
+    - Test specific pages
+  </Accordion>
+</AccordionGroup>
+
+## Hot Module Replacement (HMR)
+
+### How HMR Works
+
+When you make changes:
+
+<Steps>
+  <Step title="Code Changes">
+    You edit code or AI generates changes
+  </Step>
+
+  <Step title="Vite Detects">
+    Vite development server detects file change
+  </Step>
+
+  <Step title="Module Updates">
+    Only changed modules are replaced
+  </Step>
+
+  <Step title="State Preserved">
+    Component state remains intact
+  </Step>
+
+  <Step title="Preview Updates">
+    Changes appear instantly in preview
+  </Step>
+</Steps>
+
+<Info>
+  HMR is much faster than full page reloads and preserves your app state.
+</Info>
+
+### What Triggers HMR
+
+- **Component changes**: Edit React components
+- **Style updates**: Modify CSS files
+- **Asset changes**: Update images or fonts
+- **Config changes**: Some config updates (may need full reload)
+
+## Responsive Design
+
+Test your app on different screen sizes:
+
+<Tabs>
+  <Tab title="Desktop">
+    - Full width preview
+    - Desktop layout
+    - Mouse interactions
+    - Keyboard shortcuts
+  </Tab>
+
+  <Tab title="Tablet">
+    - iPad/tablet sizes
+    - Touch interactions
+    - Medium breakpoints
+    - Landscape/portrait
+  </Tab>
+
+  <Tab title="Mobile">
+    - iPhone/Android sizes
+    - Mobile layout
+    - Touch gestures
+    - Small screen testing
+  </Tab>
+</Tabs>
+
+### Resize Controls
+
+<CardGroup cols={2}>
+  <Card title="Drag Edge" icon="arrows-left-right">
+    Drag preview edge to resize manually
+  </Card>
+  <Card title="Device Presets" icon="mobile-screen">
+    Coming soon: Quick device size presets
+  </Card>
+  <Card title="Responsive Mode" icon="laptop-mobile">
+    Coming soon: Side-by-side multi-device view
+  </Card>
+  <Card title="Rotation" icon="rotate">
+    Coming soon: Rotate device orientation
+  </Card>
+</CardGroup>
+
+## Interacting with Preview
+
+The preview is fully interactive:
+
+### Mouse & Click
+- Click buttons and links
+- Hover over elements
+- Scroll through content
+- Right-click for context menus
+
+### Forms & Input
+- Type in input fields
+- Submit forms
+- Upload files
+- Test validation
+
+### Navigation
+- Click links to navigate
+- Use back/forward buttons
+- Test routing
+- Deep link to pages
+
+### DevTools
+- Open preview in new tab
+- Use browser DevTools
+- Inspect elements
+- Debug JavaScript
+- Monitor network
+
+## Preview URL
+
+Each project has a unique preview URL:
+
+```
+{project-slug}.studio.localhost
+```
+
+### URL Features
+
+<AccordionGroup>
+  <Accordion icon="share-nodes" title="Shareable">
+    - Copy and share URL
+    - Team members can access
+    - Works on local network
+    - Requires authentication
+  </Accordion>
+
+  <Accordion icon="lock" title="Secure">
+    - Only accessible when logged in
+    - Project-specific URL
+    - Isolated from other projects
+    - HTTPS in production
+  </Accordion>
+
+  <Accordion icon="route" title="Routing">
+    - Full routing support
+    - Deep linking works
+    - Query parameters
+    - Hash navigation
+  </Accordion>
+</AccordionGroup>
+
+## Development Server
+
+### Server Status
+
+Monitor your dev server:
+
+<CardGroup cols={2}>
+  <Card title="Healthy" icon="check-circle">
+    Green indicator - server running
+  </Card>
+  <Card title="Starting" icon="spinner">
+    Yellow indicator - server booting
+  </Card>
+  <Card title="Error" icon="circle-xmark">
+    Red indicator - server crashed
+  </Card>
+  <Card title="Reconnecting" icon="arrows-rotate">
+    Attempting to reconnect
+  </Card>
+</CardGroup>
+
+### Server Controls
+
+In Project Settings:
+- **Restart Server**: Force restart if stuck
+- **View Logs**: Check server output
+- **Port Info**: See assigned port
+- **Health Status**: Monitor uptime
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Preview Not Loading">
+    **Problem:** Blank or loading preview
+
+    **Solutions:**
+    - Wait 30-60 seconds for initial startup
+    - Check server status indicator
+    - Restart development server in settings
+    - Check browser console for errors
+    - Refresh the preview
+  </Accordion>
+
+  <Accordion icon="ban" title="Changes Not Appearing">
+    **Problem:** Code changes don't show in preview
+
+    **Solutions:**
+    - Check if HMR is working (console message)
+    - Try manual refresh
+    - Ensure files are saved
+    - Restart dev server if needed
+    - Check for syntax errors preventing build
+  </Accordion>
+
+  <Accordion icon="triangle-exclamation" title="Build Errors">
+    **Problem:** Red error overlay in preview
+
+    **Solutions:**
+    - Read error message carefully
+    - Check recent code changes
+    - Look for syntax errors
+    - Fix TypeScript errors
+    - Ask AI agent to debug
+  </Accordion>
+
+  <Accordion icon="snail" title="Slow Preview">
+    **Problem:** Preview is laggy or slow
+
+    **Solutions:**
+    - Close other browser tabs
+    - Disable browser extensions
+    - Check CPU usage
+    - Optimize large images
+    - Reduce component complexity
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test Often" icon="vial">
+    - Check preview after each change
+    - Test interactions work
+    - Verify responsive design
+    - Try different scenarios
+  </Card>
+
+  <Card title="Use Real Browser" icon="browser">
+    - Open in new tab periodically
+    - Test with DevTools
+    - Check different browsers
+    - Verify production behavior
+  </Card>
+
+  <Card title="Monitor Console" icon="terminal">
+    - Watch for errors
+    - Check warnings
+    - Verify API calls
+    - Debug issues
+  </Card>
+
+  <Card title="Refresh When Needed" icon="rotate-right">
+    - After major changes
+    - If state gets weird
+    - To clear caches
+    - When HMR fails
+  </Card>
+</CardGroup>
+
+## Advanced Features
+
+### Coming Soon
+
+<CardGroup cols={3}>
+  <Card title="Device Presets" icon="mobile">
+    Quick iPhone, iPad, Android sizes
+  </Card>
+  <Card title="Multi-Device" icon="laptop-mobile">
+    See multiple sizes at once
+  </Card>
+  <Card title="Network Throttling" icon="gauge">
+    Simulate slow connections
+  </Card>
+  <Card title="Screenshots" icon="camera">
+    Capture preview screenshots
+  </Card>
+  <Card title="Recording" icon="video">
+    Record interactions
+  </Card>
+  <Card title="Share Live" icon="share">
+    Share preview publicly
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Code Editor"
+    icon="code"
+    href="/guides/code-editor"
+  >
+    Make manual code changes
+  </Card>
+  <Card
+    title="Using AI Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Let AI build features
+  </Card>
+  <Card
+    title="GitHub Integration"
+    icon="github"
+    href="/guides/github-integration"
+  >
+    Commit your changes
+  </Card>
+  <Card
+    title="Chat Interface"
+    icon="comments"
+    href="/guides/chat-interface"
+  >
+    Chat with AI agents
+  </Card>
+</CardGroup>

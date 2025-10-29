@@ -1,0 +1,200 @@
+---
+title: 'Understanding Projects'
+description: 'Learn how projects work in Tesslate Studio'
+---
+
+## What is a Project?
+
+A project in Tesslate Studio is a complete web application with its own codebase, development server, and AI chat history. Each project contains:
+
+- **Source Code**: React/TypeScript files, components, and assets
+- **Development Server**: Live preview environment
+- **Chat History**: Conversations with AI agents
+- **Configuration**: Project settings and preferences
+- **Git Integration**: Optional GitHub connection
+
+## Project Structure
+
+Every project follows a standard structure:
+
+```
+my-project/
+├── src/
+│   ├── App.tsx          # Main application component
+│   ├── main.tsx         # Entry point
+│   ├── components/      # React components
+│   ├── styles/          # CSS and styling
+│   └── assets/          # Images and static files
+├── public/              # Public assets
+├── package.json         # Dependencies
+├── vite.config.ts       # Vite configuration
+└── tsconfig.json        # TypeScript configuration
+```
+
+## Project Types
+
+<CardGroup cols={3}>
+  <Card title="Template" icon="file-code">
+    Blank React + Vite starter template
+  </Card>
+  <Card title="GitHub Import" icon="github">
+    Import existing GitHub repository
+  </Card>
+  <Card title="Base" icon="layer-group">
+    Pre-built template with features
+  </Card>
+</CardGroup>
+
+## Project Lifecycle
+
+<Steps>
+  <Step title="Creation">
+    Create project from template, GitHub, or base
+  </Step>
+  <Step title="Development">
+    Build features using AI agents and code editor
+  </Step>
+  <Step title="Iteration">
+    Refine and improve through AI chat
+  </Step>
+  <Step title="Deployment">
+    Export code or deploy to production
+  </Step>
+</Steps>
+
+## Project Management
+
+### Viewing Projects
+
+All your projects appear on the Dashboard:
+- **Grid View**: Visual cards with previews
+- **Project Status**: Idea, Build, or Launch phase
+- **Quick Actions**: Open, delete, or fork
+
+### Opening a Project
+
+Click any project card to enter the workspace with:
+- Code editor
+- Live preview
+- Chat interface
+- File browser
+- Settings panel
+
+### Deleting Projects
+
+<Warning>
+  Deleting a project is permanent and cannot be undone. All code, chat history, and settings will be lost.
+</Warning>
+
+To delete a project:
+1. Hover over the project card
+2. Click the trash icon
+3. Confirm deletion
+
+## Project Settings
+
+Access project settings by clicking the gear icon in the project workspace:
+
+<AccordionGroup>
+  <Accordion icon="browser" title="Preview Mode">
+    - **Normal**: Single browser view
+    - **Browser Tabs**: Multiple tab support
+  </Accordion>
+
+  <Accordion icon="server" title="Development Server">
+    - View server status
+    - Restart dev container
+    - Check server URL
+  </Accordion>
+
+  <Accordion icon="sliders" title="General Settings">
+    - Project name and description
+    - Status (Idea/Build/Launch)
+    - Project icon
+  </Accordion>
+</AccordionGroup>
+
+## Development Server
+
+Each project has its own development server:
+
+- **Auto-Start**: Starts when you open the project
+- **Hot Reload**: Instant updates when files change
+- **Unique URL**: `{project-slug}.studio.localhost`
+- **Health Monitoring**: Automatic reconnection
+
+<Info>
+  The development server typically takes 10-30 seconds to start initially.
+</Info>
+
+## Working with Files
+
+### File Operations
+
+- **Create**: AI agents auto-create files
+- **Edit**: Use Monaco code editor
+- **Save**: Auto-save or manual save
+- **Delete**: Remove unused files
+
+### File Types Supported
+
+- **React Components**: `.tsx`, `.jsx`
+- **TypeScript**: `.ts`
+- **Styles**: `.css`, `.scss`
+- **Config**: `.json`, `.js`
+- **Assets**: Images, fonts, etc.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="lightbulb" title="Organize Your Files">
+    - Group related components in folders
+    - Use clear, descriptive file names
+    - Keep components focused and small
+  </Accordion>
+
+  <Accordion icon="floppy-disk" title="Save Regularly">
+    - Commit to GitHub periodically
+    - Download backups of important versions
+    - Test before major changes
+  </Accordion>
+
+  <Accordion icon="messages" title="Use Descriptive Names">
+    - Name projects clearly
+    - Use meaningful component names
+    - Document complex logic
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Create Your First Project"
+    icon="plus"
+    href="/guides/creating-projects"
+  >
+    Step-by-step project creation guide
+  </Card>
+  <Card
+    title="Code Editor Guide"
+    icon="code"
+    href="/guides/code-editor"
+  >
+    Learn to use the code editor
+  </Card>
+  <Card
+    title="Live Preview"
+    icon="eye"
+    href="/guides/live-preview"
+  >
+    Understanding the live preview
+  </Card>
+  <Card
+    title="GitHub Integration"
+    icon="github"
+    href="/guides/github-integration"
+  >
+    Connect and commit to GitHub
+  </Card>
+</CardGroup>

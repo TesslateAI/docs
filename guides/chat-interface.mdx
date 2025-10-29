@@ -1,0 +1,437 @@
+---
+title: 'Chat Interface'
+description: 'Communicate with AI agents to build your application'
+---
+
+## Overview
+
+The chat interface is your primary way to communicate with AI agents. Describe what you want to build, and agents generate the code for you.
+
+<CardGroup cols={2}>
+  <Card title="Natural Language" icon="message">
+    Describe features in plain English
+  </Card>
+  <Card title="Real-Time Streaming" icon="water">
+    See responses generated live
+  </Card>
+  <Card title="Code Generation" icon="code">
+    Agents write code directly to your project
+  </Card>
+  <Card title="Context-Aware" icon="brain">
+    Agents understand your full project
+  </Card>
+</CardGroup>
+
+## Chat Layout
+
+The chat panel appears at the bottom of the workspace:
+
+```
+┌─────────────────────────────────┐
+│     Code Editor / File Tree     │
+│                                 │
+├─────────────────────────────────┤
+│  Chat History                   │
+│  ┌──────────────────────────┐   │
+│  │ You: Build a login form  │   │
+│  │ Agent: [generating...]   │   │
+│  └──────────────────────────┘   │
+│                                 │
+│  [Agent Selector] [Type here]  │
+└─────────────────────────────────┘
+```
+
+## Sending Messages
+
+<Steps>
+  <Step title="Select Agent">
+    Choose which AI agent to use from dropdown
+  </Step>
+
+  <Step title="Type Message">
+    Describe what you want to build or change
+  </Step>
+
+  <Step title="Send">
+    Press Enter or click Send button
+  </Step>
+
+  <Step title="Agent Responds">
+    Agent generates code and explanation
+  </Step>
+
+  <Step title="Review Changes">
+    Check generated code in editor
+  </Step>
+</Steps>
+
+## Message Types
+
+### Your Messages
+
+What you can ask for:
+
+<Tabs>
+  <Tab title="Build Features">
+    **Examples:**
+    - "Create a login form with email and password"
+    - "Add a navigation bar with logo and menu"
+    - "Build a product card component"
+    - "Make a contact form with validation"
+  </Tab>
+
+  <Tab title="Modify Code">
+    **Examples:**
+    - "Make the button larger and orange"
+    - "Add dark mode support"
+    - "Center the hero section"
+    - "Fix the responsive layout on mobile"
+  </Tab>
+
+  <Tab title="Debug Issues">
+    **Examples:**
+    - "The form isn't submitting, can you fix it?"
+    - "There's a TypeScript error in App.tsx"
+    - "Why isn't the API call working?"
+    - "Debug the login flow"
+  </Tab>
+
+  <Tab title="Ask Questions">
+    **Examples:**
+    - "How does the routing work?"
+    - "Explain the state management"
+    - "What libraries are we using?"
+    - "Can you document this component?"
+  </Tab>
+</Tabs>
+
+### Agent Responses
+
+Agents can respond with:
+
+<CardGroup cols={2}>
+  <Card title="Code Generation" icon="file-code">
+    Creates or modifies files in your project
+  </Card>
+  <Card title="Explanations" icon="comment">
+    Explains what it did and why
+  </Card>
+  <Card title="Suggestions" icon="lightbulb">
+    Recommends improvements or alternatives
+  </Card>
+  <Card title="Questions" icon="circle-question">
+    Asks for clarification when needed
+  </Card>
+</CardGroup>
+
+## Agent Selection
+
+Choose the right agent for your task:
+
+<Tabs>
+  <Tab title="Stream Agent">
+    **Best for:**
+    - UI components
+    - Visual design
+    - Fast iteration
+    - Simple features
+
+    **Behavior:**
+    - Streams code in real-time
+    - Faster responses
+    - Good for HTML/CSS/React
+  </Tab>
+
+  <Tab title="Iterative Agent">
+    **Best for:**
+    - Complex logic
+    - Multi-step features
+    - API integration
+    - Debugging
+
+    **Behavior:**
+    - Thinks step-by-step
+    - Uses tools and reasoning
+    - Better for business logic
+  </Tab>
+</Tabs>
+
+<Info>
+  You can switch agents mid-conversation. Each agent maintains separate context.
+</Info>
+
+## Streaming Responses
+
+### How Streaming Works
+
+<Steps>
+  <Step title="Agent Starts">
+    Agent begins thinking about your request
+  </Step>
+
+  <Step title="Code Streams">
+    Code appears token-by-token in real-time
+  </Step>
+
+  <Step title="Files Update">
+    Files are created/modified as code generates
+  </Step>
+
+  <Step title="Preview Updates">
+    Live preview shows changes immediately
+  </Step>
+
+  <Step title="Complete">
+    Agent finishes and awaits next instruction
+  </Step>
+</Steps>
+
+### Streaming Indicators
+
+- **Typing Indicator**: Agent is thinking
+- **Code Blocks**: Syntax-highlighted as it generates
+- **File Tags**: Shows which files are being modified
+- **Progress**: See generation progress
+
+## Chat History
+
+### Navigation
+
+Your conversation history is preserved:
+
+- **Scroll Up**: See previous messages
+- **Context**: Agents remember conversation
+- **Threads**: Each agent has separate history
+- **Persistence**: History saved with project
+
+### Managing History
+
+<AccordionGroup>
+  <Accordion icon="eraser" title="Clear Chat">
+    - Remove all messages
+    - Start fresh conversation
+    - Agents lose context
+    - Use when switching topics
+  </Accordion>
+
+  <Accordion icon="copy" title="Copy Messages">
+    - Click to copy code blocks
+    - Share conversations
+    - Save prompts
+    - Document solutions
+  </Accordion>
+
+  <Accordion icon="bookmark" title="Save Important">
+    Coming soon:
+    - Bookmark useful exchanges
+    - Create snippets
+    - Build prompt library
+  </Accordion>
+</AccordionGroup>
+
+## Writing Effective Prompts
+
+### Be Specific
+
+<CardGroup cols={2}>
+  <Card title="Good" icon="check">
+    "Create a blue primary button with rounded corners, white text, and a hover effect that makes it darker"
+  </Card>
+  <Card title="Bad" icon="xmark">
+    "Make a button"
+  </Card>
+</CardGroup>
+
+### Include Details
+
+<CardGroup cols={2}>
+  <Card title="Good" icon="check">
+    "Add a navigation bar with logo on left, menu items (Home, About, Contact) centered, and a Login button on right. Use Tailwind CSS"
+  </Card>
+  <Card title="Bad" icon="xmark">
+    "Add navigation"
+  </Card>
+</CardGroup>
+
+### Specify Technology
+
+<CardGroup cols={2}>
+  <Card title="Good" icon="check">
+    "Create a form using React Hook Form with Zod validation for email and password fields"
+  </Card>
+  <Card title="Bad" icon="xmark">
+    "Make a form"
+  </Card>
+</CardGroup>
+
+### Break Down Complex Tasks
+
+Instead of:
+> "Build a complete e-commerce site with products, cart, checkout, and admin panel"
+
+Try:
+> 1. "First, create a product card component"
+> 2. "Now create a product grid to display multiple cards"
+> 3. "Add filtering and search functionality"
+> 4. "Create a shopping cart component"
+> ...and so on
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="comments" title="Iterate Gradually">
+    - Start with basic structure
+    - Add features one at a time
+    - Test after each change
+    - Refine through conversation
+  </Accordion>
+
+  <Accordion icon="eye" title="Review AI Code">
+    - Always check generated code
+    - Understand what was created
+    - Test functionality
+    - Ask for explanations
+  </Accordion>
+
+  <Accordion icon="sliders" title="Switch Agents">
+    - Use Stream for UI
+    - Use Iterative for logic
+    - Switch based on task
+    - Each maintains context
+  </Accordion>
+
+  <Accordion icon="message-question" title="Ask Follow-Up">
+    - Request improvements
+    - Fix issues immediately
+    - Ask "why" for learning
+    - Clarify unclear responses
+  </Accordion>
+</AccordionGroup>
+
+## Chat Features
+
+### Code Blocks
+
+AI responses include formatted code:
+
+- **Syntax Highlighting**: Color-coded
+- **Copy Button**: One-click copy
+- **File Path**: Shows target file
+- **Language Tag**: Indicates file type
+
+### File Operations
+
+Agents can:
+
+<Tabs>
+  <Tab title="Create Files">
+    - Generate new components
+    - Create utility files
+    - Add config files
+    - Make test files
+  </Tab>
+
+  <Tab title="Modify Files">
+    - Edit existing code
+    - Add new features
+    - Fix bugs
+    - Refactor code
+  </Tab>
+
+  <Tab title="Delete Code">
+    - Remove components
+    - Clean up unused code
+    - Delete files
+    - Simplify structure
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Agent Not Responding">
+    **Problem:** No response after sending message
+
+    **Solutions:**
+    - Check internet connection
+    - Verify API keys are set
+    - Try refreshing the page
+    - Check if model is working in settings
+  </Accordion>
+
+  <Accordion icon="ban" title="Code Not Applying">
+    **Problem:** Generated code doesn't appear in files
+
+    **Solutions:**
+    - Check for syntax errors in response
+    - Look for error messages
+    - Try regenerating response
+    - Manually apply code from chat
+  </Accordion>
+
+  <Accordion icon="triangle-exclamation" title="Agent Confused">
+    **Problem:** Agent doesn't understand request
+
+    **Solutions:**
+    - Be more specific
+    - Provide examples
+    - Break down into smaller tasks
+    - Clear chat and start fresh
+  </Accordion>
+
+  <Accordion icon="rotate" title="Wrong Output">
+    **Problem:** Agent generates wrong code
+
+    **Solutions:**
+    - Explain what's wrong
+    - Provide correct example
+    - Ask to fix specific issues
+    - Try different agent
+  </Accordion>
+</AccordionGroup>
+
+## Keyboard Shortcuts
+
+<CardGroup cols={2}>
+  <Card title="Send Message" icon="keyboard">
+    **Enter**: Send message
+    **Shift + Enter**: New line
+  </Card>
+  <Card title="Navigation" icon="keyboard">
+    **Ctrl/Cmd + K**: Focus chat input
+    **Esc**: Blur chat input
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Using Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Learn more about AI agents
+  </Card>
+  <Card
+    title="Code Editor"
+    icon="code"
+    href="/guides/code-editor"
+  >
+    Manually edit generated code
+  </Card>
+  <Card
+    title="Live Preview"
+    icon="eye"
+    href="/guides/live-preview"
+  >
+    See your changes in real-time
+  </Card>
+  <Card
+    title="Agent Types"
+    icon="robot"
+    href="/guides/agent-types"
+  >
+    Understanding agent differences
+  </Card>
+</CardGroup>

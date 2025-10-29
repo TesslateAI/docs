@@ -1,0 +1,451 @@
+---
+title: 'Agent Types'
+description: 'Understanding Stream and Iterative agents'
+---
+
+## Two Core Agent Types
+
+Tesslate Studio has two fundamental agent architectures, each optimized for different tasks:
+
+<CardGroup cols={2}>
+  <Card title="Stream Agent" icon="water">
+    **Fast, flowing code generation**
+    - Real-time streaming
+    - Best for UI and visual work
+    - Continuous output
+    - Quick iterations
+  </Card>
+
+  <Card title="Iterative Agent" icon="rotate">
+    **Thoughtful, step-by-step building**
+    - Reasoning and planning
+    - Best for complex logic
+    - Tool usage
+    - Multi-step features
+  </Card>
+</CardGroup>
+
+## Stream Agent
+
+### How It Works
+
+<Steps>
+  <Step title="Receive Request">
+    You describe what you want to build
+  </Step>
+
+  <Step title="Start Streaming">
+    Agent immediately begins generating code
+  </Step>
+
+  <Step title="Real-Time Output">
+    Code appears token-by-token as it's created
+  </Step>
+
+  <Step title="Write Files">
+    Generated code writes directly to your project
+  </Step>
+
+  <Step title="Complete">
+    Finishes and waits for next instruction
+  </Step>
+</Steps>
+
+### Best Use Cases
+
+<Tabs>
+  <Tab title="UI Components">
+    **Perfect for:**
+    - React components
+    - Landing page sections
+    - Forms and inputs
+    - Navigation bars
+    - Cards and layouts
+    - Buttons and controls
+
+    **Why:** Stream agent excels at generating HTML/JSX structure with styling
+  </Tab>
+
+  <Tab title="Styling">
+    **Perfect for:**
+    - Tailwind CSS classes
+    - CSS modules
+    - Responsive design
+    - Visual refinements
+    - Color schemes
+    - Animations
+
+    **Why:** Fast iteration on visual changes
+  </Tab>
+
+  <Tab title="Quick Changes">
+    **Perfect for:**
+    - Text updates
+    - Layout adjustments
+    - Color changes
+    - Adding elements
+    - Removing code
+    - Simple refactoring
+
+    **Why:** Immediate results without overhead
+  </Tab>
+</Tabs>
+
+### Strengths
+
+<CardGroup cols={2}>
+  <Card title="Speed" icon="bolt">
+    - Fastest response time
+    - No thinking delay
+    - Immediate code generation
+    - Rapid prototyping
+  </Card>
+
+  <Card title="Visual Work" icon="eye">
+    - Excellent for UI
+    - Great at styling
+    - Good component structure
+    - Responsive layouts
+  </Card>
+
+  <Card title="Simplicity" icon="sparkles">
+    - Straightforward generation
+    - Easy to predict
+    - Less complexity
+    - Quick fixes
+  </Card>
+
+  <Card title="Iteration" icon="arrows-rotate">
+    - Fast feedback loop
+    - Try multiple approaches
+    - Quick refinements
+    - Experimental freedom
+  </Card>
+</CardGroup>
+
+### Limitations
+
+<AccordionGroup>
+  <Accordion icon="brain" title="Less Reasoning">
+    - Doesn't plan multi-step features
+    - May miss edge cases
+    - Limited problem-solving
+    - Best for straightforward tasks
+  </Accordion>
+
+  <Accordion icon="tools" title="No Tool Usage">
+    - Can't search codebase
+    - Won't analyze existing code deeply
+    - No file system exploration
+    - Direct generation only
+  </Accordion>
+
+  <Accordion icon="code-branch" title="Complex Logic">
+    - May struggle with intricate state management
+    - Business logic can be inconsistent
+    - API integrations less reliable
+    - Better for presentation layer
+  </Accordion>
+</AccordionGroup>
+
+## Iterative Agent
+
+### How It Works
+
+<Steps>
+  <Step title="Receive Request">
+    You describe what you want to build
+  </Step>
+
+  <Step title="Think & Plan">
+    Agent analyzes request and plans approach
+  </Step>
+
+  <Step title="Use Tools">
+    May search files, read code, analyze structure
+  </Step>
+
+  <Step title="Generate Step-by-Step">
+    Creates code thoughtfully with reasoning
+  </Step>
+
+  <Step title="Verify">
+    Checks work and ensures correctness
+  </Step>
+
+  <Step title="Complete">
+    Finishes with explanation of what it did
+  </Step>
+</Steps>
+
+### Best Use Cases
+
+<Tabs>
+  <Tab title="Complex Features">
+    **Perfect for:**
+    - Multi-step workflows
+    - State management systems
+    - Authentication flows
+    - Data processing
+    - Form validation logic
+    - Complex interactions
+
+    **Why:** Can reason through requirements and edge cases
+  </Tab>
+
+  <Tab title="API Integration">
+    **Perfect for:**
+    - REST API calls
+    - GraphQL queries
+    - WebSocket connections
+    - Error handling
+    - Data transformation
+    - Caching strategies
+
+    **Why:** Understands async patterns and error cases
+  </Tab>
+
+  <Tab title="Debugging">
+    **Perfect for:**
+    - Finding bugs
+    - Fixing errors
+    - Refactoring code
+    - Optimizing performance
+    - Resolving type errors
+    - Logic issues
+
+    **Why:** Can analyze existing code and reason about problems
+  </Tab>
+
+  <Tab title="Architecture">
+    **Perfect for:**
+    - File structure
+    - Component organization
+    - Utility creation
+    - Custom hooks
+    - Context providers
+    - Service layers
+
+    **Why:** Thinks about code organization and patterns
+  </Tab>
+</Tabs>
+
+### Strengths
+
+<CardGroup cols={2}>
+  <Card title="Reasoning" icon="brain">
+    - Plans before acting
+    - Considers edge cases
+    - Thinks through logic
+    - Better problem-solving
+  </Card>
+
+  <Card title="Tool Usage" icon="wrench">
+    - Searches codebase
+    - Reads existing files
+    - Analyzes structure
+    - Context-aware
+  </Card>
+
+  <Card title="Complexity" icon="diagram-project">
+    - Handles complex features
+    - Multi-file changes
+    - Architectural decisions
+    - System design
+  </Card>
+
+  <Card title="Accuracy" icon="bullseye">
+    - More precise
+    - Better error handling
+    - Consistent patterns
+    - Fewer bugs
+  </Card>
+</CardGroup>
+
+### Limitations
+
+<AccordionGroup>
+  <Accordion icon="clock" title="Slower">
+    - Takes time to think
+    - Not instant like streaming
+    - More API calls
+    - Longer for simple tasks
+  </Accordion>
+
+  <Accordion icon="money-bill" title="More Expensive">
+    - Uses more tokens
+    - Tool usage adds cost
+    - Better for important features
+    - Overkill for simple UI
+  </Accordion>
+
+  <Accordion icon="comment" title="Verbose">
+    - More explanations
+    - Longer responses
+    - May over-explain
+    - More to read
+  </Accordion>
+</AccordionGroup>
+
+## Direct Comparison
+
+<Tabs>
+  <Tab title="Speed">
+    | Aspect | Stream | Iterative |
+    |--------|--------|-----------|
+    | Response Time | ⚡ Instant | 🕐 10-30s thinking |
+    | Code Generation | 🌊 Streams | 📝 Step-by-step |
+    | Iteration Speed | 🏃 Very fast | 🚶 Moderate |
+  </Tab>
+
+  <Tab title="Capabilities">
+    | Capability | Stream | Iterative |
+    |------------|--------|-----------|
+    | UI Components | ✅ Excellent | ✅ Good |
+    | Complex Logic | ⚠️ Limited | ✅ Excellent |
+    | API Integration | ⚠️ Basic | ✅ Advanced |
+    | Debugging | ❌ Poor | ✅ Good |
+    | Code Analysis | ❌ No | ✅ Yes |
+    | Planning | ❌ No | ✅ Yes |
+  </Tab>
+
+  <Tab title="Cost">
+    | Factor | Stream | Iterative |
+    |--------|--------|-----------|
+    | Tokens per request | 💰 Low | 💰💰 Higher |
+    | Tool usage | ❌ None | ✅ Yes (adds cost) |
+    | Best value for | Simple tasks | Complex features |
+  </Tab>
+</Tabs>
+
+## When to Use Each
+
+### Use Stream Agent For:
+
+<CardGroup cols={2}>
+  <Card title="Landing Pages" icon="browser">
+    Quick visual layouts and sections
+  </Card>
+  <Card title="Components" icon="cubes">
+    Individual React components
+  </Card>
+  <Card title="Styling" icon="paintbrush">
+    CSS and visual refinements
+  </Card>
+  <Card title="Prototypes" icon="wand-magic">
+    Rapid prototyping and experimentation
+  </Card>
+</CardGroup>
+
+### Use Iterative Agent For:
+
+<CardGroup cols={2}>
+  <Card title="Business Logic" icon="gears">
+    Complex state and data management
+  </Card>
+  <Card title="APIs" icon="server">
+    Backend integration and data fetching
+  </Card>
+  <Card title="Debugging" icon="bug">
+    Finding and fixing issues
+  </Card>
+  <Card title="Architecture" icon="sitemap">
+    Organizing code and structure
+  </Card>
+</CardGroup>
+
+## Switching Agents
+
+You can switch agents mid-project:
+
+<Steps>
+  <Step title="Different Contexts">
+    Each agent maintains separate chat history
+  </Step>
+
+  <Step title="Change Anytime">
+    Switch via dropdown in chat interface
+  </Step>
+
+  <Step title="Best of Both">
+    Use Stream for UI, Iterative for logic
+  </Step>
+
+  <Step title="No Limits">
+    Switch as often as needed
+  </Step>
+</Steps>
+
+<Info>
+  Many users use Stream Agent for initial UI, then switch to Iterative for adding functionality and business logic.
+</Info>
+
+## Example Workflows
+
+### Building a Login Page
+
+<Tabs>
+  <Tab title="Stream Agent Approach">
+    **Good for:**
+    1. "Create a login form with email and password fields"
+    2. "Add a logo and title above the form"
+    3. "Style it with a gradient background"
+    4. "Make the button orange and rounded"
+
+    **Fast visual iteration**
+  </Tab>
+
+  <Tab title="Iterative Agent Approach">
+    **Good for:**
+    1. "Set up form validation with Zod"
+    2. "Implement authentication with JWT"
+    3. "Add error handling and loading states"
+    4. "Create protected route wrapper"
+
+    **Complex logic and integration**
+  </Tab>
+
+  <Tab title="Combined Approach">
+    **Best results:**
+    1. **Stream**: Build form UI quickly
+    2. **Iterative**: Add validation logic
+    3. **Stream**: Refine styling
+    4. **Iterative**: Implement auth flow
+    5. **Stream**: Polish final design
+
+    **Leverages strengths of both**
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Using Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Learn how to use agents effectively
+  </Card>
+  <Card
+    title="Chat Interface"
+    icon="comments"
+    href="/guides/chat-interface"
+  >
+    Master the chat interface
+  </Card>
+  <Card
+    title="Customizing Agents"
+    icon="sliders"
+    href="/guides/customizing-agents"
+  >
+    Create custom agents
+  </Card>
+  <Card
+    title="Agent Marketplace"
+    icon="store"
+    href="/guides/agent-marketplace"
+  >
+    Discover specialized agents
+  </Card>
+</CardGroup>

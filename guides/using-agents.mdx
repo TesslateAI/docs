@@ -1,0 +1,428 @@
+---
+title: 'Using AI Agents'
+description: 'Master working with AI agents to build applications'
+---
+
+## Getting Started with Agents
+
+AI agents are your coding partners. Describe what you want in natural language, and they generate the code for you.
+
+<CardGroup cols={2}>
+  <Card title="Natural Language" icon="message">
+    No coding required - just describe it
+  </Card>
+  <Card title="Real-Time Generation" icon="bolt">
+    Watch code appear instantly
+  </Card>
+  <Card title="Interactive" icon="comments">
+    Refine through conversation
+  </Card>
+  <Card title="Context-Aware" icon="brain">
+    Agents understand your full project
+  </Card>
+</CardGroup>
+
+## Your First Agent Interaction
+
+<Steps>
+  <Step title="Open Project">
+    Open any project in Tesslate Studio
+  </Step>
+
+  <Step title="Select Agent">
+    Choose an agent from the dropdown (try Stream Agent first)
+  </Step>
+
+  <Step title="Describe Feature">
+    Type: "Create a hero section with a title, subtitle, and call-to-action button"
+  </Step>
+
+  <Step title="Watch Generation">
+    Agent generates code in real-time
+  </Step>
+
+  <Step title="See Preview">
+    Your hero section appears in the live preview
+  </Step>
+
+  <Step title="Refine">
+    Say: "Make the button larger and orange"
+  </Step>
+</Steps>
+
+<Info>
+  Start with simple requests to get comfortable, then gradually try more complex features.
+</Info>
+
+## Writing Effective Prompts
+
+### The Formula
+
+Good prompts include:
+
+1. **What** you want to build
+2. **How** it should look or behave
+3. **Which** technologies to use (optional)
+4. **Why** specific requirements matter (optional)
+
+### Examples
+
+<Tabs>
+  <Tab title="UI Components">
+    **Basic:**
+    - "Create a button"
+
+    **Better:**
+    - "Create a primary button with rounded corners and an orange background"
+
+    **Best:**
+    - "Create a primary button with rounded corners, orange background (#F97316), white text, and a hover effect that darkens it slightly. Use Tailwind CSS."
+
+    **Why best wins:** Specific colors, exact styling, technology choice
+  </Tab>
+
+  <Tab title="Layouts">
+    **Basic:**
+    - "Make a navigation bar"
+
+    **Better:**
+    - "Create a navigation bar with logo on left and menu on right"
+
+    **Best:**
+    - "Create a sticky navigation bar with the logo on the left, menu items (Home, Features, Pricing, About) centered, and a 'Sign Up' button on the right. Use flexbox and make it responsive - stack vertically on mobile."
+
+    **Why best wins:** Exact layout, specific items, responsive behavior
+  </Tab>
+
+  <Tab title="Features">
+    **Basic:**
+    - "Add a contact form"
+
+    **Better:**
+    - "Create a contact form with name, email, and message fields"
+
+    **Best:**
+    - "Create a contact form with fields for name (text), email (validated), and message (textarea). Include form validation using React Hook Form and Zod. Show error messages in red below each field. Add a submit button that shows a loading state."
+
+    **Why best wins:** Exact fields, validation library, error handling, UX details
+  </Tab>
+</Tabs>
+
+## Prompt Patterns
+
+### Adding Features
+
+```
+"Add a [feature] that [does something] with [specific details]"
+```
+
+**Examples:**
+- "Add a product card that displays an image, title, price, and 'Add to Cart' button"
+- "Add a search bar that filters the product list in real-time as the user types"
+- "Add a dark mode toggle that switches between light and dark themes"
+
+### Modifying Existing Code
+
+```
+"Make the [element] [change] by [method]"
+```
+
+**Examples:**
+- "Make the navigation bar sticky at the top when scrolling"
+- "Make the hero section full height with content vertically centered"
+- "Make all buttons have a subtle shadow and slight lift on hover"
+
+### Styling Changes
+
+```
+"Change the [element] to have [styles]"
+```
+
+**Examples:**
+- "Change the primary color to #F97316 throughout the app"
+- "Change the font to Inter and increase the base size to 16px"
+- "Change the card backgrounds to white with a subtle border instead of shadows"
+
+### Debugging
+
+```
+"Fix the [issue] where [problem description]"
+```
+
+**Examples:**
+- "Fix the bug where the form submits even with validation errors"
+- "Fix the layout breaking on mobile screens below 640px"
+- "Fix the TypeScript error in the UserProfile component"
+
+## Advanced Techniques
+
+### Referencing Existing Code
+
+<AccordionGroup>
+  <Accordion icon="file" title="Mention Files">
+    "Update the Button component in components/Button.tsx to use the new color scheme"
+  </Accordion>
+
+  <Accordion icon="code" title="Reference Components">
+    "Make the ProductCard component match the styling of the existing FeatureCard"
+  </Accordion>
+
+  <Accordion icon="layer-group" title="Specify Location">
+    "Add a new component called Newsletter in the components/marketing folder"
+  </Accordion>
+</AccordionGroup>
+
+### Iterative Refinement
+
+Build features gradually:
+
+<Steps>
+  <Step title="Start Simple">
+    "Create a basic product grid showing 6 products"
+  </Step>
+
+  <Step title="Add Details">
+    "Add product images, titles, and prices to each card"
+  </Step>
+
+  <Step title="Enhance">
+    "Add hover effects and 'Quick View' buttons to each product"
+  </Step>
+
+  <Step title="Functionality">
+    "Make the products filterable by category"
+  </Step>
+
+  <Step title="Polish">
+    "Add loading skeletons while products load"
+  </Step>
+</Steps>
+
+### Multi-Step Features
+
+For complex features, break down the steps:
+
+```
+"I want to build a shopping cart feature. Let's start by:
+
+1. Creating a Cart context to manage cart state
+2. Adding 'Add to Cart' buttons to product cards
+3. Creating a cart sidebar that shows added items
+4. Adding quantity controls and remove buttons
+5. Calculating and displaying the total
+
+Let's start with step 1 - create the Cart context."
+```
+
+<Info>
+  Breaking down complex features helps the agent understand the full scope and build it correctly piece by piece.
+</Info>
+
+## Working with Different Agents
+
+### Stream Agent Workflow
+
+<CardGroup cols={2}>
+  <Card title="1. Quick UI" icon="bolt">
+    Build visual components fast
+  </Card>
+  <Card title="2. Iterate Rapidly" icon="rotate">
+    Try different designs quickly
+  </Card>
+  <Card title="3. Refine Styling" icon="paintbrush">
+    Perfect colors, spacing, typography
+  </Card>
+  <Card title="4. Switch for Logic" icon="brain">
+    Move to Iterative for functionality
+  </Card>
+</CardGroup>
+
+### Iterative Agent Workflow
+
+<CardGroup cols={2}>
+  <Card title="1. Plan Feature" icon="list">
+    Describe the complete feature
+  </Card>
+  <Card title="2. Let It Think" icon="brain">
+    Agent plans multi-step approach
+  </Card>
+  <Card title="3. Review Code" icon="eye">
+    Check generated logic carefully
+  </Card>
+  <Card title="4. Test & Refine" icon="vial">
+    Fix issues through conversation
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="target" title="Be Specific">
+    **Vague:** "Make it look better"
+    **Specific:** "Increase the padding to 24px, use a softer shadow, and make the corners more rounded"
+
+    More details = better results
+  </Accordion>
+
+  <Accordion icon="stairs" title="Build Incrementally">
+    **Don't:** "Build a complete e-commerce site"
+    **Do:**
+    1. "Create product card component"
+    2. "Create product grid layout"
+    3. "Add filtering controls"
+    4. "Implement shopping cart"
+
+    One feature at a time
+  </Accordion>
+
+  <Accordion icon="eye" title="Review Generated Code">
+    - Always check what the agent created
+    - Look for potential issues
+    - Understand the code
+    - Test functionality
+    - Ask for explanations if unclear
+
+    Don't blindly accept everything
+  </Accordion>
+
+  <Accordion icon="comments" title="Provide Feedback">
+    - Tell the agent what worked
+    - Explain what didn't work
+    - Give examples of desired behavior
+    - Ask for alternatives if needed
+
+    Agents learn from your feedback
+  </Accordion>
+
+  <Accordion icon="book-open" title="Learn as You Go">
+    - Ask agents to explain code
+    - Request comments in complex sections
+    - Understand patterns used
+    - Build your own knowledge
+
+    Use AI as a learning tool
+  </Accordion>
+</AccordionGroup>
+
+## Common Patterns
+
+### Building a Landing Page
+
+<Steps>
+  <Step title="Hero Section">
+    "Create a hero section with headline, subheadline, CTA button, and background gradient"
+  </Step>
+
+  <Step title="Features Section">
+    "Add a features section with 3 columns showing icons, titles, and descriptions"
+  </Step>
+
+  <Step title="Social Proof">
+    "Create a testimonials section with customer quotes and avatars"
+  </Step>
+
+  <Step title="CTA Section">
+    "Add a final call-to-action section with email signup form"
+  </Step>
+
+  <Step title="Footer">
+    "Create a footer with links, social icons, and copyright"
+  </Step>
+</Steps>
+
+### Adding Functionality
+
+<Steps>
+  <Step title="State Management">
+    "Set up a context for managing user authentication state"
+  </Step>
+
+  <Step title="API Integration">
+    "Create a service to fetch products from the API at /api/products"
+  </Step>
+
+  <Step title="Error Handling">
+    "Add try-catch blocks and show error messages to users"
+  </Step>
+
+  <Step title="Loading States">
+    "Add loading spinners while data is fetching"
+  </Step>
+
+  <Step title="Success Feedback">
+    "Show a success toast notification when form submits successfully"
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-question" title="Agent Doesn't Understand">
+    **Solutions:**
+    - Rephrase your request
+    - Break it into smaller parts
+    - Provide examples or references
+    - Be more specific about requirements
+    - Try a different agent
+  </Accordion>
+
+  <Accordion icon="code" title="Generated Code Has Errors">
+    **Solutions:**
+    - Point out the specific error
+    - Copy the error message to the agent
+    - Ask it to fix the issue
+    - Provide context about what should happen
+    - Test incrementally to catch errors early
+  </Accordion>
+
+  <Accordion icon="palette" title="Design Doesn't Match Vision">
+    **Solutions:**
+    - Provide reference images or URLs
+    - Be very specific about colors, spacing, fonts
+    - Use exact pixel values or Tailwind classes
+    - Iterate in small steps
+    - Ask for alternatives
+  </Accordion>
+
+  <Accordion icon="ban" title="Feature Too Complex">
+    **Solutions:**
+    - Break into smaller sub-features
+    - Build foundation first, add details later
+    - Switch to Iterative agent for complex logic
+    - Provide pseudocode or step-by-step plan
+    - Reference similar existing code
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Agent Types"
+    icon="robot"
+    href="/guides/agent-types"
+  >
+    Learn Stream vs Iterative agents
+  </Card>
+  <Card
+    title="Chat Interface"
+    icon="comments"
+    href="/guides/chat-interface"
+  >
+    Master the chat panel
+  </Card>
+  <Card
+    title="Customizing Agents"
+    icon="sliders"
+    href="/guides/customizing-agents"
+  >
+    Create your own agents
+  </Card>
+  <Card
+    title="Code Editor"
+    icon="code"
+    href="/guides/code-editor"
+  >
+    Manual code editing
+  </Card>
+</CardGroup>

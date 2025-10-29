@@ -1,0 +1,318 @@
+---
+title: 'Creating Projects'
+description: 'Step-by-step guide to creating your first project'
+---
+
+## Creating Your First Project
+
+Tesslate Studio offers three ways to create projects:
+
+<CardGroup cols={3}>
+  <Card title="Template" icon="file-code">
+    Start with a blank React + Vite template
+  </Card>
+  <Card title="GitHub" icon="github">
+    Import an existing GitHub repository
+  </Card>
+  <Card title="Base" icon="layer-group">
+    Use a pre-built template with features
+  </Card>
+</CardGroup>
+
+## Method 1: From Template
+
+Perfect for starting from scratch:
+
+<Steps>
+  <Step title="Click Create Project">
+    From the Dashboard, click **Create New Project**
+  </Step>
+
+  <Step title="Select Template">
+    Choose **Template** as your source
+  </Step>
+
+  <Step title="Name Your Project">
+    Enter a project name (e.g., "My Landing Page")
+  </Step>
+
+  <Step title="Choose Status">
+    Select project phase:
+    - **Idea**: Planning stage
+    - **Build**: Active development
+    - **Launch**: Production ready
+  </Step>
+
+  <Step title="Create">
+    Click **Create Project** and wait for initialization
+  </Step>
+</Steps>
+
+<Info>
+  Template projects come with a basic React + Vite setup ready to customize.
+</Info>
+
+### What You Get
+
+The template includes:
+- React 18 with TypeScript
+- Vite for fast development
+- Basic App.tsx component
+- Tailwind CSS configured
+- Hot module replacement
+- Development server
+
+## Method 2: From GitHub
+
+Import existing repositories:
+
+<Steps>
+  <Step title="Connect GitHub">
+    If not connected, click **Connect GitHub** and authorize
+  </Step>
+
+  <Step title="Select GitHub Source">
+    Choose **GitHub** as your project source
+  </Step>
+
+  <Step title="Choose Repository">
+    Select from your GitHub repositories
+    - Browse your repos
+    - Search by name
+    - Filter by organization
+  </Step>
+
+  <Step title="Configure Import">
+    Set project name and status
+  </Step>
+
+  <Step title="Import">
+    Click **Import** and wait for cloning
+  </Step>
+</Steps>
+
+<Warning>
+  Imported projects must be compatible with Tesslate Studio's container environment (Node.js, React, Vue, etc.)
+</Warning>
+
+### Supported Project Types
+
+<Tabs>
+  <Tab title="React">
+    - Create React App
+    - Vite + React
+    - Next.js (static)
+    - React + TypeScript
+  </Tab>
+
+  <Tab title="Vue">
+    - Vue 3 + Vite
+    - Nuxt (static)
+    - Vue + TypeScript
+  </Tab>
+
+  <Tab title="Other">
+    - Vanilla JavaScript
+    - TypeScript
+    - HTML/CSS/JS
+    - Static sites
+  </Tab>
+</Tabs>
+
+## Method 3: From Base
+
+Start with pre-built templates:
+
+<Steps>
+  <Step title="Install a Base">
+    First, install a base from the [Marketplace](/guides/marketplace)
+  </Step>
+
+  <Step title="Create from Base">
+    Click **Create New Project** → **Base**
+  </Step>
+
+  <Step title="Select Base">
+    Choose from your installed bases in the library
+  </Step>
+
+  <Step title="Name Project">
+    Give your project a unique name
+  </Step>
+
+  <Step title="Initialize">
+    Project creates with all base files and structure
+  </Step>
+</Steps>
+
+### Popular Bases
+
+<AccordionGroup>
+  <Accordion icon="browser" title="Landing Page Bases">
+    - **SaaS Landing**: Hero, features, pricing, CTA
+    - **Portfolio**: Showcase work with beautiful design
+    - **Marketing**: Product launch ready template
+    - **Startup**: Comprehensive startup homepage
+  </Accordion>
+
+  <Accordion icon="chart-line" title="Dashboard Bases">
+    - **Admin Dashboard**: User management, analytics
+    - **Analytics**: Data visualization and charts
+    - **E-commerce Admin**: Order and product management
+  </Accordion>
+
+  <Accordion icon="cart-shopping" title="E-commerce Bases">
+    - **Storefront**: Product catalog and cart
+    - **Marketplace**: Multi-vendor platform
+    - **Subscription**: Recurring billing flows
+  </Accordion>
+</AccordionGroup>
+
+## After Creation
+
+Once your project is created:
+
+<Steps>
+  <Step title="Wait for Container">
+    Development server initializes (10-30 seconds)
+  </Step>
+
+  <Step title="Project Opens">
+    Automatically enters project workspace
+  </Step>
+
+  <Step title="Preview Loads">
+    Live preview shows your application
+  </Step>
+
+  <Step title="Start Building">
+    Use AI agents to add features
+  </Step>
+</Steps>
+
+## Project Initialization
+
+### What Happens Behind the Scenes
+
+<CardGroup cols={2}>
+  <Card title="Container Creation" icon="docker">
+    - Isolated Docker container spins up
+    - Node.js environment configured
+    - Dependencies installed
+  </Card>
+
+  <Card title="Development Server" icon="server">
+    - Vite dev server starts
+    - Hot reload enabled
+    - Unique URL assigned
+  </Card>
+
+  <Card title="File System" icon="folder">
+    - Project files copied
+    - Git initialized
+    - Structure organized
+  </Card>
+
+  <Card title="Preview Ready" icon="eye">
+    - Application builds
+    - Preview iframe loads
+    - Ready for development
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="clock" title="Container Taking Too Long">
+    **Problem:** Project stuck on "Initializing..."
+
+    **Solutions:**
+    - Wait up to 60 seconds (first time can be slow)
+    - Check your internet connection
+    - Refresh the page
+    - Contact support if stuck after 2 minutes
+  </Accordion>
+
+  <Accordion icon="exclamation-triangle" title="GitHub Import Failed">
+    **Problem:** Repository import error
+
+    **Solutions:**
+    - Ensure repo is public or you have access
+    - Check repo has package.json
+    - Verify project type is supported
+    - Re-authorize GitHub connection
+  </Accordion>
+
+  <Accordion icon="circle-xmark" title="Preview Not Loading">
+    **Problem:** Blank preview window
+
+    **Solutions:**
+    - Check browser console for errors
+    - Wait for build to complete
+    - Restart development server in settings
+    - Check if port is blocked
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Choose Right Source" icon="compass">
+    - **Template**: For new projects from scratch
+    - **GitHub**: For existing code
+    - **Base**: For quick starts with features
+  </Card>
+
+  <Card title="Name Clearly" icon="tag">
+    - Use descriptive names
+    - Avoid special characters
+    - Keep it short and memorable
+    - Include project type if helpful
+  </Card>
+
+  <Card title="Set Correct Status" icon="signal">
+    - **Idea**: Still planning features
+    - **Build**: Actively developing
+    - **Launch**: Ready for production
+  </Card>
+
+  <Card title="Plan Before Building" icon="clipboard">
+    - Know your tech stack
+    - List key features
+    - Choose appropriate base
+    - Prepare GitHub repo if importing
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Using AI Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Start building features with AI
+  </Card>
+  <Card
+    title="Code Editor"
+    icon="code"
+    href="/guides/code-editor"
+  >
+    Learn to use the code editor
+  </Card>
+  <Card
+    title="Live Preview"
+    icon="eye"
+    href="/guides/live-preview"
+  >
+    Understanding the preview window
+  </Card>
+  <Card
+    title="Chat Interface"
+    icon="comments"
+    href="/guides/chat-interface"
+  >
+    Chatting with AI agents
+  </Card>
+</CardGroup>

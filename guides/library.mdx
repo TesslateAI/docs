@@ -1,0 +1,266 @@
+---
+title: 'Library'
+description: 'Manage your installed agents, bases, and tools'
+---
+
+## What is the Library?
+
+Your Library is your personal collection of:
+- **AI Agents**: Installed agents ready to use
+- **Project Bases**: Templates for new projects
+- **Tools**: Integrations and utilities
+- **Custom Items**: Your own creations
+
+## Accessing Your Library
+
+<Steps>
+  <Step title="Open Library">
+    Click **Library** in the sidebar navigation
+  </Step>
+  <Step title="Browse Categories">
+    Switch between Agents, Bases, and Tools tabs
+  </Step>
+  <Step title="Manage Items">
+    Enable/disable, edit, or remove items
+  </Step>
+</Steps>
+
+## Managing Agents
+
+### Enabling and Disabling
+
+Control which agents appear in your project selector:
+
+- **Enabled Agents**: Available in all projects
+- **Disabled Agents**: Hidden but not deleted
+- **Toggle**: Click the switch to enable/disable
+
+<Info>
+  Disabling an agent doesn't remove it - just hides it from your agent selector.
+</Info>
+
+### Editing Agents
+
+For **open source agents only**, you can customize:
+
+<CardGroup cols={2}>
+  <Card title="System Prompt" icon="message">
+    Edit the instructions that guide agent behavior
+  </Card>
+  <Card title="AI Model" icon="brain">
+    Change the underlying AI model
+  </Card>
+  <Card title="Name & Icon" icon="tag">
+    Customize display name and icon
+  </Card>
+  <Card title="Description" icon="file-lines">
+    Update the agent description
+  </Card>
+</CardGroup>
+
+### Forking Agents
+
+Create your own version of any open source agent:
+
+1. Click **Fork** on the agent card
+2. Choose a new name
+3. Customize prompt and settings
+4. Save to your library
+5. Optionally publish to marketplace
+
+## Managing Bases
+
+### Installed Bases
+
+View all bases in your library:
+- **Preview**: See base structure and files
+- **Tech Stack**: View technologies used
+- **Usage**: See how many projects created
+- **Remove**: Delete from library
+
+### Creating Projects
+
+Use bases to start new projects:
+1. Go to Dashboard
+2. Click **Create New Project**
+3. Select **Base** as source
+4. Choose from your library
+5. Project initializes with base code
+
+## Managing Models
+
+Configure AI models for your agents:
+
+<Tabs>
+  <Tab title="Default Models">
+    Set default models for agent types:
+    - Stream Agent default
+    - Iterative Agent default
+    - Custom model preferences
+  </Tab>
+
+  <Tab title="API Keys">
+    Manage API keys for AI providers:
+    - OpenAI
+    - Anthropic
+    - OpenRouter
+    - Custom providers
+  </Tab>
+
+  <Tab title="Model Settings">
+    Configure model parameters:
+    - Temperature
+    - Max tokens
+    - Top P
+    - Frequency penalty
+  </Tab>
+</Tabs>
+
+## Library Organization
+
+<AccordionGroup>
+  <Accordion icon="filter" title="Filtering Items">
+    - Filter by source type (open/closed)
+    - Filter by enabled/disabled status
+    - Search by name or description
+    - Sort by recently used or alphabetical
+  </Accordion>
+
+  <Accordion icon="star" title="Favorites">
+    - Star frequently used items
+    - Quick access to favorites
+    - Appears at top of lists
+  </Accordion>
+
+  <Accordion icon="folder" title="Collections">
+    - Group related items
+    - Create custom categories
+    - Organize by project type
+    - Share collections
+  </Accordion>
+</AccordionGroup>
+
+## Custom Agents
+
+### Creating from Scratch
+
+Build your own agent:
+
+<Steps>
+  <Step title="Click Create Agent">
+    In Library, click **Create New Agent**
+  </Step>
+  <Step title="Choose Type">
+    Select Stream or Iterative agent
+  </Step>
+  <Step title="Configure">
+    Set name, icon, prompt, and model
+  </Step>
+  <Step title="Test">
+    Try the agent in a test project
+  </Step>
+  <Step title="Refine">
+    Iterate on the prompt until it works well
+  </Step>
+</Steps>
+
+### Writing Effective Prompts
+
+<CardGroup cols={2}>
+  <Card title="Be Specific" icon="bullseye">
+    Define exact behavior and output format
+  </Card>
+  <Card title="Include Examples" icon="code">
+    Show examples of desired code style
+  </Card>
+  <Card title="Set Constraints" icon="shield">
+    Specify what NOT to do
+  </Card>
+  <Card title="Define Context" icon="book">
+    Explain the agent's role and purpose
+  </Card>
+</CardGroup>
+
+## Publishing to Marketplace
+
+Share your custom agents with the community:
+
+<Steps>
+  <Step title="Polish Agent">
+    Ensure prompt works well and description is clear
+  </Step>
+  <Step title="Click Publish">
+    Open agent settings and click **Publish**
+  </Step>
+  <Step title="Set Details">
+    Add category, tags, pricing model
+  </Step>
+  <Step title="Submit">
+    Submit for marketplace review
+  </Step>
+  <Step title="Go Live">
+    Once approved, appears in marketplace
+  </Step>
+</Steps>
+
+<Warning>
+  Published agents become publicly available. Only publish agents you want to share with everyone.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="broom" title="Keep Library Organized">
+    - Disable agents you don't use
+    - Remove unused bases
+    - Update custom agent prompts regularly
+    - Star your favorites
+  </Accordion>
+
+  <Accordion icon="sync" title="Sync Across Devices">
+    - Library syncs automatically
+    - Custom agents available everywhere
+    - API keys stored securely
+    - Settings preserved
+  </Accordion>
+
+  <Accordion icon="flask" title="Test Custom Agents">
+    - Create test projects for new agents
+    - Refine prompts based on results
+    - Compare with similar agents
+    - Get feedback before publishing
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Browse Marketplace"
+    icon="store"
+    href="/guides/marketplace"
+  >
+    Discover more agents and bases
+  </Card>
+  <Card
+    title="Customize Agents"
+    icon="sliders"
+    href="/guides/customizing-agents"
+  >
+    Learn to customize agents
+  </Card>
+  <Card
+    title="Model Management"
+    icon="brain"
+    href="/guides/model-management"
+  >
+    Configure AI models
+  </Card>
+  <Card
+    title="Using Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Start using your agents
+  </Card>
+</CardGroup>

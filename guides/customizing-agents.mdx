@@ -1,0 +1,541 @@
+---
+title: 'Customizing Agents'
+description: 'Create and customize your own AI agents'
+---
+
+## Why Customize Agents?
+
+Create specialized agents tailored to your exact needs:
+
+<CardGroup cols={2}>
+  <Card title="Specific Styles" icon="paintbrush">
+    Enforce your preferred coding style
+  </Card>
+  <Card title="Frameworks" icon="cube">
+    Specialize in particular libraries
+  </Card>
+  <Card title="Workflows" icon="diagram-project">
+    Match your team's patterns
+  </Card>
+  <Card title="Share" icon="share-nodes">
+    Publish for others to use
+  </Card>
+</CardGroup>
+
+## Agent Customization Basics
+
+### What You Can Customize
+
+<Tabs>
+  <Tab title="System Prompt">
+    **The core instructions**
+    - How the agent behaves
+    - What patterns it follows
+    - Coding style preferences
+    - Libraries and frameworks to use
+
+    Most important customization
+  </Tab>
+
+  <Tab title="AI Model">
+    **The underlying AI**
+    - GPT-4, Claude, Qwen, etc.
+    - Model size and capability
+    - Speed vs quality trade-off
+    - Cost considerations
+
+    Only for open-source agents
+  </Tab>
+
+  <Tab title="Metadata">
+    **Visual and info**
+    - Agent name
+    - Icon/avatar
+    - Description
+    - Category and tags
+
+    Helps organize and identify
+  </Tab>
+
+  <Tab title="Mode">
+    **Agent type**
+    - Stream or Iterative
+    - Set at creation
+    - Cannot change after
+
+    Determines core behavior
+  </Tab>
+</Tabs>
+
+## Creating Custom Agents
+
+### Method 1: Fork Existing Agent
+
+Start from a working agent:
+
+<Steps>
+  <Step title="Find Agent">
+    Browse your library or marketplace
+  </Step>
+
+  <Step title="Click Fork">
+    Click **Fork** on an open-source agent
+  </Step>
+
+  <Step title="Name It">
+    Give your fork a unique name
+  </Step>
+
+  <Step title="Customize">
+    Modify the system prompt and settings
+  </Step>
+
+  <Step title="Save">
+    Save to your library
+  </Step>
+
+  <Step title="Test">
+    Try it in a test project
+  </Step>
+</Steps>
+
+<Info>
+  Forking is the easiest way to create custom agents since you start with working prompts.
+</Info>
+
+### Method 2: Create from Scratch
+
+Build from the ground up:
+
+<Steps>
+  <Step title="Open Library">
+    Go to your Library → Agents tab
+  </Step>
+
+  <Step title="Create New">
+    Click **Create New Agent**
+  </Step>
+
+  <Step title="Choose Type">
+    Select Stream or Iterative mode
+  </Step>
+
+  <Step title="Configure">
+    Set name, icon, description
+  </Step>
+
+  <Step title="Write Prompt">
+    Create your system prompt
+  </Step>
+
+  <Step title="Select Model">
+    Choose AI model to power it
+  </Step>
+
+  <Step title="Test & Iterate">
+    Refine until it works well
+  </Step>
+</Steps>
+
+## Writing System Prompts
+
+The system prompt defines how your agent behaves. It's the most important customization.
+
+### Prompt Structure
+
+A good system prompt includes:
+
+<AccordionGroup>
+  <Accordion icon="user" title="1. Role Definition">
+    Define what the agent is:
+
+    ```
+    You are a specialized React developer focused on building
+    accessible, performant user interfaces using Tailwind CSS
+    and TypeScript.
+    ```
+  </Accordion>
+
+  <Accordion icon="list-check" title="2. Responsibilities">
+    What the agent should do:
+
+    ```
+    Your responsibilities:
+    - Generate clean, typed React components
+    - Use Tailwind CSS for all styling
+    - Ensure WCAG 2.1 AA accessibility compliance
+    - Follow React best practices and hooks patterns
+    - Write semantic HTML
+    ```
+  </Accordion>
+
+  <Accordion icon="palette" title="3. Style Guidelines">
+    Coding style preferences:
+
+    ```
+    Coding standards:
+    - Use functional components with TypeScript
+    - Prefer named exports over default exports
+    - Use descriptive variable names
+    - Include JSDoc comments for complex logic
+    - Keep components under 200 lines
+    ```
+  </Accordion>
+
+  <Accordion icon="cube" title="4. Technology Stack">
+    Specific libraries and tools:
+
+    ```
+    Technology preferences:
+    - React 18+ with TypeScript
+    - Tailwind CSS 3+ for styling
+    - React Hook Form for forms
+    - Zod for validation
+    - Lucide React for icons
+    ```
+  </Accordion>
+
+  <Accordion icon="ban" title="5. Constraints">
+    What NOT to do:
+
+    ```
+    Avoid:
+    - Inline styles (use Tailwind classes)
+    - Class components (use hooks)
+    - Any CSS libraries besides Tailwind
+    - Large components (split into smaller ones)
+    - Hardcoded values (use constants)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Example Prompts
+
+<Tabs>
+  <Tab title="Tailwind Specialist">
+    ```
+    You are a React + Tailwind CSS specialist. Your job is to
+    create beautiful, responsive components using Tailwind CSS
+    utility classes.
+
+    Guidelines:
+    - Use only Tailwind classes (never inline styles or CSS files)
+    - Make all components fully responsive (mobile-first)
+    - Use Tailwind's color palette (e.g., blue-500, gray-100)
+    - Apply consistent spacing (4, 6, 8, 12, 16, 24)
+    - Include hover, focus, and active states
+    - Use Tailwind's animation classes for transitions
+
+    Default color scheme:
+    - Primary: orange-500
+    - Background: gray-50
+    - Text: gray-900
+    - Border: gray-200
+
+    Always create components that work beautifully on mobile,
+    tablet, and desktop screens.
+    ```
+  </Tab>
+
+  <Tab title="Form Builder">
+    ```
+    You are a form-building specialist using React Hook Form
+    and Zod for validation.
+
+    Your expertise:
+    - Create fully validated forms with React Hook Form
+    - Use Zod schemas for type-safe validation
+    - Show clear error messages below each field
+    - Include loading and success states
+    - Make forms accessible (labels, ARIA attributes)
+    - Add proper TypeScript types
+
+    Default patterns:
+    - Use useForm hook with zodResolver
+    - Create Zod schemas for all forms
+    - Show errors in red text below inputs
+    - Disable submit button during submission
+    - Show success message after submission
+    - Clear form on successful submit
+
+    Always prioritize UX: clear labels, helpful error messages,
+    visual feedback, and keyboard navigation.
+    ```
+  </Tab>
+
+  <Tab title="API Integration">
+    ```
+    You are a data-fetching and API integration specialist
+    for React applications.
+
+    Your focus:
+    - Set up API calls with proper error handling
+    - Implement loading states and error states
+    - Use React Query for server state management
+    - Create typed API clients
+    - Handle authentication tokens
+    - Implement retry logic
+
+    Patterns to follow:
+    - Create /services folder for API functions
+    - Use React Query hooks (useQuery, useMutation)
+    - Type all API responses with TypeScript
+    - Show loading spinners during fetch
+    - Display user-friendly error messages
+    - Implement optimistic updates when appropriate
+
+    Always handle errors gracefully and provide great UX
+    during loading states.
+    ```
+  </Tab>
+</Tabs>
+
+## Selecting AI Models
+
+For open-source agents, you can choose the AI model:
+
+<Tabs>
+  <Tab title="GPT-4">
+    **OpenAI GPT-4**
+
+    **Strengths:**
+    - Excellent reasoning
+    - Great at complex logic
+    - Strong TypeScript knowledge
+    - Good architecture decisions
+
+    **Best for:**
+    - Complex features
+    - API integration
+    - Business logic
+    - Debugging
+
+    **Cost:** $$$ (Higher)
+  </Tab>
+
+  <Tab title="Claude">
+    **Anthropic Claude**
+
+    **Strengths:**
+    - Very thoughtful code
+    - Excellent documentation
+    - Strong reasoning
+    - Great error handling
+
+    **Best for:**
+    - Well-documented code
+    - Complex systems
+    - Architectural planning
+    - Thorough implementation
+
+    **Cost:** $$$ (Higher)
+  </Tab>
+
+  <Tab title="Qwen">
+    **Qwen Coder**
+
+    **Strengths:**
+    - Fast responses
+    - Good code generation
+    - Cost-effective
+    - Solid for standard tasks
+
+    **Best for:**
+    - UI components
+    - Standard patterns
+    - Quick iteration
+    - Budget-conscious projects
+
+    **Cost:** $ (Lower)
+  </Tab>
+
+  <Tab title="OpenRouter">
+    **Custom via OpenRouter**
+
+    **Access to:**
+    - 100+ AI models
+    - Latest releases
+    - Specialized models
+    - Competitive pricing
+
+    **Best for:**
+    - Experimenting with models
+    - Specific use cases
+    - Cost optimization
+    - Latest capabilities
+
+    **Cost:** Varies by model
+  </Tab>
+</Tabs>
+
+<Info>
+  You can change the model anytime for your custom agents. Test different models to find the best fit.
+</Info>
+
+## Testing Custom Agents
+
+<Steps>
+  <Step title="Create Test Project">
+    Make a new project just for testing
+  </Step>
+
+  <Step title="Enable Agent">
+    Turn on your custom agent in the library
+  </Step>
+
+  <Step title="Try Simple Tasks">
+    Test with basic requests first
+  </Step>
+
+  <Step title="Test Complex Features">
+    Try more challenging scenarios
+  </Step>
+
+  <Step title="Refine Prompt">
+    Adjust system prompt based on results
+  </Step>
+
+  <Step title="Iterate">
+    Keep testing and improving
+  </Step>
+</Steps>
+
+### What to Test
+
+<CardGroup cols={2}>
+  <Card title="Follows Instructions" icon="check">
+    Does it use your specified libraries and patterns?
+  </Card>
+  <Card title="Code Quality" icon="star">
+    Is the generated code clean and correct?
+  </Card>
+  <Card title="Consistency" icon="arrows-rotate">
+    Does it generate similar code for similar requests?
+  </Card>
+  <Card title="Edge Cases" icon="triangle-exclamation">
+    How does it handle unusual requests?
+  </Card>
+</CardGroup>
+
+## Publishing Agents
+
+Share your custom agents with the community:
+
+<Steps>
+  <Step title="Polish">
+    Ensure agent works well and prompt is clear
+  </Step>
+
+  <Step title="Document">
+    Write a detailed description and usage guidelines
+  </Step>
+
+  <Step title="Click Publish">
+    Open agent settings → **Publish to Marketplace**
+  </Step>
+
+  <Step title="Set Details">
+    - Choose category
+    - Add tags
+    - Set pricing model (Free/Paid)
+    - Upload screenshots
+  </Step>
+
+  <Step title="Submit">
+    Submit for marketplace review
+  </Step>
+
+  <Step title="Review">
+    Tesslate team reviews for quality
+  </Step>
+
+  <Step title="Go Live">
+    Once approved, appears in marketplace
+  </Step>
+</Steps>
+
+<Warning>
+  Only publish agents you want to share publicly. Published agents become available to all Tesslate users.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="target" title="Start Specific">
+    - Focus on one specialty
+    - Don't try to do everything
+    - Clear, focused purpose
+    - Better to be great at one thing
+  </Accordion>
+
+  <Accordion icon="book" title="Document Well">
+    - Clear description
+    - Usage examples
+    - Technology requirements
+    - Limitations
+  </Accordion>
+
+  <Accordion icon="vial" title="Test Thoroughly">
+    - Try many scenarios
+    - Test edge cases
+    - Verify consistency
+    - Get feedback from others
+  </Accordion>
+
+  <Accordion icon="pen" title="Iterate on Prompt">
+    - Start simple
+    - Add rules based on issues
+    - Remove unnecessary instructions
+    - Keep refining
+  </Accordion>
+</AccordionGroup>
+
+## Prompt Tips
+
+<CardGroup cols={2}>
+  <Card title="Be Explicit" icon="exclamation">
+    Don't assume - spell out exactly what you want
+  </Card>
+  <Card title="Provide Examples" icon="code">
+    Show code examples in the prompt
+  </Card>
+  <Card title="Use Sections" icon="list">
+    Organize prompt into clear sections
+  </Card>
+  <Card title="Test & Refine" icon="rotate">
+    Improve based on real usage
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Agent Types"
+    icon="robot"
+    href="/guides/agent-types"
+  >
+    Understand Stream vs Iterative
+  </Card>
+  <Card
+    title="Using Agents"
+    icon="comments"
+    href="/guides/using-agents"
+  >
+    Get better at prompting
+  </Card>
+  <Card
+    title="Agent Marketplace"
+    icon="store"
+    href="/guides/agent-marketplace"
+  >
+    Discover community agents
+  </Card>
+  <Card
+    title="Model Management"
+    icon="brain"
+    href="/guides/model-management"
+  >
+    Configure AI models
+  </Card>
+</CardGroup>

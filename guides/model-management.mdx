@@ -1,0 +1,522 @@
+---
+title: 'Model Management'
+description: 'Configure and manage AI models for your agents'
+---
+
+## Overview
+
+Model Management allows you to configure which AI models power your agents, adjust model parameters, and control costs.
+
+<CardGroup cols={2}>
+  <Card title="Choose Models" icon="brain">
+    Select GPT-4, Claude, Qwen, or custom models
+  </Card>
+  <Card title="Control Costs" icon="dollar-sign">
+    See pricing and manage API usage
+  </Card>
+  <Card title="Tune Parameters" icon="sliders">
+    Adjust temperature, tokens, and more
+  </Card>
+  <Card title="Per-Agent" icon="robot">
+    Different models for different agents
+  </Card>
+</CardGroup>
+
+## Available Models
+
+<Tabs>
+  <Tab title="OpenAI">
+    **GPT-4 Family**
+
+    - **GPT-4 Turbo**: Best reasoning, most capable
+      - Cost: $$$ (Highest)
+      - Speed: Moderate
+      - Best for: Complex logic, architecture
+
+    - **GPT-4**: Slightly less capable than Turbo
+      - Cost: $$$
+      - Speed: Slower
+      - Best for: General development
+
+    - **GPT-3.5 Turbo**: Fast and affordable
+      - Cost: $ (Low)
+      - Speed: Very fast
+      - Best for: Simple UI, quick iterations
+
+    **Requires:** OpenAI API key
+  </Tab>
+
+  <Tab title="Anthropic">
+    **Claude Family**
+
+    - **Claude 3 Opus**: Most capable Claude
+      - Cost: $$$ (Highest)
+      - Speed: Moderate
+      - Best for: Complex features, documentation
+
+    - **Claude 3 Sonnet**: Balanced performance
+      - Cost: $$ (Medium)
+      - Speed: Fast
+      - Best for: General development
+
+    - **Claude 3 Haiku**: Fastest Claude
+      - Cost: $ (Low)
+      - Speed: Very fast
+      - Best for: Simple tasks, UI
+
+    **Requires:** Anthropic API key
+  </Tab>
+
+  <Tab title="Qwen">
+    **Qwen Coder Models**
+
+    - **Qwen 2.5 Coder 32B**: Large coding model
+      - Cost: $ (Low)
+      - Speed: Fast
+      - Best for: Code generation, refactoring
+
+    - **Qwen 2.5 Coder 7B**: Smaller, faster
+      - Cost: $ (Very low)
+      - Speed: Very fast
+      - Best for: UI, simple components
+
+    **Requires:** OpenRouter API key (Qwen via OpenRouter)
+  </Tab>
+
+  <Tab title="OpenRouter">
+    **100+ Models**
+
+    Access to:
+    - All OpenAI models
+    - All Anthropic models
+    - Qwen, DeepSeek, Mistral
+    - Gemini, Command R
+    - Open-source models
+    - Latest releases
+
+    **Requires:** OpenRouter API key
+    **Benefits:** Unified billing, model fallbacks
+  </Tab>
+</Tabs>
+
+## Model Configuration
+
+### Global Default Models
+
+Set default models for all new agents:
+
+<Steps>
+  <Step title="Open Settings">
+    Profile → **Settings** → **Model Management**
+  </Step>
+
+  <Step title="Stream Agent Default">
+    Choose default model for Stream agents
+  </Step>
+
+  <Step title="Iterative Agent Default">
+    Choose default model for Iterative agents
+  </Step>
+
+  <Step title="Save">
+    New agents will use these defaults
+  </Step>
+</Steps>
+
+<Info>
+  Existing custom agents keep their configured models. Only affects newly created agents.
+</Info>
+
+### Per-Agent Models
+
+Customize models for individual agents:
+
+<Steps>
+  <Step title="Open Library">
+    Go to **Library** → **Agents**
+  </Step>
+
+  <Step title="Edit Agent">
+    Click **Edit** on an open-source agent
+  </Step>
+
+  <Step title="Select Model">
+    Choose from available models
+  </Step>
+
+  <Step title="Save">
+    Agent now uses the new model
+  </Step>
+
+  <Step title="Test">
+    Try the agent with new model
+  </Step>
+</Steps>
+
+<Warning>
+  You can only change models for open-source agents you own. Closed-source agents have fixed models.
+</Warning>
+
+## Model Parameters
+
+### Temperature
+
+Controls randomness and creativity:
+
+<Tabs>
+  <Tab title="Low (0.0 - 0.3)">
+    **Deterministic and focused**
+
+    - More predictable output
+    - Consistent code style
+    - Less creative
+    - Repeatable results
+
+    **Best for:**
+    - Production code
+    - Bug fixes
+    - Refactoring
+    - Documentation
+
+    **Example:** 0.2
+  </Tab>
+
+  <Tab title="Medium (0.4 - 0.7)">
+    **Balanced**
+
+    - Good creativity
+    - Still consistent
+    - Varied approaches
+    - Reliable quality
+
+    **Best for:**
+    - General development
+    - New features
+    - UI components
+    - Most use cases
+
+    **Example:** 0.5 (default)
+  </Tab>
+
+  <Tab title="High (0.8 - 1.0)">
+    **Creative and varied**
+
+    - Very creative solutions
+    - Diverse approaches
+    - Less predictable
+    - Experimental
+
+    **Best for:**
+    - Brainstorming
+    - Design exploration
+    - Multiple alternatives
+    - Creative solutions
+
+    **Example:** 0.9
+  </Tab>
+</Tabs>
+
+### Max Tokens
+
+Limits response length:
+
+- **Stream Agents**: 4000-8000 tokens typical
+- **Iterative Agents**: 2000-4000 per step
+- **Higher**: More complete responses, higher cost
+- **Lower**: Faster, cheaper, may truncate
+
+<Info>
+  1 token ≈ 4 characters. A component with 100 lines ≈ 400-800 tokens.
+</Info>
+
+### Other Parameters
+
+<AccordionGroup>
+  <Accordion icon="percentage" title="Top P (Nucleus Sampling)">
+    Alternative to temperature:
+    - **0.1**: Very focused
+    - **0.5**: Balanced
+    - **0.9**: Diverse
+    - **1.0**: All possibilities
+
+    Default: 1.0
+  </Accordion>
+
+  <Accordion icon="ban" title="Frequency Penalty">
+    Reduces repetition:
+    - **0.0**: No penalty (default)
+    - **0.5**: Some reduction
+    - **2.0**: Maximum reduction
+
+    Higher = less repetitive code
+  </Accordion>
+
+  <Accordion icon="hashtag" title="Presence Penalty">
+    Encourages new topics:
+    - **0.0**: No penalty (default)
+    - **0.5**: Moderate encouragement
+    - **2.0**: Maximum encouragement
+
+    Higher = more topic diversity
+  </Accordion>
+</AccordionGroup>
+
+## Cost Management
+
+### Understanding Pricing
+
+AI model costs are based on tokens:
+
+<Tabs>
+  <Tab title="Input Tokens">
+    **What you send**
+    - Your prompts
+    - System messages
+    - Context/history
+    - Code being edited
+
+    Usually cheaper than output
+  </Tab>
+
+  <Tab title="Output Tokens">
+    **What AI generates**
+    - Generated code
+    - Explanations
+    - Responses
+
+    Usually more expensive
+  </Tab>
+</Tabs>
+
+### Model Cost Comparison
+
+| Model | Input | Output | Relative Cost |
+|-------|-------|--------|---------------|
+| GPT-4 Turbo | $$$ | $$$ | High |
+| Claude Opus | $$$ | $$$ | High |
+| GPT-3.5 | $ | $ | Low |
+| Claude Haiku | $ | $ | Low |
+| Qwen 32B | $ | $ | Very Low |
+
+<Info>
+  Exact pricing varies - check provider websites for current rates. Tesslate doesn't mark up model costs.
+</Info>
+
+### Reducing Costs
+
+<AccordionGroup>
+  <Accordion icon="robot" title="Use Appropriate Models">
+    - GPT-3.5/Haiku for UI
+    - GPT-4/Opus for complex logic
+    - Match model to task complexity
+    - Don't use premium for simple tasks
+  </Accordion>
+
+  <Accordion icon="comments" title="Optimize Prompts">
+    - Be specific and concise
+    - Avoid unnecessary context
+    - Clear, direct requests
+    - Reduce back-and-forth
+  </Accordion>
+
+  <Accordion icon="history" title="Clear Context">
+    - Clear chat history when changing topics
+    - Don't carry unnecessary context
+    - Start fresh for new features
+    - Reduce token usage
+  </Accordion>
+
+  <Accordion icon="sliders" title="Adjust Parameters">
+    - Lower max_tokens when appropriate
+    - Use temperature 0.3 for predictable tasks
+    - Disable verbose explanations
+    - Request concise responses
+  </Accordion>
+</AccordionGroup>
+
+## Usage Monitoring
+
+### Tracking API Usage
+
+<Steps>
+  <Step title="Check Provider Dashboard">
+    - OpenAI: platform.openai.com/usage
+    - Anthropic: console.anthropic.com/settings/billing
+    - OpenRouter: openrouter.ai/activity
+  </Step>
+
+  <Step title="Monitor in Tesslate">
+    Coming soon: Built-in usage dashboard
+  </Step>
+
+  <Step title="Set Budgets">
+    Configure spending limits in provider dashboards
+  </Step>
+
+  <Step title="Review Regularly">
+    Check usage weekly or monthly
+  </Step>
+</Steps>
+
+### Usage Alerts
+
+Set up alerts in provider dashboards:
+- Email when hitting thresholds
+- Warnings at 50%, 75%, 90%
+- Hard limits to prevent overspending
+- Monthly budget caps
+
+## Model Selection Strategy
+
+### By Task Type
+
+<CardGroup cols={2}>
+  <Card title="Simple UI" icon="browser">
+    **Use:** GPT-3.5, Claude Haiku, Qwen
+    - Fast and cheap
+    - Good for visual components
+    - Tailwind CSS
+  </Card>
+
+  <Card title="Complex Logic" icon="gears">
+    **Use:** GPT-4, Claude Opus
+    - Better reasoning
+    - Handles complexity
+    - Fewer errors
+  </Card>
+
+  <Card title="API Integration" icon="plug">
+    **Use:** GPT-4 Turbo, Claude Sonnet
+    - Understands APIs
+    - Good error handling
+    - Async patterns
+  </Card>
+
+  <Card title="Debugging" icon="bug">
+    **Use:** GPT-4, Claude Opus
+    - Analyzes code deeply
+    - Finds root causes
+    - Suggests fixes
+  </Card>
+</CardGroup>
+
+### By Project Stage
+
+<Tabs>
+  <Tab title="Prototyping">
+    **Fast and cheap**
+    - GPT-3.5 Turbo
+    - Claude Haiku
+    - Qwen models
+    - Quick iterations
+  </Tab>
+
+  <Tab title="Development">
+    **Balanced**
+    - GPT-4 Turbo
+    - Claude Sonnet
+    - Good quality + speed
+    - Most use cases
+  </Tab>
+
+  <Tab title="Production">
+    **Best quality**
+    - GPT-4 Turbo
+    - Claude Opus
+    - Fewer bugs
+    - Better architecture
+  </Tab>
+</Tabs>
+
+## Switching Models
+
+You can switch models anytime:
+
+<Steps>
+  <Step title="Library → Agents">
+    Find the agent to update
+  </Step>
+
+  <Step title="Edit Agent">
+    Click Edit (open-source only)
+  </Step>
+
+  <Step title="Change Model">
+    Select new model from dropdown
+  </Step>
+
+  <Step title="Save">
+    Changes apply immediately
+  </Step>
+
+  <Step title="Test">
+    Try agent with new model
+  </Step>
+</Steps>
+
+<Info>
+  Each agent can use a different model. Mix and match based on needs.
+</Info>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="target" title="Match Model to Task">
+    Don't use GPT-4 for simple UI - waste of money
+    Don't use GPT-3.5 for complex logic - poor results
+    Choose appropriately for each task
+  </Accordion>
+
+  <Accordion icon="vial" title="Test Different Models">
+    Same prompt, different models, different results
+    Test to find best model for your use case
+    Balance cost vs quality
+  </Accordion>
+
+  <Accordion icon="chart-line" title="Monitor Costs">
+    Check usage regularly
+    Set budget alerts
+    Optimize expensive operations
+    Review monthly spending
+  </Accordion>
+
+  <Accordion icon="rotate" title="Update Models">
+    New models released regularly
+    Better performance over time
+    Lower costs as prices drop
+    Stay current with updates
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="API Keys"
+    icon="key"
+    href="/guides/api-keys"
+  >
+    Set up your API keys
+  </Card>
+  <Card
+    title="Customizing Agents"
+    icon="sliders"
+    href="/guides/customizing-agents"
+  >
+    Create custom agents with specific models
+  </Card>
+  <Card
+    title="Using Agents"
+    icon="robot"
+    href="/guides/using-agents"
+  >
+    Get the most from your agents
+  </Card>
+  <Card
+    title="Library"
+    icon="books"
+    href="/guides/library"
+  >
+    Manage your agent library
+  </Card>
+</CardGroup>

@@ -1,80 +1,242 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quickstart'
+description: 'Get started with Tesslate Studio in under 5 minutes'
 ---
 
-## Get started in three steps
+## Create Your Account
 
-Get your documentation site running locally and make your first customization.
+<Steps>
+  <Step title="Sign Up">
+    Navigate to [studio.tesslate.com](https://studio.tesslate.com) and click **Sign Up**.
 
-### Step 1: Set up your local environment
+    Fill in your details:
+    - Full Name
+    - Username (unique)
+    - Email Address
+    - Password (minimum 8 characters)
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Verify and Login">
+    After registration, you'll be automatically logged in and redirected to your dashboard.
+  </Step>
+</Steps>
 
-### Step 2: Deploy your changes
+## Create Your First Project
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Steps>
+  <Step title="Open Dashboard">
+    You'll land on the Dashboard showing all your projects (currently empty for new users).
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Click Create Project">
+    Click the **"Create New Project"** button in the center or top-right corner.
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Choose Source">
+    Select how you want to start:
 
-### Step 3: Go live
+    <Tabs>
+      <Tab title="Template (Recommended)">
+        Start with a blank React + Vite template
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+        - Enter project name (e.g., "My First App")
+        - Add optional description
+        - Click **Create Project**
+      </Tab>
 
-## Next steps
+      <Tab title="GitHub">
+        Import an existing repository
 
-Now that you have your docs running, explore these key features:
+        - Paste GitHub repository URL
+        - Enter branch name (default: main)
+        - Click **Create Project**
+      </Tab>
+
+      <Tab title="Base">
+        Use a pre-built template
+
+        - Select a base from your library
+        - Enter project name
+        - Click **Create Project**
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Wait for Initialization">
+    The development server will start automatically. You'll see:
+    - "Starting development server..." (toast notification)
+    - "Development server ready!" (when complete)
+
+    This usually takes 10-30 seconds.
+  </Step>
+</Steps>
+
+## Build Your First Feature
+
+<Steps>
+  <Step title="Open Chat">
+    At the bottom of the screen, you'll see the chat interface. Click to expand it.
+  </Step>
+
+  <Step title="Describe What You Want">
+    Type a natural language description of what you want to build. For example:
+
+    ```
+    Create a landing page with a hero section, feature cards,
+    and a contact form. Use a blue color scheme.
+    ```
+  </Step>
+
+  <Step title="Select an Agent">
+    In the chat input, you'll see an agent selector dropdown. For your first project, use the default **Stream Agent**.
+  </Step>
+
+  <Step title="Send Message">
+    Press **Enter** or click the send button. The AI will:
+
+    - Generate React components
+    - Create necessary files
+    - Auto-save to your project
+    - Show progress in the chat
+  </Step>
+
+  <Step title="View Live Preview">
+    As files are generated, the live preview updates automatically. You'll see your landing page appear in real-time!
+  </Step>
+</Steps>
+
+## Make Changes
+
+<Steps>
+  <Step title="Request Modifications">
+    Continue chatting with the AI to refine your app:
+
+    ```
+    Change the hero background to a gradient from blue to purple.
+    Add hover animations to the feature cards.
+    ```
+  </Step>
+
+  <Step title="Manual Edits">
+    Click the **Code** tab to view files. You can:
+
+    - Browse the file tree
+    - Click any file to open in the editor
+    - Make manual changes
+    - Click **Save** to update the preview
+  </Step>
+
+  <Step title="See Changes Live">
+    Every change (AI-generated or manual) instantly appears in the live preview thanks to Hot Module Replacement (HMR).
+  </Step>
+</Steps>
+
+## Explore More Features
 
 <CardGroup cols={2}>
+  <Card
+    title="Install Agents"
+    icon="robot"
+    href="/guides/marketplace"
+  >
+    Browse the marketplace for specialized AI agents
+  </Card>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Card
+    title="GitHub Integration"
+    icon="github"
+    href="/guides/github-integration"
+  >
+    Connect GitHub and commit your code
+  </Card>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+  <Card
+    title="Architecture Diagrams"
+    icon="diagram-project"
+    href="/guides/architecture-diagrams"
+  >
+    Visualize your application architecture
+  </Card>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="API Keys & Models"
+    icon="key"
+    href="/guides/api-keys"
+  >
+    Configure external AI models
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Tips for Success
+
+<AccordionGroup>
+  <Accordion icon="message-dots" title="Be Specific in Prompts">
+    The more detailed your description, the better the results. Include:
+    - Specific features you want
+    - Color schemes and styling preferences
+    - Layout and structure details
+    - Any specific libraries or patterns to use
+  </Accordion>
+
+  <Accordion icon="arrows-rotate" title="Iterate Incrementally">
+    Build your application step by step:
+    1. Start with basic structure
+    2. Add features one at a time
+    3. Refine styling and UX
+    4. Test and debug
+
+    This approach gives better results than trying to build everything at once.
+  </Accordion>
+
+  <Accordion icon="robot" title="Use the Right Agent">
+    Different agents excel at different tasks:
+    - **Stream Agent**: Fast iteration, UI building
+    - **Iterative Agent**: Complex logic, multi-step tasks
+
+    Switch agents based on your current need.
+  </Accordion>
+
+  <Accordion icon="floppy-disk" title="Save Your Work">
+    Tesslate auto-saves, but you can also:
+    - Commit to GitHub regularly
+    - Download your project files
+    - Keep backups of important versions
+  </Accordion>
+</AccordionGroup>
+
+## Common Issues
+
+<Warning>
+  **Development Server Not Starting?**
+
+  If the dev server fails to start:
+  1. Check your internet connection
+  2. Try refreshing the page
+  3. Contact support if the issue persists
+</Warning>
+
+<Warning>
+  **Preview Not Updating?**
+
+  If changes aren't appearing:
+  1. Click the refresh button in the preview
+  2. Check the browser console for errors
+  3. Try restarting the development server in Settings
+</Warning>
+
+## Next Steps
+
+Now that you've built your first project, explore these guides:
+
+1. [Understanding Projects](/guides/projects) - Learn project management
+2. [Working with Agents](/guides/agents) - Master AI agents
+3. [Code Editor Guide](/guides/code-editor) - Advanced editing features
+4. [Marketplace](/guides/marketplace) - Discover agents and bases
+
+<Card
+  title="Join Our Community"
+  icon="discord"
+  href="https://discord.gg/qmrcHGNch7"
+>
+  Get help, share projects, and connect with other builders
+</Card>

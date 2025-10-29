@@ -1,0 +1,107 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Tesslate Studio",
+  "logo": {
+    "dark": "/logo-dark.svg",
+    "light": "/logo-light.svg",
+    "href": "https://tesslate.com"
+  },
+  "favicon": "/favicon.svg",
+  "font": {
+    "headings": {
+      "family": "DM Sans"
+    },
+    "body": {
+      "family": "DM Sans"
+    }
+  },
+  "colors": {
+    "primary": "#F97316",
+    "light": "#FB923C",
+    "dark": "#EA580C",
+    "background": {
+      "dark": "#0A0A0A",
+      "light": "#FFFFFF"
+    },
+    "anchors": {
+      "from": "#F97316",
+      "to": "#FB923C"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:support@tesslate.com"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "https://studio.tesslate.com"
+  },
+  "anchors": [
+    {
+      "name": "Community",
+      "icon": "discord",
+      "url": "https://discord.gg/qmrcHGNch7"
+    },
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/TesslateAI/Tesslate-Studio"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": [
+        "introduction",
+        "quickstart",
+        "authentication"
+      ]
+    },
+    {
+      "group": "Core Concepts",
+      "pages": [
+        "guides/projects",
+        "guides/agents",
+        "guides/bases",
+        "guides/marketplace",
+        "guides/library"
+      ]
+    },
+    {
+      "group": "Working with Projects",
+      "pages": [
+        "guides/creating-projects",
+        "guides/code-editor",
+        "guides/live-preview",
+        "guides/chat-interface",
+        "guides/github-integration"
+      ]
+    },
+    {
+      "group": "AI Agents",
+      "pages": [
+        "guides/agent-types",
+        "guides/using-agents",
+        "guides/customizing-agents",
+        "guides/agent-marketplace"
+      ]
+    },
+    {
+      "group": "Advanced Features",
+      "pages": [
+        "guides/architecture-diagrams",
+        "guides/api-keys",
+        "guides/model-management",
+        "guides/kanban-board",
+        "guides/assets"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "x": "https://x.com/TesslateAI",
+    "github": "https://github.com/TesslateAI",
+    "linkedin": "https://linkedin.com/company/tesslate"
+  }
+}

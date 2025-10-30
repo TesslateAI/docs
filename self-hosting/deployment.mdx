@@ -1,0 +1,662 @@
+---
+title: 'Production Deployment'
+description: 'Deploy Tesslate Studio to production with custom domains and SSL'
+---
+
+## Overview
+
+This guide covers deploying Tesslate Studio to production with:
+- Custom domain configuration
+- Automatic SSL/TLS certificates
+- Security hardening
+- Performance optimization
+- Backup strategies
+
+<Warning>
+  This guide assumes you've already set up Tesslate Studio locally. If not, see the [Self-Hosting Quickstart](/self-hosting/quickstart) first.
+</Warning>
+
+## Prerequisites
+
+<CardGroup cols={2}>
+  <Card title="Server" icon="server">
+    - Cloud VM or dedicated server
+    - 16GB RAM recommended
+    - 50GB+ disk space
+    - Ubuntu 22.04 LTS (or similar)
+  </Card>
+
+  <Card title="Domain" icon="globe">
+    - Custom domain (e.g., `studio.yourcompany.com`)
+    - DNS access to create records
+    - Wildcard DNS support (`*.studio.yourcompany.com`)
+  </Card>
+
+  <Card title="SSL Certificate" icon="lock">
+    - Automatic via Let's Encrypt (recommended)
+    - Or bring your own certificate
+  </Card>
+
+  <Card title="Email" icon="envelope">
+    - Admin email for Let's Encrypt notifications
+  </Card>
+</CardGroup>
+
+## Server Setup
+
+### 1. Provision Server
+
+Choose a cloud provider:
+
+<Tabs>
+  <Tab title="DigitalOcean">
+    ```bash
+    # Create Droplet
+    # - Image: Ubuntu 22.04 LTS
+    # - Size: 4 vCPUs, 16GB RAM
+    # - Region: Closest to your users
+    # - Add SSH key
+    ```
+
+    **Estimated cost:** $80/month
+  </Tab>
+
+  <Tab title="AWS EC2">
+    ```bash
+    # Launch Instance
+    # - AMI: Ubuntu Server 22.04 LTS
+    # - Instance Type: t3.xlarge (4 vCPUs, 16GB RAM)
+    # - Storage: 50GB gp3
+    # - Security Group: Allow ports 80, 443, 22
+    ```
+
+    **Estimated cost:** $120/month
+  </Tab>
+
+  <Tab title="Hetzner">
+    ```bash
+    # Create Server
+    # - Image: Ubuntu 22.04
+    # - Type: CPX31 (4 vCPUs, 8GB RAM)
+    # - Location: Nearest datacenter
+    ```
+
+    **Estimated cost:** $20/month (best value)
+  </Tab>
+</Tabs>
+
+### 2. Initial Server Configuration
+
+<Steps>
+  <Step title="Connect to Server">
+    ```bash
+    ssh root@your-server-ip
+    ```
+  </Step>
+
+  <Step title="Update System">
+    ```bash
+    apt update && apt upgrade -y
+    ```
+  </Step>
+
+  <Step title="Install Docker">
+    ```bash
+    curl -fsSL https://get.docker.com | sh
+    systemctl enable docker
+    systemctl start docker
+    ```
+
+    Verify:
+    ```bash
+    docker --version
+    docker compose version
+    ```
+  </Step>
+
+  <Step title="Create Non-Root User">
+    ```bash
+    adduser tesslate
+    usermod -aG docker tesslate
+    usermod -aG sudo tesslate
+    ```
+
+    Switch to new user:
+    ```bash
+    su - tesslate
+    ```
+  </Step>
+
+  <Step title="Set up Firewall">
+    ```bash
+    sudo ufw allow 22/tcp    # SSH
+    sudo ufw allow 80/tcp    # HTTP
+    sudo ufw allow 443/tcp   # HTTPS
+    sudo ufw enable
+    ```
+  </Step>
+</Steps>
+
+## DNS Configuration
+
+### 1. Create DNS Records
+
+Add these records to your DNS provider:
+
+<CodeGroup>
+```txt Main Domain (A Record)
+Type: A
+Name: studio
+Value: your-server-ip
+TTL: 300
+```
+
+```txt Wildcard (A Record)
+Type: A
+Name: *.studio
+Value: your-server-ip
+TTL: 300
+```
+
+```txt Alternative: CNAME
+# If using subdomain
+Type: CNAME
+Name: studio
+Value: yourcompany.com
+TTL: 300
+
+Type: CNAME
+Name: *.studio
+Value: studio.yourcompany.com
+TTL: 300
+```
+</CodeGroup>
+
+### 2. Verify DNS Propagation
+
+Wait 5-10 minutes, then test:
+
+```bash
+# Should return your server IP
+dig studio.yourcompany.com
+dig test.studio.yourcompany.com
+```
+
+## Application Deployment
+
+### 1. Clone Repository
+
+```bash
+cd /home/tesslate
+git clone https://github.com/TesslateAI/Studio.git
+cd Studio
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Update these values:
+
+```env
+# Domain Configuration
+APP_DOMAIN=studio.yourcompany.com
+APP_PROTOCOL=https
+FRONTEND_URL=https://studio.yourcompany.com
+
+# Generate strong keys
+SECRET_KEY=<generate-with-python>
+LITELLM_MASTER_KEY=sk-<generate-with-python>
+
+# AI Provider (at least one)
+OPENAI_API_KEY=sk-your-production-key
+ANTHROPIC_API_KEY=sk-your-production-key
+
+# Database
+DATABASE_URL=postgresql+asyncpg://tesslate:CHANGE_THIS_PASSWORD@postgres:5432/tesslate_db
+POSTGRES_PASSWORD=CHANGE_THIS_PASSWORD
+
+# Production Settings
+LOG_LEVEL=INFO
+AUTO_SEED_DATABASE=false  # Set to false after first run
+```
+
+**Generate secure keys:**
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+python3 -c "import secrets; print('sk-' + secrets.token_urlsafe(32))"
+```
+
+### 3. Configure SSL with Let's Encrypt
+
+Update `docker-compose.yml` for production:
+
+```yaml
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - "--api.dashboard=false"  # Disable dashboard in production
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Redirect HTTP to HTTPS
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Let's Encrypt configuration
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@yourcompany.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - tesslate-network
+
+  app:
+    labels:
+      - "traefik.http.routers.app.rule=Host(`studio.yourcompany.com`)"
+      - "traefik.http.routers.app.tls=true"
+      - "traefik.http.routers.app.tls.certresolver=letsencrypt"
+
+  orchestrator:
+    labels:
+      - "traefik.http.routers.orchestrator.rule=Host(`studio.yourcompany.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.orchestrator.tls=true"
+      - "traefik.http.routers.orchestrator.tls.certresolver=letsencrypt"
+```
+
+### 4. Deploy
+
+```bash
+# Create letsencrypt directory
+mkdir -p letsencrypt
+chmod 600 letsencrypt
+
+# Start services
+docker compose up -d
+
+# Monitor logs
+docker compose logs -f
+```
+
+### 5. Verify Deployment
+
+<Steps>
+  <Step title="Check Services">
+    ```bash
+    docker compose ps
+    ```
+    All services should be "Up".
+  </Step>
+
+  <Step title="Test HTTPS">
+    Open browser to:
+    ```
+    https://studio.yourcompany.com
+    ```
+
+    Should show:
+    - Valid SSL certificate
+    - Green padlock in browser
+    - No certificate warnings
+  </Step>
+
+  <Step title="Test API">
+    ```bash
+    curl https://studio.yourcompany.com/api/health
+    ```
+
+    Should return:
+    ```json
+    {"status": "healthy"}
+    ```
+  </Step>
+
+  <Step title="Create First User">
+    Sign up at `https://studio.yourcompany.com`
+
+    First user is automatically admin.
+  </Step>
+</Steps>
+
+## Database Backup
+
+### 1. Automated Backup Script
+
+Create `/home/tesslate/backup.sh`:
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/home/tesslate/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/tesslate_$DATE.sql.gz"
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
+
+# Dump database
+docker compose exec -T postgres pg_dump -U tesslate tesslate_db | gzip > $BACKUP_FILE
+
+# Keep only last 7 days
+find $BACKUP_DIR -type f -mtime +7 -delete
+
+echo "Backup completed: $BACKUP_FILE"
+```
+
+Make executable:
+```bash
+chmod +x /home/tesslate/backup.sh
+```
+
+### 2. Schedule Backups
+
+Add to crontab:
+```bash
+crontab -e
+```
+
+Add this line (daily at 2 AM):
+```
+0 2 * * * /home/tesslate/backup.sh
+```
+
+### 3. Test Restore
+
+```bash
+# Stop services
+cd /home/tesslate/Studio
+docker compose down
+
+# Restore database
+gunzip < /home/tesslate/backups/tesslate_YYYYMMDD_HHMMSS.sql.gz | \
+  docker compose exec -T postgres psql -U tesslate tesslate_db
+
+# Restart services
+docker compose up -d
+```
+
+## Monitoring
+
+### 1. Docker Health Checks
+
+Check container health:
+```bash
+docker compose ps
+docker stats
+```
+
+### 2. Log Management
+
+View logs:
+```bash
+# All services
+docker compose logs -f
+
+# Specific service
+docker compose logs -f orchestrator
+
+# Last 100 lines
+docker compose logs --tail=100 orchestrator
+```
+
+Rotate logs in `docker-compose.yml`:
+```yaml
+services:
+  orchestrator:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+### 3. Disk Space Monitoring
+
+Create `/home/tesslate/monitor.sh`:
+
+```bash
+#!/bin/bash
+USAGE=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+
+if [ $USAGE -gt 80 ]; then
+    echo "WARNING: Disk usage is at ${USAGE}%"
+    # Clean Docker
+    docker system prune -f
+fi
+```
+
+Add to crontab (hourly):
+```
+0 * * * * /home/tesslate/monitor.sh
+```
+
+## Security Hardening
+
+<Steps>
+  <Step title="Disable Root SSH">
+    Edit `/etc/ssh/sshd_config`:
+    ```bash
+    PermitRootLogin no
+    PasswordAuthentication no
+    ```
+
+    Restart SSH:
+    ```bash
+    sudo systemctl restart ssh
+    ```
+  </Step>
+
+  <Step title="Configure Fail2Ban">
+    ```bash
+    sudo apt install fail2ban
+    sudo systemctl enable fail2ban
+    sudo systemctl start fail2ban
+    ```
+  </Step>
+
+  <Step title="Enable Unattended Upgrades">
+    ```bash
+    sudo apt install unattended-upgrades
+    sudo dpkg-reconfigure -plow unattended-upgrades
+    ```
+  </Step>
+
+  <Step title="Secure PostgreSQL">
+    Change default password in `.env`:
+    ```env
+    POSTGRES_PASSWORD=very-strong-password-here
+    ```
+
+    Update `DATABASE_URL` accordingly.
+  </Step>
+
+  <Step title="Rate Limiting">
+    Add to Traefik configuration:
+    ```yaml
+    - "--entrypoints.websecure.http.middlewares=rate-limit"
+    - "--http.middlewares.rate-limit.rateLimit.average=100"
+    - "--http.middlewares.rate-limit.rateLimit.burst=50"
+    ```
+  </Step>
+</Steps>
+
+## Performance Optimization
+
+### 1. Enable HTTP/2
+
+Already enabled with Traefik HTTPS.
+
+### 2. Database Optimization
+
+Add to `docker-compose.yml`:
+
+```yaml
+services:
+  postgres:
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "default_statistics_target=100"
+```
+
+### 3. Docker Resource Limits
+
+Add to `docker-compose.yml`:
+
+```yaml
+services:
+  orchestrator:
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  app:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+```
+
+## Maintenance
+
+### Daily Tasks
+
+```bash
+# Check logs for errors
+docker compose logs --tail=100 | grep -i error
+
+# Check disk space
+df -h
+
+# Check Docker stats
+docker stats --no-stream
+```
+
+### Weekly Tasks
+
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Clean Docker resources
+docker system prune -f
+
+# Review backups
+ls -lh /home/tesslate/backups/
+```
+
+### Monthly Tasks
+
+```bash
+# Pull latest updates
+cd /home/tesslate/Studio
+git pull origin main
+
+# Rebuild images
+docker compose build --no-cache
+
+# Restart services
+docker compose down && docker compose up -d
+
+# Test application
+curl https://studio.yourcompany.com/api/health
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="SSL Certificate Not Working">
+    **Check Let's Encrypt logs:**
+    ```bash
+    docker compose logs traefik | grep -i acme
+    ```
+
+    **Common issues:**
+    - DNS not propagated (wait 10-15 minutes)
+    - Port 80 not accessible (check firewall)
+    - Invalid email in acme configuration
+    - Rate limit hit (5 certs per week per domain)
+
+    **Force renewal:**
+    ```bash
+    rm -rf letsencrypt/acme.json
+    docker compose restart traefik
+    ```
+  </Accordion>
+
+  <Accordion title="High Memory Usage">
+    **Check what's using memory:**
+    ```bash
+    docker stats
+    ```
+
+    **Solutions:**
+    1. Add swap space
+    2. Increase server RAM
+    3. Add resource limits in docker-compose.yml
+    4. Clean up old containers:
+    ```bash
+    docker system prune -a
+    ```
+  </Accordion>
+
+  <Accordion title="Database Connection Errors">
+    **Check PostgreSQL is running:**
+    ```bash
+    docker compose ps postgres
+    ```
+
+    **Check logs:**
+    ```bash
+    docker compose logs postgres
+    ```
+
+    **Restart database:**
+    ```bash
+    docker compose restart postgres
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Security Best Practices" icon="shield" href="/self-hosting/security">
+    Harden your production deployment
+  </Card>
+
+  <Card title="Monitoring & Alerts" icon="chart-line" href="/self-hosting/monitoring">
+    Set up monitoring and alerting
+  </Card>
+
+  <Card title="Configuration" icon="gear" href="/self-hosting/configuration">
+    Advanced configuration options
+  </Card>
+
+  <Card title="Backup & Restore" icon="database" href="/self-hosting/backup">
+    Comprehensive backup strategies
+  </Card>
+</CardGroup>

@@ -1,0 +1,563 @@
+---
+title: 'FAQ'
+description: 'Frequently asked questions about Tesslate Studio'
+---
+
+## General Questions
+
+<AccordionGroup>
+  <Accordion title="What is Tesslate Studio?">
+    Tesslate Studio is an open-source AI-powered development platform that helps you build full-stack web applications using natural language. It's designed to be self-hosted, giving you complete control over your development environment and data.
+
+    **Key features:**
+    - AI code generation from natural language
+    - Live preview with hot reload
+    - Self-hosted infrastructure
+    - Container isolation for projects
+    - Support for multiple AI models
+  </Accordion>
+
+  <Accordion title="Is Tesslate Studio free?">
+    **Yes!** Tesslate Studio is 100% open source under the Apache 2.0 license. You can:
+    - Use it for free (personal or commercial)
+    - Self-host on your own infrastructure
+    - Modify and customize it
+    - Fork and distribute it
+
+    **You only pay for:**
+    - Infrastructure costs (if deploying to cloud)
+    - AI API usage (OpenAI, Anthropic, etc.) **OR** use free local models with Ollama
+  </Accordion>
+
+  <Accordion title="How is Tesslate Studio different from cloud-based alternatives?">
+    **Data Sovereignty:**
+    - Your code never leaves your infrastructure
+    - Complete control over data storage
+    - No vendor lock-in
+
+    **Cost Control:**
+    - No per-seat pricing
+    - Pay only for infrastructure and AI APIs
+    - Use free local models (Ollama)
+
+    **Customization:**
+    - Fork and modify the platform
+    - Create custom agents
+    - Add proprietary features
+
+    **Self-Hosting:**
+    - Deploy anywhere (laptop, cloud, on-prem)
+    - Works offline (with local models)
+    - No internet dependency for core features
+  </Accordion>
+
+  <Accordion title="Do I need to pay for OpenAI/Claude API?">
+    **Not necessarily!** You have three options:
+
+    **1. Bring Your Own API Keys (BYOK)**
+    - Use OpenAI, Anthropic, Google Gemini, etc.
+    - Pay your provider directly (typically pennies per request)
+
+    **2. Local Models (Free)**
+    - Install [Ollama](https://ollama.ai)
+    - Use free models like Llama 2, Mistral, CodeLlama
+    - 100% offline, zero AI costs
+
+    **3. Hybrid Approach**
+    - Use local models for development
+    - Use cloud models for production
+    - Best of both worlds
+  </Accordion>
+
+  <Accordion title="Can I use this commercially?">
+    **Yes!** The Apache 2.0 license allows:
+    - Commercial use
+    - Building paid products with it
+    - Using it for client work
+    - Selling hosting services
+    - Creating proprietary extensions
+
+    **No restrictions on:**
+    - Number of users
+    - Revenue generated
+    - Type of business
+  </Accordion>
+</AccordionGroup>
+
+## Technical Questions
+
+<AccordionGroup>
+  <Accordion title="What technologies does Tesslate Studio use?">
+    **Frontend:**
+    - React 19
+    - TypeScript
+    - Vite 7
+    - Tailwind CSS
+    - Monaco Editor (VSCode engine)
+
+    **Backend:**
+    - FastAPI (Python)
+    - PostgreSQL
+    - SQLAlchemy ORM
+    - Docker SDK
+    - LiteLLM (AI gateway)
+
+    **Infrastructure:**
+    - Docker / Docker Compose
+    - Traefik (reverse proxy)
+    - Node.js (for project runtimes)
+  </Accordion>
+
+  <Accordion title="What are the system requirements?">
+    **Minimum:**
+    - 8GB RAM
+    - 10GB disk space
+    - Docker Desktop (or Docker Engine on Linux)
+    - Modern browser (Chrome, Firefox, Safari, Edge)
+
+    **Recommended:**
+    - 16GB RAM
+    - 20GB disk space
+    - Fast internet (for AI API calls)
+
+    **Supported Operating Systems:**
+    - Windows 10/11
+    - macOS 12+
+    - Linux (Ubuntu, Debian, Fedora, etc.)
+  </Accordion>
+
+  <Accordion title="Can I run this without Docker?">
+    **Not recommended, but possible.** Docker provides:
+    - Easy setup
+    - Container isolation
+    - Consistent environment
+    - Project sandboxing
+
+    **Without Docker, you need to manually:**
+    - Install PostgreSQL
+    - Configure Traefik or NGINX
+    - Set up Node.js environments
+    - Manage project isolation
+
+    For most users, Docker is much simpler.
+  </Accordion>
+
+  <Accordion title="What AI models are supported?">
+    Tesslate Studio supports 100+ AI models via [LiteLLM](https://github.com/BerriAI/litellm):
+
+    **Cloud Providers:**
+    - OpenAI (GPT-5, GPT-4, GPT-3.5)
+    - Anthropic (Claude 3.5, Claude 3)
+    - Google (Gemini Pro, Gemini Flash)
+    - Azure OpenAI
+    - Cohere
+    - Together AI
+    - And many more
+
+    **Local Models:**
+    - Ollama (Llama 2, Mistral, CodeLlama, etc.)
+    - LM Studio
+    - Any OpenAI-compatible endpoint
+  </Accordion>
+
+  <Accordion title="Is my code/data sent to Tesslate's servers?">
+    **No.** Tesslate Studio is self-hosted—everything runs on **YOUR** infrastructure:
+    - Code stays on your machine/server
+    - Database is local
+    - No telemetry or tracking
+    - No external dependencies (except AI APIs if you choose to use them)
+
+    **We never see:**
+    - Your code
+    - Your data
+    - Your prompts
+    - Your API keys
+  </Accordion>
+
+  <Accordion title="Can I customize the AI agents?">
+    **Absolutely!** All agents are open source. You can:
+    - Fork existing agents
+    - Modify system prompts
+    - Change agent behavior
+    - Swap AI models
+    - Create entirely new agents
+
+    See [Creating Custom Agents](/development/custom-agents) for details.
+  </Accordion>
+</AccordionGroup>
+
+## Deployment Questions
+
+<AccordionGroup>
+  <Accordion title="Where can I deploy Tesslate Studio?">
+    **Anywhere that runs Docker:**
+
+    **Local:**
+    - Your laptop/desktop
+    - Home server
+    - Raspberry Pi (with sufficient RAM)
+
+    **Cloud:**
+    - AWS (EC2, ECS, Fargate)
+    - Google Cloud (Compute Engine, Cloud Run)
+    - Azure (VM, Container Instances)
+    - DigitalOcean Droplets
+    - Hetzner, Linode, etc.
+
+    **On-Premises:**
+    - Company datacenter
+    - Private cloud
+    - Air-gapped networks (with local AI models)
+  </Accordion>
+
+  <Accordion title="Can I use a custom domain?">
+    **Yes!** Configure in `.env`:
+
+    ```env
+    APP_DOMAIN=studio.yourcompany.com
+    APP_PROTOCOL=https
+    ```
+
+    Projects will be at:
+    - `studio.yourcompany.com` - Main app
+    - `project-name.studio.yourcompany.com` - User projects
+
+    See [Deployment Guide](/self-hosting/deployment) for SSL setup.
+  </Accordion>
+
+  <Accordion title="How do I set up SSL/HTTPS?">
+    **For production deployments:**
+
+    1. **Get a domain** (e.g., studio.yourcompany.com)
+    2. **Point DNS** to your server
+    3. **Configure Traefik** for automatic Let's Encrypt:
+
+    ```yaml
+    # docker-compose.yml
+    services:
+      traefik:
+        command:
+          - "--certificatesresolvers.letsencrypt.acme.email=admin@yourcompany.com"
+          - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ```
+
+    Traefik automatically gets and renews SSL certificates!
+
+    See [Deployment Guide](/self-hosting/deployment) for full instructions.
+  </Accordion>
+
+  <Accordion title="Can I use an external database?">
+    **Yes!** Set `DATABASE_URL` in `.env`:
+
+    ```env
+    DATABASE_URL=postgresql+asyncpg://user:pass@your-db-host:5432/tesslate
+    ```
+
+    **Supported:**
+    - AWS RDS
+    - Google Cloud SQL
+    - Azure Database for PostgreSQL
+    - Managed PostgreSQL providers
+    - Self-hosted PostgreSQL
+
+    **Requirements:**
+    - PostgreSQL 13+
+    - Public accessibility or VPN connection
+  </Accordion>
+
+  <Accordion title="What hardware do I need for production?">
+    **Small Team (1-10 users):**
+    - 2 vCPUs
+    - 8GB RAM
+    - 50GB SSD
+    - **Estimated cost:** $40-80/month on cloud
+
+    **Medium Team (10-50 users):**
+    - 4 vCPUs
+    - 16GB RAM
+    - 100GB SSD
+    - **Estimated cost:** $80-160/month on cloud
+
+    **Large Team (50+ users):**
+    - 8+ vCPUs
+    - 32GB+ RAM
+    - 200GB+ SSD
+    - Consider load balancing
+    - **Estimated cost:** $200+/month on cloud
+
+    *Note: Costs vary by cloud provider*
+  </Accordion>
+</AccordionGroup>
+
+## Usage Questions
+
+<AccordionGroup>
+  <Accordion title="What programming languages does it support?">
+    **Primary Focus:**
+    - React + TypeScript (frontend)
+    - JavaScript/TypeScript (full-stack)
+
+    **Backend Options (via templates):**
+    - Python (FastAPI, Flask, Django)
+    - Go
+    - Node.js (Express, Next.js API routes)
+
+    **AI agents can generate code in any language**, but templates and tooling are optimized for JavaScript/TypeScript.
+  </Accordion>
+
+  <Accordion title="Can I import existing projects?">
+    **Yes!** Multiple ways:
+
+    **1. GitHub Import**
+    - Connect GitHub account
+    - Import any public/private repository
+    - Automatically creates project container
+
+    **2. Manual Upload**
+    - Create blank project
+    - Upload files via code editor
+    - Or use GitHub integration
+
+    **3. Git Clone**
+    - Create project
+    - Use integrated terminal to clone repo
+  </Accordion>
+
+  <Accordion title="Can I collaborate with others?">
+    **Currently:** Tesslate Studio is designed for individual users with isolated projects.
+
+    **Planned Features:**
+    - Real-time collaboration
+    - Multiplayer editing
+    - Shared projects
+    - Team workspaces
+
+    **Workaround:**
+    - Use GitHub for collaboration
+    - Each team member has their own Tesslate instance
+    - Share via Git commits
+  </Accordion>
+
+  <Accordion title="How do I export/download my projects?">
+    **Multiple options:**
+
+    **1. GitHub Integration**
+    - Push to GitHub repository
+    - Clone repository elsewhere
+
+    **2. Download Files**
+    - Use code editor to select files
+    - Download individual files or folders
+
+    **3. Docker Container Export**
+    ```bash
+    docker cp <container-id>:/app ./my-project
+    ```
+
+    **4. Git Clone**
+    - Projects are Git repositories
+    - Clone from container
+  </Accordion>
+
+  <Accordion title="What happens if I delete a project?">
+    When you delete a project:
+    1. Database record is removed
+    2. Docker container is stopped and deleted
+    3. All project files are deleted
+
+    **This is permanent** and cannot be undone.
+
+    **Best practices:**
+    - Push to GitHub before deleting
+    - Download files locally
+    - Export container if needed
+  </Accordion>
+
+  <Accordion title="Can I use Tesslate Studio offline?">
+    **Partially:**
+
+    **What works offline:**
+    - Core application
+    - Code editor
+    - Live preview
+    - Project management
+    - **If using Ollama:** AI generation works offline
+
+    **What requires internet:**
+    - Cloud AI models (OpenAI, Anthropic, etc.)
+    - GitHub integration
+    - npm package installs
+    - External API calls from your projects
+
+    **For full offline:** Use Ollama with local models.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Preview not updating?">
+    **Try these steps:**
+
+    1. **Refresh the preview:**
+       Click refresh button in preview panel
+
+    2. **Check for errors:**
+       Open browser console (F12) and look for errors
+
+    3. **Restart dev server:**
+       Go to Settings → Restart Development Server
+
+    4. **Check container logs:**
+       ```bash
+       docker compose logs <project-container-id>
+       ```
+
+    5. **Clear browser cache:**
+       Hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
+  </Accordion>
+
+  <Accordion title="AI agent not responding?">
+    **Common causes:**
+
+    **1. Invalid API key**
+    - Check `.env` file
+    - Verify key with provider
+    - Restart orchestrator
+
+    **2. Rate limiting**
+    - You've hit API rate limits
+    - Wait and try again
+    - Or switch to different model
+
+    **3. Model not available**
+    - Model might be deprecated
+    - Try a different model
+    - Check LiteLLM compatibility
+
+    **4. Network issues**
+    - Check internet connection
+    - Verify firewall rules
+    - Check Docker networking
+  </Accordion>
+
+  <Accordion title="Can't access studio.localhost?">
+    **Solutions:**
+
+    **1. Check Docker is running**
+    - Open Docker Desktop
+    - Verify status is "Running"
+
+    **2. Check containers are up**
+    ```bash
+    docker compose ps
+    ```
+    All should show "Up"
+
+    **3. Try with port**
+    ```
+    http://localhost:80
+    ```
+
+    **4. Check /etc/hosts (Mac/Linux)**
+    Add this line if missing:
+    ```
+    127.0.0.1 studio.localhost
+    ```
+
+    **5. Check Windows hosts file**
+    File: `C:\Windows\System32\drivers\etc\hosts`
+    Add:
+    ```
+    127.0.0.1 studio.localhost
+    ```
+
+    **6. Restart everything**
+    ```bash
+    docker compose down
+    docker compose up -d
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Security & Privacy
+
+<AccordionGroup>
+  <Accordion title="Is Tesslate Studio secure?">
+    **Security features:**
+    - JWT authentication with refresh tokens
+    - Bcrypt password hashing
+    - Encrypted credential storage (GitHub tokens, API keys)
+    - Container isolation per project
+    - Command validation for AI agents
+    - Audit logging of all operations
+    - HTTPS/TLS support in production
+
+    **Best practices:**
+    - Use strong passwords
+    - Enable HTTPS in production
+    - Keep Docker updated
+    - Regular database backups
+    - Monitor audit logs
+
+    See [Security Best Practices](/self-hosting/security) for details.
+  </Accordion>
+
+  <Accordion title="Can AI agents access my file system?">
+    **No.** AI agents are sandboxed:
+    - Can only access the project's container
+    - Cannot access host file system
+    - Cannot access other containers
+    - Commands are validated before execution
+
+    **Blocked operations:**
+    - File system access outside container
+    - Network access to local services
+    - Dangerous shell commands
+    - System modifications
+  </Accordion>
+
+  <Accordion title="Where are my credentials stored?">
+    **Database (PostgreSQL):**
+    - User passwords: Bcrypt hashed
+    - GitHub tokens: Fernet encrypted
+    - API keys: Fernet encrypted
+    - Refresh tokens: Stored with revocation support
+
+    **Environment (.env):**
+    - SECRET_KEY: Keep secure, never commit
+    - AI provider keys: Keep secure, never share
+
+    **Best practices:**
+    - Use strong SECRET_KEY
+    - Don't commit .env to Git
+    - Rotate keys regularly
+    - Use different keys for dev/prod
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="Documentation" icon="book" href="https://docs.tesslate.com">
+    Browse the full documentation
+  </Card>
+
+  <Card title="GitHub Discussions" icon="comments" href="https://github.com/TesslateAI/Studio/discussions">
+    Ask questions and share ideas
+  </Card>
+
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/TesslateAI/Studio/issues">
+    Report bugs and request features
+  </Card>
+
+  <Card title="Email Support" icon="envelope" href="mailto:support@tesslate.com">
+    Direct support (response within 24h)
+  </Card>
+</CardGroup>
+
+## Still Have Questions?
+
+<Card title="Ask in Discussions" icon="comments" href="https://github.com/TesslateAI/Studio/discussions">
+  Can't find your answer? Ask the community in GitHub Discussions.
+</Card>

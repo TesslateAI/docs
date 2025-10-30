@@ -56,7 +56,17 @@
       "pages": [
         "introduction",
         "quickstart",
-        "authentication"
+        "authentication",
+        "faq"
+      ]
+    },
+    {
+      "group": "Self-Hosting",
+      "pages": [
+        "self-hosting/quickstart",
+        "self-hosting/configuration",
+        "self-hosting/deployment",
+        "self-hosting/architecture"
       ]
     },
     {
@@ -96,6 +106,18 @@
         "guides/model-management",
         "guides/kanban-board",
         "guides/assets"
+      ]
+    },
+    {
+      "group": "Development",
+      "pages": [
+        "development/guide"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/introduction"
       ]
     }
   ],

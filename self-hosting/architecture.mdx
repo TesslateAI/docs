@@ -1,0 +1,603 @@
+---
+title: 'Architecture'
+description: 'Understanding how Tesslate Studio works under the hood'
+---
+
+## System Overview
+
+Tesslate Studio is built as a **self-hosted, container-based AI development platform** that creates isolated environments for each project. This architecture provides security, scalability, and complete data sovereignty.
+
+<Frame>
+```
+┌─────────────────────────────────────────────────────┐
+│  Your Machine / Your Cloud / Your Datacenter       │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  ┌──────────────────────────────────────────┐     │
+│  │  Tesslate Studio (You control this)     │     │
+│  │                                           │     │
+│  │  • FastAPI Orchestrator (Python)         │     │
+│  │  • React Frontend (TypeScript)           │     │
+│  │  • PostgreSQL Database                    │     │
+│  │  • AI Agent Marketplace                   │     │
+│  └───────────┬──────────────────────────────┘     │
+│              │                                      │
+│              ▼                                      │
+│  ┌──────────────────────────────────────────┐     │
+│  │  Project Containers (Isolated)           │     │
+│  │                                           │     │
+│  │  todo-app.studio.localhost               │     │
+│  │  dashboard.studio.localhost              │     │
+│  │  prototype.studio.localhost              │     │
+│  └──────────────────────────────────────────┘     │
+│                                                     │
+│  ┌──────────────────────────────────────────┐     │
+│  │  Your AI Models (You choose)             │     │
+│  │                                           │     │
+│  │  • OpenAI GPT-5 (API)                    │     │
+│  │  • Anthropic Claude (API)                │     │
+│  │  • Local LLMs via Ollama                 │     │
+│  │  • Or any LiteLLM-compatible provider    │     │
+│  └──────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────┘
+```
+</Frame>
+
+## Core Components
+
+### Orchestrator (Backend)
+
+<Card title="FastAPI Backend" icon="server">
+  The orchestrator is the brain of Tesslate Studio, built with FastAPI (Python).
+</Card>
+
+**Responsibilities:**
+- **User Authentication & Authorization**: JWT-based auth with refresh tokens
+- **Project Management**: Create, update, delete projects
+- **Agent Execution**: Run AI agents and manage their lifecycle
+- **Container Orchestration**: Spin up Docker containers for each project
+- **Database Operations**: Store user data, projects, agents, and settings
+- **API Gateway**: Expose REST API for frontend consumption
+
+**Technology Stack:**
+- **FastAPI**: Modern async Python web framework
+- **SQLAlchemy**: ORM for database operations
+- **Alembic**: Database migrations
+- **Docker SDK**: Container management via Docker API
+- **LiteLLM**: Unified AI model gateway
+
+**Key Services:**
+- `AuthService`: User authentication and session management
+- `ProjectService`: Project CRUD operations
+- `AgentService`: AI agent execution and management
+- `ContainerService`: Docker container lifecycle management
+- `GitHubService`: GitHub OAuth and repository operations
+
+### Frontend (React)
+
+<Card title="React 19 + Vite 7" icon="react">
+  Modern single-page application built with the latest React and Vite.
+</Card>
+
+**Responsibilities:**
+- **User Interface**: Dashboard, project editor, chat interface
+- **Live Preview**: Real-time application preview with HMR
+- **Code Editor**: Monaco editor integration (VSCode engine)
+- **Chat Interface**: Real-time AI agent communication
+- **File Management**: File tree, file operations, save/load
+
+**Technology Stack:**
+- **React 19**: Component-based UI framework
+- **Vite 7**: Lightning-fast build tool and dev server
+- **TypeScript**: Type-safe JavaScript
+- **Tailwind CSS**: Utility-first CSS framework
+- **Zustand**: State management
+- **React Query**: Server state management
+- **Monaco Editor**: VSCode editor engine
+- **WebSocket**: Real-time agent communication
+
+**Key Features:**
+- **Project Dashboard**: View and manage all projects
+- **Code Editor**: Full-featured editor with syntax highlighting
+- **Live Preview**: Browser-based preview with subdomain routing
+- **Chat Interface**: Conversational AI agent interaction
+- **Marketplace**: Browse and install agents and templates
+
+### Database (PostgreSQL)
+
+<Card title="PostgreSQL 15+" icon="database">
+  Production-grade relational database for all persistent data.
+</Card>
+
+**Schema Overview:**
+
+<Tabs>
+  <Tab title="Users">
+    ```sql
+    users
+    - id (uuid, primary key)
+    - email (unique)
+    - username (unique)
+    - hashed_password
+    - is_active
+    - is_admin
+    - created_at
+    - updated_at
+    ```
+
+    Stores user accounts with authentication details.
+  </Tab>
+
+  <Tab title="Projects">
+    ```sql
+    projects
+    - id (uuid, primary key)
+    - user_id (foreign key)
+    - name
+    - description
+    - slug (unique)
+    - container_id
+    - status (enum: active, stopped, error)
+    - created_at
+    - updated_at
+    ```
+
+    Stores project metadata and container association.
+  </Tab>
+
+  <Tab title="Agents">
+    ```sql
+    agents
+    - id (uuid, primary key)
+    - name
+    - slug (unique)
+    - description
+    - agent_type (enum: stream, iterative)
+    - source_type (enum: open, closed)
+    - is_forkable
+    - system_prompt
+    - model_requirements
+    - created_at
+    - updated_at
+    ```
+
+    Stores AI agent configurations and prompts.
+  </Tab>
+
+  <Tab title="Agent Logs">
+    ```sql
+    agent_command_logs
+    - id (uuid, primary key)
+    - agent_id (foreign key)
+    - project_id (foreign key)
+    - command
+    - output
+    - status (enum: success, failed)
+    - executed_at
+    ```
+
+    Audit trail for all AI agent command executions.
+  </Tab>
+</Tabs>
+
+### Reverse Proxy (Traefik)
+
+<Card title="Traefik" icon="network-wired">
+  Cloud-native reverse proxy for routing and load balancing.
+</Card>
+
+**Responsibilities:**
+- **Subdomain Routing**: Route `project-name.studio.localhost` to correct container
+- **SSL Termination**: Handle HTTPS/TLS in production
+- **Load Balancing**: Distribute traffic across services
+- **Service Discovery**: Automatically discover Docker containers
+- **HTTP/2 Support**: Modern protocol support
+
+**Routing Rules:**
+- `studio.localhost` → Frontend (React app)
+- `studio.localhost/api` → Orchestrator (FastAPI)
+- `{project}.studio.localhost` → Project container
+
+**Configuration:**
+```yaml
+# Traefik discovers routes via Docker labels
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.app.rule=Host(`studio.localhost`)"
+  - "traefik.http.services.app.loadbalancer.server.port=5173"
+```
+
+## Data Flow
+
+### Project Creation Flow
+
+<Steps>
+  <Step title="User Initiates">
+    User clicks "Create Project" in frontend and selects a template.
+  </Step>
+
+  <Step title="API Request">
+    Frontend sends POST request to `/api/projects`:
+    ```json
+    {
+      "name": "My Todo App",
+      "template": "vite-react",
+      "description": "A simple todo application"
+    }
+    ```
+  </Step>
+
+  <Step title="Database Record">
+    Orchestrator creates project record in PostgreSQL with `status: "initializing"`.
+  </Step>
+
+  <Step title="Container Creation">
+    ContainerService spins up a new Docker container:
+    - Pull base image (`node:18-alpine`)
+    - Create container with project files
+    - Attach to Traefik network
+    - Set container labels for routing
+  </Step>
+
+  <Step title="Development Server">
+    Inside container, Vite dev server starts:
+    ```bash
+    npm run dev --host 0.0.0.0 --port 3000
+    ```
+  </Step>
+
+  <Step title="Update Database">
+    Orchestrator updates project:
+    - `container_id`: Docker container ID
+    - `status`: "active"
+    - `url`: `http://my-todo-app.studio.localhost`
+  </Step>
+
+  <Step title="Response to Frontend">
+    Orchestrator sends success response:
+    ```json
+    {
+      "id": "uuid",
+      "name": "My Todo App",
+      "url": "http://my-todo-app.studio.localhost",
+      "status": "active"
+    }
+    ```
+  </Step>
+</Steps>
+
+### AI Agent Execution Flow
+
+<Steps>
+  <Step title="User Sends Message">
+    User types in chat: "Add a dark mode toggle"
+  </Step>
+
+  <Step title="WebSocket Connection">
+    Frontend establishes WebSocket connection to orchestrator.
+  </Step>
+
+  <Step title="Agent Selection">
+    Frontend includes agent type in request:
+    ```json
+    {
+      "message": "Add a dark mode toggle",
+      "agent_id": "stream-builder-id",
+      "project_id": "project-uuid"
+    }
+    ```
+  </Step>
+
+  <Step title="Agent Initialization">
+    Orchestrator loads agent configuration:
+    - Retrieves system prompt from database
+    - Loads agent tools (file_read, file_write, etc.)
+    - Initializes LiteLLM client with user's model
+  </Step>
+
+  <Step title="LLM Call">
+    Agent sends prompt to AI model via LiteLLM:
+    ```python
+    response = await litellm.acompletion(
+        model="gpt-5o",
+        messages=[
+            {"role": "system", "content": agent.system_prompt},
+            {"role": "user", "content": user_message}
+        ],
+        stream=True
+    )
+    ```
+  </Step>
+
+  <Step title="Stream Response">
+    As AI generates code, orchestrator streams chunks to frontend via WebSocket:
+    ```json
+    {"type": "chunk", "content": "```jsx\n"}
+    {"type": "chunk", "content": "const DarkMode"}
+    {"type": "chunk", "content": "Toggle = () => {\n"}
+    ```
+  </Step>
+
+  <Step title="File Operations">
+    When agent detects code blocks, it auto-saves files to project container:
+    ```python
+    await container_service.write_file(
+        container_id=project.container_id,
+        path="/app/src/components/DarkModeToggle.jsx",
+        content=generated_code
+    )
+    ```
+  </Step>
+
+  <Step title="Live Preview Update">
+    Vite HMR detects file change and updates browser preview instantly.
+  </Step>
+
+  <Step title="Log to Database">
+    Orchestrator logs operation to `agent_command_logs`:
+    ```python
+    await db.execute(
+        insert(AgentCommandLog).values(
+            agent_id=agent.id,
+            project_id=project.id,
+            command="write_file",
+            output="DarkModeToggle.jsx created",
+            status="success"
+        )
+    )
+    ```
+  </Step>
+</Steps>
+
+## Security Architecture
+
+### Authentication Flow
+
+<Steps>
+  <Step title="User Login">
+    User submits email/password to `/api/auth/login`.
+  </Step>
+
+  <Step title="Password Verification">
+    Orchestrator verifies password using bcrypt:
+    ```python
+    password_hash = bcrypt.hashpw(password, salt)
+    verified = bcrypt.checkpw(password, user.hashed_password)
+    ```
+  </Step>
+
+  <Step title="Token Generation">
+    Generate JWT access token (15min expiry) and refresh token (7 days):
+    ```python
+    access_token = jwt.encode(
+        {"sub": user.id, "exp": now + timedelta(minutes=15)},
+        SECRET_KEY,
+        algorithm="HS256"
+    )
+
+    refresh_token = jwt.encode(
+        {"sub": user.id, "exp": now + timedelta(days=7)},
+        SECRET_KEY,
+        algorithm="HS256"
+    )
+    ```
+  </Step>
+
+  <Step title="Store Refresh Token">
+    Refresh token stored in `refresh_tokens` table with revocation support.
+  </Step>
+
+  <Step title="Return Tokens">
+    Send both tokens to frontend:
+    ```json
+    {
+      "access_token": "eyJ...",
+      "refresh_token": "eyJ...",
+      "token_type": "bearer"
+    }
+    ```
+  </Step>
+
+  <Step title="Frontend Storage">
+    Frontend stores:
+    - Access token: Memory only (Zustand store)
+    - Refresh token: HTTPOnly cookie (secure)
+  </Step>
+</Steps>
+
+### Container Isolation
+
+Each project runs in an isolated Docker container:
+
+<Tabs>
+  <Tab title="Network Isolation">
+    Containers are on separate Docker networks and can't communicate with each other unless explicitly allowed.
+
+    ```yaml
+    networks:
+      - project-network-{project_id}
+    ```
+  </Tab>
+
+  <Tab title="Resource Limits">
+    Containers have CPU and memory limits:
+
+    ```python
+    container = docker.containers.create(
+        image="node:18-alpine",
+        mem_limit="512m",
+        cpu_quota=50000,  # 50% of one CPU
+        pids_limit=100
+    )
+    ```
+  </Tab>
+
+  <Tab title="File System Isolation">
+    Each container has its own isolated file system. Containers cannot access host files or other containers' files.
+  </Tab>
+
+  <Tab title="Command Validation">
+    All shell commands executed by AI agents are validated:
+
+    ```python
+    # Blocked commands
+    DANGEROUS_COMMANDS = ["rm -rf /", "dd", "mkfs", ":(){:|:&};:"]
+
+    # Allowed commands
+    SAFE_COMMANDS = ["npm", "node", "vite", "git", "ls", "cat"]
+    ```
+  </Tab>
+</Tabs>
+
+### Credential Encryption
+
+Sensitive data is encrypted at rest:
+
+```python
+from cryptography.fernet import Fernet
+
+# GitHub tokens, API keys encrypted before storage
+cipher_suite = Fernet(ENCRYPTION_KEY)
+encrypted_token = cipher_suite.encrypt(github_token.encode())
+
+# Decrypted only when needed
+decrypted_token = cipher_suite.decrypt(encrypted_token).decode()
+```
+
+## Scalability Patterns
+
+### Horizontal Scaling
+
+While the current version runs on a single host, the architecture supports horizontal scaling:
+
+<Tabs>
+  <Tab title="Stateless Orchestrator">
+    The FastAPI orchestrator is stateless and can be replicated:
+
+    ```yaml
+    services:
+      orchestrator:
+        image: tesslate/orchestrator:latest
+        replicas: 3
+        deploy:
+          mode: replicated
+    ```
+
+    All state is in PostgreSQL or Docker containers.
+  </Tab>
+
+  <Tab title="Database Connection Pooling">
+    SQLAlchemy uses connection pooling:
+
+    ```python
+    engine = create_async_engine(
+        DATABASE_URL,
+        pool_size=10,  # Max connections per instance
+        max_overflow=20,
+        pool_pre_ping=True
+    )
+    ```
+  </Tab>
+
+  <Tab title="Load Balancer">
+    Traefik automatically load balances across orchestrator replicas:
+
+    ```yaml
+    orchestrator:
+      labels:
+        - "traefik.http.services.orchestrator.loadbalancer.sticky=true"
+    ```
+  </Tab>
+</Tabs>
+
+## Technology Stack Summary
+
+<CardGroup cols={2}>
+  <Card title="Backend" icon="server">
+    - **FastAPI** - Async Python web framework
+    - **SQLAlchemy** - ORM and query builder
+    - **PostgreSQL** - Relational database
+    - **Docker SDK** - Container management
+    - **LiteLLM** - AI model gateway
+  </Card>
+
+  <Card title="Frontend" icon="react">
+    - **React 19** - UI framework
+    - **Vite 7** - Build tool and dev server
+    - **TypeScript** - Type safety
+    - **Tailwind CSS** - Styling
+    - **Zustand** - State management
+    - **Monaco Editor** - Code editor
+  </Card>
+
+  <Card title="Infrastructure" icon="docker">
+    - **Docker** - Containerization
+    - **Traefik** - Reverse proxy
+    - **PostgreSQL** - Database
+    - **Node.js** - Project runtimes
+  </Card>
+
+  <Card title="AI Integration" icon="brain">
+    - **OpenAI** - GPT models
+    - **Anthropic** - Claude models
+    - **Google** - Gemini models
+    - **Ollama** - Local LLMs
+    - **LiteLLM** - Unified gateway
+  </Card>
+</CardGroup>
+
+## Architecture Principles
+
+<AccordionGroup>
+  <Accordion title="Container-per-project">
+    Each project runs in its own isolated Docker container, ensuring:
+    - No conflicts between projects
+    - Independent dependency management
+    - Resource isolation and limits
+    - Easy cleanup (delete container = delete project)
+  </Accordion>
+
+  <Accordion title="Subdomain Routing">
+    Clean URLs for each project:
+    - `studio.localhost` - Main application
+    - `my-app.studio.localhost` - User's project
+    - Easy sharing and bookmarking
+    - Professional development experience
+  </Accordion>
+
+  <Accordion title="Bring Your Own Models">
+    No vendor lock-in for AI:
+    - Support for 100+ AI providers via LiteLLM
+    - Use local models (Ollama) for free
+    - Switch models per project or agent
+    - Control your AI costs
+  </Accordion>
+
+  <Accordion title="Self-Hosted">
+    Complete infrastructure control:
+    - Deploy anywhere (laptop, cloud, on-prem)
+    - Your data never leaves your infrastructure
+    - No external dependencies (except AI APIs if chosen)
+    - Customize and extend as needed
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Development Guide" icon="code" href="/development/guide">
+    Set up your development environment
+  </Card>
+
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Explore the REST API documentation
+  </Card>
+
+  <Card title="Custom Agents" icon="robot" href="/development/custom-agents">
+    Learn how to build your own AI agents
+  </Card>
+
+  <Card title="Deployment" icon="rocket" href="/self-hosting/deployment">
+    Deploy to production
+  </Card>
+</CardGroup>

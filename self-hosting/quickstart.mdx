@@ -1,0 +1,422 @@
+---
+title: 'Self-Hosting Quickstart'
+description: 'Deploy your own Tesslate Studio instance in 5 minutes'
+---
+
+## Overview
+
+This guide will help you deploy Tesslate Studio on your own infrastructure. Whether it's your local machine, a cloud server, or an on-premises datacenter, you'll have complete control over your AI development environment.
+
+<Info>
+  **Looking for the cloud version?** Check out [studio.tesslate.com](https://studio.tesslate.com) for our hosted offering.
+</Info>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+<CardGroup cols={2}>
+  <Card title="Docker Desktop" icon="docker">
+    **Windows/Mac:** [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+    **Linux:** `curl -fsSL https://get.docker.com | sh`
+  </Card>
+
+  <Card title="System Requirements" icon="server">
+    - **8GB RAM** minimum (16GB recommended)
+    - **10GB disk space**
+    - **Windows, Mac, or Linux**
+  </Card>
+
+  <Card title="API Key" icon="key">
+    At least one AI provider:
+    - OpenAI (GPT-5, GPT-4)
+    - Anthropic (Claude)
+    - Or use **Ollama** (free local models)
+  </Card>
+
+  <Card title="Git" icon="github">
+    Download from [git-scm.com](https://git-scm.com/downloads)
+  </Card>
+</CardGroup>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/TesslateAI/Studio.git
+    cd Studio
+    ```
+  </Step>
+
+  <Step title="Create Environment Configuration">
+    ```bash
+    cp .env.example .env
+    ```
+  </Step>
+
+  <Step title="Generate Secure Keys">
+    Generate your secret keys using Python:
+
+    ```bash
+    # Generate SECRET_KEY
+    python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+    # Generate LITELLM_MASTER_KEY
+    python -c "import secrets; print('sk-' + secrets.token_urlsafe(32))"
+    ```
+
+    Copy these keys for the next step.
+  </Step>
+
+  <Step title="Configure API Keys">
+    Edit the `.env` file and add your credentials:
+
+    ```env
+    # Required: Application secret key
+    SECRET_KEY=your-generated-secret-key
+
+    # Required: LiteLLM master key
+    LITELLM_MASTER_KEY=sk-your-litellm-master-key
+
+    # Required: At least one AI provider API key
+    OPENAI_API_KEY=sk-your-openai-key
+    # OR
+    ANTHROPIC_API_KEY=sk-your-anthropic-key
+    ```
+
+    <Accordion title="Using local models with Ollama?">
+      If you prefer free local models:
+
+      1. Install Ollama from [ollama.ai](https://ollama.ai)
+      2. Pull a model: `ollama pull llama2`
+      3. Set in `.env`:
+      ```env
+      LITELLM_DEFAULT_MODELS=ollama/llama2
+      ```
+    </Accordion>
+  </Step>
+
+  <Step title="Start Tesslate Studio">
+    ```bash
+    docker compose up -d
+    ```
+
+    This command will:
+    - Pull required Docker images
+    - Start all services (orchestrator, frontend, database, proxy)
+    - Automatically seed the database with agents and templates
+
+    **Wait about 30-60 seconds** for all services to start.
+  </Step>
+
+  <Step title="Access the Application">
+    Open your browser and navigate to:
+
+    ```
+    http://studio.localhost
+    ```
+
+    <Warning>
+      **Can't access studio.localhost?**
+
+      See [Troubleshooting](#troubleshooting) below.
+    </Warning>
+  </Step>
+
+  <Step title="Create Your Account">
+    1. Click **"Sign Up"** on the login page
+    2. Enter your email and password
+    3. The first user is automatically granted **admin** privileges
+  </Step>
+
+  <Step title="Create Your First Project">
+    1. Click **"New Project"**
+    2. Choose a starter template:
+       - **Next.js 15** - Full-stack React with App Router
+       - **Vite + React + FastAPI** - React frontend with Python backend
+       - **Vite + React + Go** - React frontend with Go backend
+    3. Give your project a name
+    4. Click **"Create"**
+  </Step>
+</Steps>
+
+<Check>
+  **Congratulations!** Your self-hosted Tesslate Studio is now running.
+</Check>
+
+## Quick Test
+
+Let's verify everything is working:
+
+<Steps>
+  <Step title="Start Building">
+    In the chat interface, type:
+    ```
+    Create a simple todo app with add, delete, and mark complete functionality
+    ```
+  </Step>
+
+  <Step title="Watch the AI Generate">
+    The AI will generate React components and you'll see your app appear in the live preview within seconds.
+  </Step>
+
+  <Step title="Make Changes">
+    Try modifying the app:
+    ```
+    Add a dark mode toggle button
+    ```
+
+    Changes appear instantly in the preview!
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="globe" title="Can't Access studio.localhost">
+    **Problem:** `studio.localhost` doesn't resolve or shows "connection refused".
+
+    **Solutions:**
+
+    1. **Check Docker is running:**
+       - Open Docker Desktop
+       - Verify it says "Docker is running"
+
+    2. **Verify containers are running:**
+       ```bash
+       docker compose ps
+       ```
+       All services should show "Up" status.
+
+    3. **Check logs for errors:**
+       ```bash
+       docker compose logs orchestrator
+       docker compose logs app
+       ```
+
+    4. **Try localhost with port:**
+       Some systems need explicit port:
+       ```
+       http://localhost:80
+       ```
+
+    5. **Restart everything:**
+       ```bash
+       docker compose down
+       docker compose up -d
+       ```
+  </Accordion>
+
+  <Accordion icon="plug" title="Port Already in Use">
+    **Problem:** Error says port 80 is already in use.
+
+    **Solution:**
+
+    1. **Find what's using port 80:**
+       ```bash
+       # Windows:
+       netstat -ano | findstr :80
+
+       # Mac/Linux:
+       lsof -i :80
+       ```
+
+    2. **Stop the conflicting service** or **change Tesslate's port:**
+
+       Edit `docker-compose.yml`:
+       ```yaml
+       services:
+         traefik:
+           ports:
+             - "8000:80"  # Change to port 8000
+       ```
+
+       Then access at: `http://studio.localhost:8000`
+  </Accordion>
+
+  <Accordion icon="database" title="Database Connection Issues">
+    **Problem:** Errors about database connection failures.
+
+    **Solution:**
+
+    ```bash
+    # Stop everything
+    docker compose down
+
+    # Remove old database volume
+    docker volume rm tesslate-studio_postgres_data
+
+    # Start fresh
+    docker compose up -d
+    ```
+
+    <Warning>
+      This will delete all existing data!
+    </Warning>
+  </Accordion>
+
+  <Accordion icon="key" title="API Key Issues">
+    **Problem:** "Invalid API key" or "API key not found" errors.
+
+    **Solution:**
+
+    1. Verify your key is correct in `.env`
+    2. Make sure there are no extra spaces or quotes
+    3. Test the key with your provider's website
+    4. Restart the orchestrator:
+       ```bash
+       docker compose restart orchestrator
+       ```
+  </Accordion>
+
+  <Accordion icon="server" title="Development Server Not Starting">
+    **Problem:** Projects fail to start or show "development server error".
+
+    **Solution:**
+
+    1. **Check Docker disk space:**
+       ```bash
+       docker system df
+       ```
+
+    2. **Clean up unused containers/images:**
+       ```bash
+       docker system prune -a
+       ```
+
+    3. **Check orchestrator logs:**
+       ```bash
+       docker compose logs orchestrator | grep -i error
+       ```
+  </Accordion>
+</AccordionGroup>
+
+## What's Included
+
+After installation, you'll have:
+
+<CardGroup cols={2}>
+  <Card title="10 AI Agents" icon="robot">
+    Pre-installed agents for different tasks:
+    - Stream Builder
+    - Full Stack Agent
+    - Code Analyzer
+    - Test Generator
+    - API Designer
+    - And 5 more!
+  </Card>
+
+  <Card title="3 Project Templates" icon="layer-group">
+    Production-ready starter templates:
+    - Next.js 15 (App Router)
+    - Vite + React + FastAPI
+    - Vite + React + Go
+  </Card>
+
+  <Card title="Live Preview" icon="eye">
+    Real-time preview with hot module replacement
+  </Card>
+
+  <Card title="Monaco Editor" icon="code">
+    VSCode-like code editor in the browser
+  </Card>
+
+  <Card title="GitHub Integration" icon="github">
+    Import, edit, and commit to GitHub repos
+  </Card>
+
+  <Card title="Architecture Diagrams" icon="diagram-project">
+    Auto-generated architecture visualizations
+  </Card>
+</CardGroup>
+
+## Development Mode
+
+For active development with hot reload:
+
+<Tabs>
+  <Tab title="Full Docker (Recommended)">
+    ```bash
+    docker compose up -d
+    ```
+
+    Everything runs in containers. Simple and isolated.
+  </Tab>
+
+  <Tab title="Hybrid Mode (Faster)">
+    ```bash
+    # Terminal 1: Start infrastructure only
+    docker compose up -d traefik postgres
+
+    # Terminal 2: Run backend with hot reload
+    cd orchestrator
+    uv run uvicorn app.main:app --reload
+
+    # Terminal 3: Run frontend with hot reload
+    cd app
+    npm run dev
+    ```
+
+    Frontend at: `http://localhost:5173`
+
+    Changes reload instantly!
+  </Tab>
+</Tabs>
+
+## Stopping Tesslate Studio
+
+<CodeGroup>
+```bash Stop All Services
+docker compose down
+```
+
+```bash Stop and Remove All Data
+docker compose down -v
+```
+
+```bash Restart Services
+docker compose restart
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Guide" icon="gear" href="/self-hosting/configuration">
+    Customize your installation with environment variables
+  </Card>
+
+  <Card title="Deployment Guide" icon="server" href="/self-hosting/deployment">
+    Deploy to production with custom domains and SSL
+  </Card>
+
+  <Card title="Security Best Practices" icon="shield" href="/self-hosting/security">
+    Harden your installation for production use
+  </Card>
+
+  <Card title="API Documentation" icon="book" href="/api-reference/introduction">
+    Explore the REST API
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="GitHub Discussions" icon="comments" href="https://github.com/TesslateAI/Studio/discussions">
+    Ask questions and share ideas
+  </Card>
+
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/TesslateAI/Studio/issues">
+    Report bugs and request features
+  </Card>
+
+  <Card title="Email Support" icon="envelope" href="mailto:support@tesslate.com">
+    Direct support (response within 24h)
+  </Card>
+
+  <Card title="Documentation" icon="book" href="https://docs.tesslate.com">
+    Browse the full documentation
+  </Card>
+</CardGroup>

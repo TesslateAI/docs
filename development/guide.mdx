@@ -1,0 +1,637 @@
+---
+title: 'Development Guide'
+description: 'Set up your local development environment for Tesslate Studio'
+---
+
+## Overview
+
+This guide will help you set up a development environment to contribute to Tesslate Studio or build custom extensions.
+
+<Info>
+  **Just want to use Tesslate Studio?** See the [Self-Hosting Quickstart](/self-hosting/quickstart) instead.
+</Info>
+
+## Prerequisites
+
+Before you begin, install these tools:
+
+<CardGroup cols={2}>
+  <Card title="Node.js & npm" icon="node-js">
+    **Version:** Node.js 18+ and npm 9+
+
+    Download from [nodejs.org](https://nodejs.org/)
+
+    Verify:
+    ```bash
+    node --version  # v18.0.0 or higher
+    npm --version   # 9.0.0 or higher
+    ```
+  </Card>
+
+  <Card title="Python & uv" icon="python">
+    **Version:** Python 3.11+
+
+    Download from [python.org](https://python.org/)
+
+    Install uv (Python package manager):
+    ```bash
+    pip install uv
+    ```
+  </Card>
+
+  <Card title="Docker Desktop" icon="docker">
+    Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
+
+    Verify:
+    ```bash
+    docker --version
+    docker compose version
+    ```
+  </Card>
+
+  <Card title="Git" icon="github">
+    Download from [git-scm.com](https://git-scm.com/downloads)
+
+    Verify:
+    ```bash
+    git --version
+    ```
+  </Card>
+</CardGroup>
+
+## Fork and Clone
+
+<Steps>
+  <Step title="Fork the Repository">
+    1. Navigate to [github.com/TesslateAI/Studio](https://github.com/TesslateAI/Studio)
+    2. Click **"Fork"** button
+    3. Choose your account
+  </Step>
+
+  <Step title="Clone Your Fork">
+    ```bash
+    git clone https://github.com/YOUR-USERNAME/Studio.git
+    cd Studio
+    ```
+
+    Replace `YOUR-USERNAME` with your GitHub username.
+  </Step>
+
+  <Step title="Add Upstream Remote">
+    ```bash
+    git remote add upstream https://github.com/TesslateAI/Studio.git
+    ```
+
+    This lets you pull latest changes from the main repository.
+  </Step>
+
+  <Step title="Verify Remotes">
+    ```bash
+    git remote -v
+    ```
+
+    You should see:
+    ```
+    origin    https://github.com/YOUR-USERNAME/Studio.git (fetch)
+    origin    https://github.com/YOUR-USERNAME/Studio.git (push)
+    upstream  https://github.com/TesslateAI/Studio.git (fetch)
+    upstream  https://github.com/TesslateAI/Studio.git (push)
+    ```
+  </Step>
+</Steps>
+
+## Install Dependencies
+
+<Tabs>
+  <Tab title="Frontend">
+    ```bash
+    cd app
+    npm install
+    ```
+
+    This installs all React dependencies including:
+    - React 19
+    - Vite 7
+    - TypeScript
+    - Tailwind CSS
+    - Monaco Editor
+    - Zustand
+  </Tab>
+
+  <Tab title="Backend">
+    ```bash
+    cd orchestrator
+
+    # Create virtual environment
+    uv venv
+
+    # Activate virtual environment
+    # On Mac/Linux:
+    source .venv/bin/activate
+    # On Windows:
+    .venv\Scripts\activate
+
+    # Install dependencies
+    uv pip install -r requirements.txt
+    ```
+
+    This installs all Python dependencies including:
+    - FastAPI
+    - SQLAlchemy
+    - LiteLLM
+    - Docker SDK
+    - PostgreSQL drivers
+  </Tab>
+</Tabs>
+
+## Configure Environment
+
+<Steps>
+  <Step title="Copy Environment File">
+    ```bash
+    cp .env.example .env
+    ```
+  </Step>
+
+  <Step title="Generate Keys">
+    ```bash
+    # SECRET_KEY
+    python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+    # LITELLM_MASTER_KEY
+    python -c "import secrets; print('sk-' + secrets.token_urlsafe(32))"
+    ```
+  </Step>
+
+  <Step title="Update .env File">
+    ```env
+    # Security
+    SECRET_KEY=your-generated-key
+    LITELLM_MASTER_KEY=sk-your-generated-key
+
+    # For development, you can use test keys
+    OPENAI_API_KEY=sk-your-dev-key
+
+    # Development settings
+    LOG_LEVEL=DEBUG
+    AUTO_SEED_DATABASE=true
+    ```
+  </Step>
+</Steps>
+
+## Development Modes
+
+Choose the mode that fits your workflow:
+
+### Full Docker Mode
+
+<Note>
+  **Best for:** Testing the complete system, minimal setup
+</Note>
+
+```bash
+docker compose up -d
+```
+
+**Pros:**
+- Everything works out of the box
+- Closest to production
+- No local dependencies needed
+
+**Cons:**
+- Slower feedback loop
+- Need to rebuild on code changes
+
+**Access:**
+- Frontend: `http://studio.localhost`
+- Backend API: `http://studio.localhost/api`
+- Traefik Dashboard: `http://localhost:8080`
+
+### Hybrid Mode (Recommended)
+
+<Note>
+  **Best for:** Active development with instant feedback
+</Note>
+
+<Steps>
+  <Step title="Start Infrastructure">
+    ```bash
+    docker compose up -d traefik postgres
+    ```
+
+    This starts only Traefik and PostgreSQL.
+  </Step>
+
+  <Step title="Run Backend">
+    ```bash
+    cd orchestrator
+    source .venv/bin/activate  # Windows: .venv\Scripts\activate
+    uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    ```
+
+    Backend runs with hot reload on port 8000.
+  </Step>
+
+  <Step title="Run Frontend">
+    ```bash
+    cd app
+    npm run dev
+    ```
+
+    Frontend runs with Vite HMR on port 5173.
+  </Step>
+</Steps>
+
+**Pros:**
+- Instant hot reload
+- Direct access to logs
+- Easy debugging
+- Fast iteration
+
+**Cons:**
+- More terminal windows
+- Manual dependency management
+
+**Access:**
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- Backend Docs: `http://localhost:8000/docs`
+
+## Project Structure
+
+<CodeGroup>
+```bash Repository Root
+Studio/
+├── app/                    # Frontend (React + Vite)
+├── orchestrator/          # Backend (FastAPI)
+├── scripts/               # Utility scripts
+├── docs/                  # Documentation
+├── docker-compose.yml     # Docker configuration
+├── .env.example           # Environment template
+└── README.md              # Project README
+```
+
+```bash Frontend Structure
+app/
+├── src/
+│   ├── components/        # React components
+│   │   ├── common/       # Reusable components
+│   │   ├── dashboard/    # Dashboard views
+│   │   ├── editor/       # Code editor
+│   │   └── chat/         # Chat interface
+│   ├── pages/            # Page components
+│   ├── services/         # API services
+│   ├── hooks/            # Custom React hooks
+│   ├── store/            # Zustand stores
+│   ├── utils/            # Utility functions
+│   └── types/            # TypeScript types
+├── public/               # Static assets
+└── package.json          # Dependencies
+```
+
+```bash Backend Structure
+orchestrator/
+├── app/
+│   ├── agents/           # AI agent implementations
+│   ├── api/              # API routes
+│   │   ├── auth.py      # Authentication endpoints
+│   │   ├── projects.py  # Project endpoints
+│   │   └── agents.py    # Agent endpoints
+│   ├── models/           # Database models
+│   ├── services/         # Business logic
+│   │   ├── auth.py      # Auth service
+│   │   ├── project.py   # Project service
+│   │   └── container.py # Container service
+│   ├── utils/            # Utilities
+│   ├── config.py         # Configuration
+│   ├── database.py       # Database setup
+│   └── main.py           # FastAPI app
+├── tests/                # Backend tests
+└── requirements.txt      # Dependencies
+```
+</CodeGroup>
+
+## Making Changes
+
+### Create a Feature Branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+Branch naming conventions:
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation
+- `refactor/` - Code refactoring
+- `test/` - Tests
+
+### Make Your Changes
+
+<Tabs>
+  <Tab title="Frontend Changes">
+    1. Edit files in `app/src/`
+    2. Changes auto-reload in browser (HMR)
+    3. Check browser console for errors
+    4. Test in different screen sizes
+  </Tab>
+
+  <Tab title="Backend Changes">
+    1. Edit files in `orchestrator/app/`
+    2. Server auto-reloads (with `--reload` flag)
+    3. Check terminal for errors
+    4. Test endpoints at `http://localhost:8000/docs`
+  </Tab>
+
+  <Tab title="Database Changes">
+    1. Create migration in `scripts/migrations/`
+    2. Test migration:
+       ```bash
+       docker compose exec orchestrator python scripts/migrations/your_migration.py
+       ```
+    3. Verify schema changes
+  </Tab>
+</Tabs>
+
+### Keep Your Branch Updated
+
+```bash
+# Fetch latest changes
+git fetch upstream
+
+# Rebase your branch
+git rebase upstream/main
+```
+
+## Testing
+
+### Frontend Tests
+
+```bash
+cd app
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run with coverage
+npm run test:coverage
+```
+
+### Backend Tests
+
+```bash
+cd orchestrator
+source .venv/bin/activate
+
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_agents.py
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+```
+
+### Manual Testing
+
+<Steps>
+  <Step title="Test User Flow">
+    1. Create a new account
+    2. Create a project
+    3. Chat with AI agent
+    4. Verify code generation
+    5. Check live preview
+  </Step>
+
+  <Step title="Test Edge Cases">
+    - Empty inputs
+    - Invalid data
+    - Network errors
+    - Long-running operations
+  </Step>
+
+  <Step title="Browser Testing">
+    Test in multiple browsers:
+    - Chrome
+    - Firefox
+    - Safari (if on Mac)
+    - Edge
+  </Step>
+</Steps>
+
+## Debugging
+
+### Frontend Debugging
+
+<Tabs>
+  <Tab title="React DevTools">
+    Install React DevTools extension:
+    - [Chrome](https://chrome.google.com/webstore/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi)
+    - [Firefox](https://addons.mozilla.org/en-US/firefox/addon/react-devtools/)
+
+    Use to inspect:
+    - Component tree
+    - Props and state
+    - Performance
+  </Tab>
+
+  <Tab title="Console Logging">
+    Add debug logs:
+    ```typescript
+    console.log('Debug:', variable);
+    console.table(array);
+    console.group('Component Render');
+    console.log('Props:', props);
+    console.groupEnd();
+    ```
+  </Tab>
+
+  <Tab title="VS Code Debugger">
+    Create `.vscode/launch.json`:
+    ```json
+    {
+      "version": "0.2.0",
+      "configurations": [
+        {
+          "type": "chrome",
+          "request": "launch",
+          "name": "Debug Frontend",
+          "url": "http://localhost:5173",
+          "webRoot": "${workspaceFolder}/app/src"
+        }
+      ]
+    }
+    ```
+
+    Set breakpoints and press F5.
+  </Tab>
+</Tabs>
+
+### Backend Debugging
+
+<Tabs>
+  <Tab title="Print Debugging">
+    ```python
+    print(f"Debug: {variable}")
+    logger.debug(f"Processing {item}")
+    ```
+  </Tab>
+
+  <Tab title="pdb Debugger">
+    Add breakpoint:
+    ```python
+    import pdb; pdb.set_trace()
+    ```
+
+    Commands:
+    - `n` - Next line
+    - `s` - Step into
+    - `c` - Continue
+    - `p variable` - Print variable
+    - `q` - Quit
+  </Tab>
+
+  <Tab title="VS Code Debugger">
+    Create `.vscode/launch.json`:
+    ```json
+    {
+      "version": "0.2.0",
+      "configurations": [
+        {
+          "name": "Debug Backend",
+          "type": "python",
+          "request": "launch",
+          "module": "uvicorn",
+          "args": [
+            "app.main:app",
+            "--reload",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8000"
+          ],
+          "cwd": "${workspaceFolder}/orchestrator"
+        }
+      ]
+    }
+    ```
+
+    Set breakpoints and press F5.
+  </Tab>
+</Tabs>
+
+## Common Tasks
+
+<AccordionGroup>
+  <Accordion title="Reset Database">
+    ```bash
+    docker compose down -v
+    docker compose up -d postgres
+    docker compose exec orchestrator python scripts/migrations/create_tables.py
+    ```
+  </Accordion>
+
+  <Accordion title="View Container Logs">
+    ```bash
+    # All logs
+    docker compose logs -f
+
+    # Specific service
+    docker compose logs -f orchestrator
+    docker compose logs -f app
+    ```
+  </Accordion>
+
+  <Accordion title="Access Database">
+    ```bash
+    docker compose exec postgres psql -U tesslate -d tesslate_db
+    ```
+
+    Useful SQL commands:
+    ```sql
+    \dt                    -- List tables
+    \d users              -- Describe table
+    SELECT * FROM users;  -- Query data
+    ```
+  </Accordion>
+
+  <Accordion title="Clean Docker Resources">
+    ```bash
+    # Stop all containers
+    docker compose down
+
+    # Remove all volumes
+    docker compose down -v
+
+    # Remove unused images
+    docker system prune -a
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Contributing Workflow
+
+<Steps>
+  <Step title="Create Feature Branch">
+    ```bash
+    git checkout -b feature/amazing-feature
+    ```
+  </Step>
+
+  <Step title="Make Changes">
+    Write code, add tests, update docs.
+  </Step>
+
+  <Step title="Test Locally">
+    Run all tests and manual testing.
+  </Step>
+
+  <Step title="Commit Changes">
+    ```bash
+    git add .
+    git commit -m "feat: add amazing feature"
+    ```
+
+    Follow [commit message conventions](/development/best-practices#commit-messages).
+  </Step>
+
+  <Step title="Push to Fork">
+    ```bash
+    git push origin feature/amazing-feature
+    ```
+  </Step>
+
+  <Step title="Create Pull Request">
+    1. Go to your fork on GitHub
+    2. Click "Pull Request"
+    3. Fill in the template
+    4. Link related issues
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Agents" icon="robot" href="/development/custom-agents">
+    Learn how to build custom AI agents
+  </Card>
+
+  <Card title="Best Practices" icon="check" href="/development/best-practices">
+    Follow coding standards and conventions
+  </Card>
+
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Explore the REST API
+  </Card>
+
+  <Card title="Architecture" icon="diagram-project" href="/self-hosting/architecture">
+    Understand the system design
+  </Card>
+</CardGroup>

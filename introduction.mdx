@@ -22,19 +22,19 @@ Tesslate Studio is an AI-powered development platform that helps you build compl
   <Card
     title="AI Code Generation"
     icon="wand-magic-sparkles"
-    href="/features/ai-code-generation"
+    href="/guides/agents"
   >
     Generate React components and full applications from natural language
-    descriptions
+    descriptions using powerful AI agents
   </Card>
-  <Card title="Live Preview" icon="eye" href="/features/live-preview">
+  <Card title="Live Preview" icon="eye" href="/guides/live-preview">
     See your application running in real-time with instant hot module
     replacement
   </Card>
-  <Card title="Multi-Agent System" icon="robot" href="/features/multi-agent">
-    Choose from specialized AI agents optimized for different tasks
+  <Card title="Multi-Agent System" icon="robot" href="/guides/agent-types">
+    Choose from Stream and Iterative agents optimized for different tasks
   </Card>
-  <Card title="Marketplace" icon="store" href="/features/marketplace">
+  <Card title="Marketplace" icon="store" href="/guides/marketplace">
     Discover and install AI agents, templates, and project bases
   </Card>
 </CardGroup>
@@ -43,39 +43,35 @@ Tesslate Studio is an AI-powered development platform that helps you build compl
 
 <AccordionGroup>
   <Accordion icon="code" title="Full-Stack Code Generation">
-    Generate complete React/TypeScript applications including components, state management, API integrations, and styling with Tailwind CSS.
+    Generate complete React/TypeScript applications including components, state management, API integrations, and styling with Tailwind CSS. AI agents can read, write, and edit files, execute shell commands, and fetch web content.
   </Accordion>
 
-{" "}
+  <Accordion icon="browser" title="Instant Live Preview">
+    Every change you make or code the AI generates is instantly reflected in a live browser preview with hot module replacement. Each project runs in an isolated container environment.
+  </Accordion>
 
-<Accordion icon="browser" title="Instant Live Preview">
-  Every change you make or code the AI generates is instantly reflected in a
-  live browser preview with hot module replacement.
-</Accordion>
+  <Accordion icon="comments" title="Interactive Chat Interface">
+    Chat with AI agents using natural language to describe features, request changes, or debug issues. Choose between Stream agents for fast iteration or Iterative agents for complex multi-step tasks.
+  </Accordion>
 
-{" "}
+  <Accordion icon="layer-group" title="Project Templates & Bases">
+    Start from scratch, import from GitHub, or use pre-built bases with configured tech stacks and best practices. Support for multi-container monorepo projects.
+  </Accordion>
 
-<Accordion icon="comments" title="Interactive Chat Interface">
-  Chat with AI agents using natural language to describe features, request
-  changes, or debug issues. Agents respond with working code.
-</Accordion>
-
-{" "}
-
-<Accordion icon="layer-group" title="Project Templates & Bases">
-  Start from scratch, import from GitHub, or use pre-built bases with configured
-  tech stacks and best practices.
-</Accordion>
-
-{" "}
-
-<Accordion icon="diagram-project" title="Architecture Visualization">
-  Auto-generate architecture diagrams showing component relationships and data
-  flow in your application.
-</Accordion>
+  <Accordion icon="diagram-project" title="Architecture Visualization">
+    Visualize your project architecture with React Flow-based diagrams showing container dependencies and connections in multi-container projects.
+  </Accordion>
 
   <Accordion icon="github" title="GitHub Integration">
-    Import repositories, edit code, and commit changes back to GitHub directly from the platform.
+    Import repositories, edit code, and commit changes back to GitHub directly from the platform with full OAuth integration.
+  </Accordion>
+
+  <Accordion icon="cloud" title="Flexible Deployment">
+    Deploy to Vercel, Netlify, or Cloudflare Pages with one click. Self-host with Docker for development or Kubernetes for production.
+  </Accordion>
+
+  <Accordion icon="credit-card" title="Billing & Marketplace">
+    Purchase AI agents and project bases from the marketplace. Subscription plans with usage-based billing via Stripe.
   </Accordion>
 </AccordionGroup>
 
@@ -110,11 +106,23 @@ Tesslate Studio is an AI-powered development platform that helps you build compl
 Tesslate Studio is perfect for:
 
 - **Landing Pages**: Create beautiful, responsive marketing sites
-- **Web Applications**: Build full-featured SaaS applications
+- **Web Applications**: Build full-featured SaaS applications with React + Vite
+- **Full-Stack Apps**: Multi-container projects with frontend, backend, and database
 - **Dashboards**: Generate data visualization and admin panels
 - **E-commerce**: Create shopping experiences and product catalogs
 - **Portfolios**: Build personal websites and project showcases
 - **Prototypes**: Rapidly prototype ideas and validate concepts
+
+## Deployment Options
+
+<CardGroup cols={2}>
+  <Card title="Cloud Hosted" icon="cloud" href="https://studio.tesslate.com">
+    Use our managed cloud platform at studio.tesslate.com. No setup required.
+  </Card>
+  <Card title="Self-Hosted" icon="server" href="/self-hosting/quickstart">
+    Deploy on your own infrastructure with Docker or Kubernetes for full control.
+  </Card>
+</CardGroup>
 
 ## Next Steps
 

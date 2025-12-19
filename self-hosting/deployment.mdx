@@ -585,6 +585,200 @@ docker compose down && docker compose up -d
 curl https://studio.yourcompany.com/api/health
 ```
 
+## Kubernetes Deployment (Production)
+
+For high availability and auto-scaling, deploy Tesslate Studio on Kubernetes.
+
+### Prerequisites
+
+<CardGroup cols={2}>
+  <Card title="Kubernetes Cluster" icon="dharmachakra">
+    - Minikube (local testing)
+    - DigitalOcean Kubernetes
+    - AWS EKS
+    - Google GKE
+  </Card>
+
+  <Card title="Required Components" icon="puzzle-piece">
+    - kubectl configured
+    - NGINX Ingress Controller
+    - cert-manager (for SSL)
+    - Container registry access
+  </Card>
+</CardGroup>
+
+### Quick Deploy
+
+<Steps>
+  <Step title="Configure Environment">
+    ```bash
+    cd k8s
+    cp .env.example .env
+    # Edit .env with your credentials
+    ```
+
+    Key variables:
+    ```env
+    K8S_DEVSERVER_IMAGE=your-registry/tesslate-devserver:latest
+    K8S_IMAGE_PULL_SECRET=your-registry-secret
+    S3_ENDPOINT_URL=https://s3.amazonaws.com
+    S3_BUCKET_NAME=tesslate-projects
+    S3_ACCESS_KEY_ID=your-access-key
+    S3_SECRET_ACCESS_KEY=your-secret-key
+    ```
+  </Step>
+
+  <Step title="Deploy All Components">
+    ```bash
+    ./scripts/deployment/deploy-all.sh
+    ```
+
+    This deploys:
+    - Backend (FastAPI orchestrator)
+    - Frontend (React app)
+    - PostgreSQL database
+    - NGINX Ingress rules
+    - SSL certificates via cert-manager
+  </Step>
+
+  <Step title="Verify Deployment">
+    ```bash
+    kubectl get pods -n tesslate
+    kubectl get ingress -n tesslate
+    ```
+
+    All pods should be "Running".
+  </Step>
+</Steps>
+
+### Kubernetes Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Kubernetes Cluster                                 │
+├─────────────────────────────────────────────────────┤
+│  Namespace: tesslate                                │
+│  ┌──────────────┐  ┌──────────────┐               │
+│  │   Backend    │  │   Frontend   │               │
+│  │  (Deployment)│  │ (Deployment) │               │
+│  └──────────────┘  └──────────────┘               │
+│         │                  │                       │
+│         └──────┬───────────┘                       │
+│                ▼                                   │
+│        ┌──────────────┐                           │
+│        │    Ingress   │ ← NGINX Controller        │
+│        │   (SSL/TLS)  │                           │
+│        └──────────────┘                           │
+├─────────────────────────────────────────────────────┤
+│  User Project Namespaces (Dynamic)                 │
+│  ┌──────────────┐  ┌──────────────┐              │
+│  │  proj-abc123 │  │  proj-xyz789 │              │
+│  │  (User Pod)  │  │  (User Pod)  │              │
+│  └──────────────┘  └──────────────┘              │
+└─────────────────────────────────────────────────────┘
+```
+
+### S3 Sandwich Pattern
+
+Kubernetes deployments use the S3 Sandwich pattern for project storage:
+
+<Steps>
+  <Step title="Hydration (Pod Start)">
+    Init container downloads project files from S3 to local PVC.
+  </Step>
+
+  <Step title="Runtime">
+    Fast local I/O on ephemeral block storage for file edits and npm install.
+  </Step>
+
+  <Step title="Dehydration (Pod Stop)">
+    PreStop hook uploads changed files back to S3 before pod termination.
+  </Step>
+</Steps>
+
+<Info>
+  This pattern provides fast local storage performance while ensuring data persistence across pod restarts.
+</Info>
+
+### Management Commands
+
+```bash
+# View all resources
+./scripts/manage-k8s.sh status
+
+# View logs
+./scripts/manage-k8s.sh logs backend
+./scripts/manage-k8s.sh logs frontend
+
+# Restart a service
+./scripts/manage-k8s.sh restart backend
+
+# Scale replicas
+./scripts/manage-k8s.sh scale backend 3
+
+# Backup database
+./scripts/manage-k8s.sh backup
+
+# Update deployment
+./scripts/manage-k8s.sh update
+```
+
+### Provider-Specific Setup
+
+<Tabs>
+  <Tab title="Minikube (Local)">
+    ```bash
+    # Start cluster
+    minikube start -p tesslate --driver=docker --memory=4096 --cpus=2
+    minikube -p tesslate addons enable ingress
+
+    # Build and load images
+    docker build -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
+    minikube -p tesslate image load tesslate-backend:latest
+
+    # Deploy
+    kubectl apply -k k8s/overlays/minikube
+
+    # Start tunnel (separate terminal)
+    minikube -p tesslate tunnel
+    ```
+  </Tab>
+
+  <Tab title="DigitalOcean">
+    ```bash
+    # Install doctl and authenticate
+    doctl auth init
+
+    # Connect to cluster
+    doctl kubernetes cluster kubeconfig save your-cluster-name
+
+    # Deploy
+    kubectl apply -k k8s/overlays/production
+    ```
+
+    Configure DNS in Cloudflare:
+    - A record: `studio` → Load balancer IP
+    - A record: `*.studio` → Load balancer IP
+  </Tab>
+
+  <Tab title="AWS EKS">
+    ```bash
+    # Configure kubectl
+    aws eks update-kubeconfig --region us-east-1 --name tesslate-cluster
+
+    # Login to ECR
+    aws ecr get-login-password --region us-east-1 | \
+      docker login --username AWS --password-stdin \
+      123456789.dkr.ecr.us-east-1.amazonaws.com
+
+    # Deploy
+    kubectl apply -k k8s/overlays/aws
+    ```
+  </Tab>
+</Tabs>
+
+---
+
 ## Troubleshooting
 
 <AccordionGroup>

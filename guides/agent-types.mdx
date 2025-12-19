@@ -162,7 +162,11 @@ Tesslate Studio has two fundamental agent architectures, each optimized for diff
   </Step>
 
   <Step title="Use Tools">
-    May search files, read code, analyze structure
+    Executes tools to interact with your project:
+    - **read_file** / **write_file** / **edit_file** - File operations
+    - **bash** - Execute shell commands (npm, git, etc.)
+    - **fetch** - Make HTTP requests for external data
+    - **todos** - Plan and track multi-step tasks
   </Step>
 
   <Step title="Generate Step-by-Step">
@@ -177,6 +181,10 @@ Tesslate Studio has two fundamental agent architectures, each optimized for diff
     Finishes with explanation of what it did
   </Step>
 </Steps>
+
+<Info>
+  Tool usage requires approval. You'll see a confirmation dialog before the agent modifies files or runs commands.
+</Info>
 
 ### Best Use Cases
 

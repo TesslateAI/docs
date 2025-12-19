@@ -1,33 +1,224 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: 'API Reference'
+description: 'Tesslate Studio REST API documentation'
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Overview
 
-## Welcome
+Tesslate Studio exposes a REST API for managing projects, agents, and deployments. The API is built with FastAPI and uses JWT authentication.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+<Info>
+  The API is primarily used internally by the Tesslate Studio frontend. However, you can use it directly for custom integrations and automation.
+</Info>
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+## Base URL
+
+<Tabs>
+  <Tab title="Cloud">
+    ```
+    https://studio.tesslate.com/api
+    ```
+  </Tab>
+
+  <Tab title="Self-Hosted (Docker)">
+    ```
+    http://api.localhost/api
+    ```
+  </Tab>
+
+  <Tab title="Self-Hosted (Kubernetes)">
+    ```
+    https://your-domain.com/api
+    ```
+  </Tab>
+</Tabs>
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API endpoints require JWT authentication using Bearer tokens.
+
+### Getting a Token
+
+```bash
+# Login to get tokens
+curl -X POST https://studio.tesslate.com/api/auth/jwt/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=your@email.com&password=yourpassword"
+```
+
+Response:
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer"
+}
+```
+
+### Using the Token
+
+Include the token in the Authorization header:
+
+```bash
+curl https://studio.tesslate.com/api/projects \
+  -H "Authorization: Bearer eyJ..."
+```
+
+## Key Endpoints
+
+### Authentication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/register` | Create a new account |
+| POST | `/auth/jwt/login` | Login with email/password |
+| POST | `/auth/jwt/refresh` | Refresh access token |
+| GET | `/users/me` | Get current user info |
+| GET | `/auth/github/authorize` | Start GitHub OAuth flow |
+| GET | `/auth/google/authorize` | Start Google OAuth flow |
+
+### Projects
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/projects` | List all user projects |
+| POST | `/projects` | Create a new project |
+| GET | `/projects/{id}` | Get project details |
+| PUT | `/projects/{id}` | Update project |
+| DELETE | `/projects/{id}` | Delete project |
+| POST | `/projects/{id}/start` | Start project containers |
+| POST | `/projects/{id}/stop` | Stop project containers |
+
+### Chat & AI Agents
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/chat/stream` | Send message to AI agent (streaming) |
+| GET | `/chat/{project_id}/history` | Get chat history |
+| WebSocket | `/ws/chat/{project_id}` | Real-time chat connection |
+
+### Marketplace
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/marketplace/bases` | List available bases |
+| GET | `/marketplace/agents` | List available agents |
+| POST | `/marketplace/purchase` | Purchase a base or agent |
+
+### Billing
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/billing/subscription` | Get current subscription |
+| POST | `/billing/subscribe` | Create subscription |
+| GET | `/billing/usage` | Get usage statistics |
+| GET | `/billing/transactions` | Get transaction history |
+
+### Deployments
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/deployments` | Create deployment to Vercel/Netlify |
+| GET | `/deployments/{id}` | Get deployment status |
+| GET | `/deployments/credentials` | List connected providers |
+
+## Example: Create a Project
+
+```bash
+curl -X POST https://studio.tesslate.com/api/projects \
+  -H "Authorization: Bearer eyJ..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My New Project",
+    "description": "A sample project",
+    "source_type": "template"
+  }'
+```
+
+Response:
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "My New Project",
+  "slug": "my-new-project-k3x8n2",
+  "description": "A sample project",
+  "status": "initializing",
+  "created_at": "2025-01-15T10:30:00Z"
+}
+```
+
+## Example: Chat with AI Agent
+
+```bash
+curl -X POST https://studio.tesslate.com/api/chat/stream \
+  -H "Authorization: Bearer eyJ..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "550e8400-e29b-41d4-a716-446655440000",
+    "message": "Create a hero section with a gradient background",
+    "agent_id": "stream-agent-id"
+  }'
+```
+
+The response is a Server-Sent Events stream with chunks of the AI response.
+
+## Error Handling
+
+API errors follow a consistent format:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "detail": "Error message describing what went wrong"
+}
 ```
+
+Common HTTP status codes:
+- `400` - Bad Request (invalid input)
+- `401` - Unauthorized (missing or invalid token)
+- `403` - Forbidden (insufficient permissions)
+- `404` - Not Found (resource doesn't exist)
+- `422` - Validation Error (invalid request body)
+- `500` - Internal Server Error
+
+## Rate Limiting
+
+The API implements rate limiting to prevent abuse:
+- **Default**: 100 requests per minute per user
+- **Chat endpoints**: 20 requests per minute (to manage AI costs)
+
+When rate limited, you'll receive a `429 Too Many Requests` response.
+
+## WebSocket API
+
+For real-time chat, connect via WebSocket:
+
+```javascript
+const ws = new WebSocket('wss://studio.tesslate.com/ws/chat/PROJECT_ID?token=ACCESS_TOKEN');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Received:', data);
+};
+
+ws.send(JSON.stringify({
+  message: "Create a button component",
+  agent_id: "stream-agent-id"
+}));
+```
+
+## SDKs & Libraries
+
+Currently, Tesslate Studio provides a REST API only. Community SDKs may be available:
+
+- **JavaScript/TypeScript**: Use `fetch` or `axios`
+- **Python**: Use `httpx` or `requests`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Self-Hosting" icon="server" href="/self-hosting/quickstart">
+    Deploy your own Tesslate Studio instance
+  </Card>
+  <Card title="Configuration" icon="gear" href="/self-hosting/configuration">
+    Configure API keys and settings
+  </Card>
+</CardGroup>

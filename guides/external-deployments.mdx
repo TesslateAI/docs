@@ -1,0 +1,298 @@
+---
+title: 'External Deployments'
+description: 'Deploy your Tesslate Studio projects to Vercel, Netlify, or Cloudflare Pages'
+---
+
+## Overview
+
+Deploy your projects from Tesslate Studio directly to popular hosting platforms with one click. Supported platforms:
+
+<CardGroup cols={3}>
+  <Card title="Vercel" icon="v">
+    Optimized for Next.js and React
+  </Card>
+  <Card title="Netlify" icon="n">
+    Great for static sites and serverless
+  </Card>
+  <Card title="Cloudflare Pages" icon="cloud">
+    Edge deployment with global CDN
+  </Card>
+</CardGroup>
+
+## Connecting Deployment Providers
+
+Before deploying, connect your accounts:
+
+### Vercel Setup
+
+<Steps>
+  <Step title="Open Settings">
+    Go to Settings → Integrations → Deployment Providers
+  </Step>
+
+  <Step title="Connect Vercel">
+    Click **Connect Vercel** and authorize Tesslate Studio
+  </Step>
+
+  <Step title="Grant Permissions">
+    Tesslate needs permission to:
+    - Create and manage projects
+    - Deploy to your Vercel account
+  </Step>
+
+  <Step title="Complete">
+    You'll see "Vercel Connected" in your integrations
+  </Step>
+</Steps>
+
+### Netlify Setup
+
+<Steps>
+  <Step title="Open Settings">
+    Go to Settings → Integrations → Deployment Providers
+  </Step>
+
+  <Step title="Connect Netlify">
+    Click **Connect Netlify** and authorize Tesslate Studio
+  </Step>
+
+  <Step title="Grant Permissions">
+    Authorize access to create and manage sites
+  </Step>
+
+  <Step title="Complete">
+    You'll see "Netlify Connected" in your integrations
+  </Step>
+</Steps>
+
+### Cloudflare Pages Setup
+
+<Steps>
+  <Step title="Get API Token">
+    Create a Cloudflare API token at [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
+
+    Required permissions:
+    - Zone: Read
+    - Cloudflare Pages: Edit
+  </Step>
+
+  <Step title="Add to Tesslate">
+    Go to Settings → Integrations → Cloudflare Pages
+
+    Enter your API token and Account ID
+  </Step>
+
+  <Step title="Complete">
+    You'll see "Cloudflare Connected" in your integrations
+  </Step>
+</Steps>
+
+## Deploying a Project
+
+### Quick Deploy
+
+<Steps>
+  <Step title="Open Project">
+    Navigate to your project in Tesslate Studio
+  </Step>
+
+  <Step title="Click Deploy">
+    Click the **Deploy** button in the top toolbar
+  </Step>
+
+  <Step title="Select Provider">
+    Choose Vercel, Netlify, or Cloudflare Pages
+  </Step>
+
+  <Step title="Configure">
+    - **Project Name**: Name for the deployed site
+    - **Build Command**: Usually `npm run build`
+    - **Output Directory**: Usually `dist` for Vite projects
+  </Step>
+
+  <Step title="Deploy">
+    Click **Deploy Now**. The build and deployment typically takes 1-3 minutes.
+  </Step>
+
+  <Step title="Access Your Site">
+    Once complete, you'll receive your live URL (e.g., `your-project.vercel.app`)
+  </Step>
+</Steps>
+
+## Deployment Settings
+
+### Build Configuration
+
+Configure build settings for each provider:
+
+<Tabs>
+  <Tab title="Vite (React)">
+    ```yaml
+    Build Command: npm run build
+    Output Directory: dist
+    Install Command: npm install
+    Node Version: 18
+    ```
+  </Tab>
+
+  <Tab title="Next.js">
+    ```yaml
+    Build Command: npm run build
+    Output Directory: .next
+    Install Command: npm install
+    Framework: Next.js (auto-detected)
+    ```
+  </Tab>
+
+  <Tab title="Static">
+    ```yaml
+    Build Command: (none)
+    Output Directory: public
+    Install Command: (none)
+    ```
+  </Tab>
+</Tabs>
+
+### Environment Variables
+
+Set environment variables for your deployed app:
+
+1. Open project settings
+2. Go to **Deployments** tab
+3. Add variables (e.g., `VITE_API_URL=https://api.example.com`)
+
+<Warning>
+  Never expose sensitive keys like API secrets in client-side environment variables. Use `VITE_` prefix only for public values.
+</Warning>
+
+### Custom Domains
+
+After deployment, configure custom domains:
+
+<Tabs>
+  <Tab title="Vercel">
+    1. Go to your Vercel dashboard
+    2. Select the project
+    3. Settings → Domains
+    4. Add your custom domain
+  </Tab>
+
+  <Tab title="Netlify">
+    1. Go to your Netlify dashboard
+    2. Select the site
+    3. Domain settings → Add custom domain
+  </Tab>
+
+  <Tab title="Cloudflare">
+    1. Go to Cloudflare Pages
+    2. Select the project
+    3. Custom domains → Set up a domain
+  </Tab>
+</Tabs>
+
+## Managing Deployments
+
+### Viewing Deployments
+
+See all deployments for a project:
+
+1. Open the project
+2. Click **Deployments** in the sidebar
+3. View deployment history, status, and URLs
+
+### Redeploying
+
+Trigger a new deployment:
+
+1. Open the project
+2. Click **Deploy** → **Redeploy**
+3. The latest code will be built and deployed
+
+### Rollback
+
+Most providers support rollback to previous deployments:
+
+1. Go to your deployment history
+2. Find the previous working deployment
+3. Click **Promote to Production** or **Rollback**
+
+## Deployment Limits
+
+| Tier | Deployments |
+|------|-------------|
+| Free | 1 active deployment |
+| Premium | 5 active deployments |
+
+<Info>
+  You can purchase additional deployment slots from Settings → Billing for $10 each.
+</Info>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Build Failed">
+    **Common causes:**
+    - Missing dependencies in `package.json`
+    - TypeScript errors
+    - Missing environment variables
+
+    **Solution:**
+    1. Test build locally: `npm run build`
+    2. Fix any errors
+    3. Redeploy
+  </Accordion>
+
+  <Accordion icon="clock" title="Deployment Timeout">
+    **Cause:** Build taking too long (>10 minutes)
+
+    **Solution:**
+    - Optimize build process
+    - Check for infinite loops in build scripts
+    - Reduce bundle size
+  </Accordion>
+
+  <Accordion icon="link-slash" title="OAuth Connection Failed">
+    **Cause:** OAuth token expired or revoked
+
+    **Solution:**
+    1. Go to Settings → Integrations
+    2. Disconnect the provider
+    3. Reconnect and re-authorize
+  </Accordion>
+
+  <Accordion icon="globe" title="Site Not Loading">
+    **Cause:** Build succeeded but site shows errors
+
+    **Solution:**
+    1. Check browser console for errors
+    2. Verify environment variables are set
+    3. Check the deployment logs in the provider dashboard
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion icon="check" title="Test Before Deploying">
+    Always test your build locally with `npm run build && npm run preview` before deploying.
+  </Accordion>
+
+  <Accordion icon="lock" title="Secure Environment Variables">
+    Use provider dashboards to set sensitive environment variables rather than storing them in code.
+  </Accordion>
+
+  <Accordion icon="code-branch" title="Use Preview Deployments">
+    Vercel and Netlify offer preview deployments for branches. Use these to test changes before production.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="GitHub Integration" icon="github" href="/guides/github-integration">
+    Connect GitHub for CI/CD workflows
+  </Card>
+  <Card title="Billing" icon="credit-card" href="/guides/billing">
+    Manage deployment limits and subscriptions
+  </Card>
+</CardGroup>

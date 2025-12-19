@@ -24,12 +24,52 @@ Tesslate Studio has two core agent types:
   <Card title="Iterative Agent" icon="rotate">
     **Best for:** Complex logic, multi-step tasks
 
-    - Step-by-step reasoning
-    - Uses tools and thinks through problems
+    - Step-by-step reasoning with tool calling
+    - Reads, writes, and edits files
+    - Executes shell commands
     - Better for complex features
-    - More accurate for logic-heavy work
   </Card>
 </CardGroup>
+
+## Agent Tools
+
+Agents have access to powerful tools for interacting with your project:
+
+<Tabs>
+  <Tab title="File Operations">
+    | Tool | Description |
+    |------|-------------|
+    | `read_file` | Read contents of any file in the project |
+    | `write_file` | Create or overwrite files |
+    | `edit_file` | Make targeted edits to specific sections |
+    | `list_files` | Browse project directory structure |
+  </Tab>
+
+  <Tab title="Shell Operations">
+    | Tool | Description |
+    |------|-------------|
+    | `bash` | Execute shell commands (npm, git, etc.) |
+    | `session` | Persistent shell sessions for complex workflows |
+  </Tab>
+
+  <Tab title="Web Operations">
+    | Tool | Description |
+    |------|-------------|
+    | `fetch` | Make HTTP requests to external APIs |
+    | `search` | Search the web for documentation or solutions |
+  </Tab>
+
+  <Tab title="Planning">
+    | Tool | Description |
+    |------|-------------|
+    | `todos` | Create and manage task lists |
+    | `metadata` | Query project information |
+  </Tab>
+</Tabs>
+
+<Info>
+  Tool usage requires approval. The agent will ask for confirmation before executing commands that modify files or run shell commands.
+</Info>
 
 ## Agent Characteristics
 

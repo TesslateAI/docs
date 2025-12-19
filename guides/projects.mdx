@@ -45,6 +45,47 @@ my-project/
   </Card>
 </CardGroup>
 
+## Multi-Container Projects
+
+Tesslate Studio supports monorepo-style projects with multiple containers:
+
+<CardGroup cols={2}>
+  <Card title="Frontend Container" icon="window">
+    React/Vite application serving the UI
+  </Card>
+  <Card title="Backend Container" icon="server">
+    FastAPI, Express, or Go API server
+  </Card>
+  <Card title="Database Container" icon="database">
+    PostgreSQL, MongoDB, or Redis
+  </Card>
+  <Card title="Custom Services" icon="cube">
+    Worker processes, cron jobs, etc.
+  </Card>
+</CardGroup>
+
+### Container Dependencies
+
+Define how containers connect to each other:
+
+```
+Frontend (React) ──→ Backend (FastAPI) ──→ Database (PostgreSQL)
+```
+
+The architecture visualization shows these connections in a React Flow diagram.
+
+### Adding Containers
+
+1. Open the **Architecture** panel in your project
+2. Click **Add Container**
+3. Choose container type (frontend, backend, database)
+4. Configure the container settings
+5. Define connections to other containers
+
+<Info>
+  Multi-container projects share a common network, allowing containers to communicate via service names (e.g., `http://backend:8000`).
+</Info>
+
 ## Project Lifecycle
 
 <Steps>

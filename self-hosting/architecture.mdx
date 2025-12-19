@@ -7,41 +7,71 @@ description: 'Understanding how Tesslate Studio works under the hood'
 
 Tesslate Studio is built as a **self-hosted, container-based AI development platform** that creates isolated environments for each project. This architecture provides security, scalability, and complete data sovereignty.
 
-<Frame>
+<Tabs>
+  <Tab title="Docker Mode (Development)">
+    <Frame>
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Your Machine / Your Cloud / Your Datacenter       │
+│  Docker Mode (Local Development)                    │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │  ┌──────────────────────────────────────────┐     │
-│  │  Tesslate Studio (You control this)     │     │
+│  │  Tesslate Studio                         │     │
 │  │                                           │     │
 │  │  • FastAPI Orchestrator (Python)         │     │
 │  │  • React Frontend (TypeScript)           │     │
 │  │  • PostgreSQL Database                    │     │
-│  │  • AI Agent Marketplace                   │     │
+│  │  • Traefik Reverse Proxy                  │     │
 │  └───────────┬──────────────────────────────┘     │
 │              │                                      │
 │              ▼                                      │
 │  ┌──────────────────────────────────────────┐     │
-│  │  Project Containers (Isolated)           │     │
+│  │  Project Containers (Docker)             │     │
 │  │                                           │     │
-│  │  todo-app.studio.localhost               │     │
-│  │  dashboard.studio.localhost              │     │
-│  │  prototype.studio.localhost              │     │
+│  │  todo-app-k3x8n2.localhost               │     │
+│  │  dashboard-h7y2k1.localhost              │     │
+│  │  prototype-m9p4q7.localhost              │     │
 │  └──────────────────────────────────────────┘     │
 │                                                     │
-│  ┌──────────────────────────────────────────┐     │
-│  │  Your AI Models (You choose)             │     │
-│  │                                           │     │
-│  │  • OpenAI GPT-5 (API)                    │     │
-│  │  • Anthropic Claude (API)                │     │
-│  │  • Local LLMs via Ollama                 │     │
-│  │  • Or any LiteLLM-compatible provider    │     │
-│  └──────────────────────────────────────────┘     │
+│  Storage: Local filesystem                         │
+│  Routing: Traefik with *.localhost                │
 └─────────────────────────────────────────────────────┘
 ```
-</Frame>
+    </Frame>
+  </Tab>
+
+  <Tab title="Kubernetes Mode (Production)">
+    <Frame>
+```
+┌─────────────────────────────────────────────────────┐
+│  Kubernetes Mode (Production)                       │
+├─────────────────────────────────────────────────────┤
+│  Namespace: tesslate                                │
+│  ┌──────────────────────────────────────────┐     │
+│  │  Core Services                            │     │
+│  │                                           │     │
+│  │  • Backend Deployment (FastAPI)          │     │
+│  │  • Frontend Deployment (React)           │     │
+│  │  • PostgreSQL StatefulSet                │     │
+│  │  • NGINX Ingress Controller              │     │
+│  └───────────┬──────────────────────────────┘     │
+│              │                                      │
+│              ▼                                      │
+│  ┌──────────────────────────────────────────┐     │
+│  │  User Project Namespaces (Dynamic)       │     │
+│  │                                           │     │
+│  │  proj-abc123 → app.studio.tesslate.com  │     │
+│  │  proj-xyz789 → dashboard.studio.tesslate │     │
+│  │  (Per-project namespace isolation)       │     │
+│  └──────────────────────────────────────────┘     │
+│                                                     │
+│  Storage: S3 Sandwich (PVC + S3)                   │
+│  Routing: NGINX Ingress with wildcard SSL         │
+└─────────────────────────────────────────────────────┘
+```
+    </Frame>
+  </Tab>
+</Tabs>
 
 ## Core Components
 

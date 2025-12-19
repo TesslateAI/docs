@@ -182,24 +182,42 @@ LITELLM_INITIAL_BUDGET=50.0
 LITELLM_PROXY_URL=http://litellm.yourcompany.com:4000
 ```
 
-### Container Runtime
+### Deployment Mode
 
-<ParamField path="CONTAINER_MODE" type="string" default="docker">
-  Container orchestration system to use. Options: `docker`
-</ParamField>
-
-<ParamField path="DOCKER_SOCKET_PATH" type="string">
-  Path to Docker socket for container management.
-
-  **Default:** `/var/run/docker.sock` (Linux/Mac), `//./pipe/docker_engine` (Windows)
+<ParamField path="DEPLOYMENT_MODE" type="string" default="docker">
+  Container orchestration system to use. Options: `docker`, `kubernetes`
 </ParamField>
 
 ```env
-# Linux/Mac
-DOCKER_SOCKET_PATH=/var/run/docker.sock
+# Local development with Docker + Traefik
+DEPLOYMENT_MODE=docker
 
-# Windows
-DOCKER_SOCKET_PATH=//./pipe/docker_engine
+# Production with Kubernetes
+DEPLOYMENT_MODE=kubernetes
+```
+
+<Info>
+  Docker mode uses Docker Compose with Traefik for subdomain routing. Kubernetes mode uses K8s with NGINX Ingress and supports auto-scaling.
+</Info>
+
+### Application Domain
+
+<ParamField path="APP_DOMAIN" type="string" default="localhost">
+  Domain where Tesslate Studio is hosted (without protocol).
+</ParamField>
+
+<ParamField path="APP_BASE_URL" type="string">
+  Full URL with protocol for OAuth redirects.
+</ParamField>
+
+```env
+# Local development
+APP_DOMAIN=localhost
+APP_BASE_URL=http://localhost
+
+# Production
+APP_DOMAIN=studio.yourcompany.com
+APP_BASE_URL=https://studio.yourcompany.com
 ```
 
 ### Auto-Seeding
@@ -221,23 +239,159 @@ AUTO_SEED_DATABASE=false
 - 3 project templates (Next.js, Vite+React+FastAPI, Vite+React+Go)
 - 6 open-source customizable agents
 
-### GitHub Integration
+### OAuth Configuration
 
-<ParamField path="GITHUB_CLIENT_ID" type="string">
-  GitHub OAuth app client ID. Required for GitHub integration.
+Configure OAuth providers for social login and integrations.
+
+<Tabs>
+  <Tab title="GitHub">
+    <ParamField path="GITHUB_CLIENT_ID" type="string">
+      GitHub OAuth app client ID.
+    </ParamField>
+
+    <ParamField path="GITHUB_CLIENT_SECRET" type="string">
+      GitHub OAuth app client secret.
+    </ParamField>
+
+    <ParamField path="GITHUB_OAUTH_REDIRECT_URI" type="string">
+      Callback URL for GitHub OAuth.
+    </ParamField>
+
+    ```env
+    GITHUB_CLIENT_ID=your-github-client-id
+    GITHUB_CLIENT_SECRET=your-github-client-secret
+    GITHUB_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/auth/github/callback
+    ```
+
+    <Info>
+      Create OAuth app at https://github.com/settings/developers
+    </Info>
+  </Tab>
+
+  <Tab title="Google">
+    <ParamField path="GOOGLE_CLIENT_ID" type="string">
+      Google OAuth client ID.
+    </ParamField>
+
+    <ParamField path="GOOGLE_CLIENT_SECRET" type="string">
+      Google OAuth client secret.
+    </ParamField>
+
+    <ParamField path="GOOGLE_OAUTH_REDIRECT_URI" type="string">
+      Callback URL for Google OAuth.
+    </ParamField>
+
+    ```env
+    GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+    GOOGLE_CLIENT_SECRET=your-google-client-secret
+    GOOGLE_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/auth/google/callback
+    ```
+
+    <Info>
+      Create OAuth credentials at https://console.cloud.google.com/apis/credentials
+    </Info>
+  </Tab>
+</Tabs>
+
+### Stripe Billing (Optional)
+
+Configure Stripe for subscription billing and marketplace payments.
+
+<ParamField path="STRIPE_SECRET_KEY" type="string">
+  Stripe API secret key.
 </ParamField>
 
-<ParamField path="GITHUB_CLIENT_SECRET" type="string">
-  GitHub OAuth app client secret.
+<ParamField path="STRIPE_PUBLISHABLE_KEY" type="string">
+  Stripe publishable key for frontend.
 </ParamField>
 
-<Info>
-  Create OAuth app at https://github.com/settings/developers
-</Info>
+<ParamField path="STRIPE_WEBHOOK_SECRET" type="string">
+  Webhook signing secret for Stripe events.
+</ParamField>
 
 ```env
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
+STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key
+STRIPE_PUBLISHABLE_KEY=pk_live_your-stripe-publishable-key
+STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+STRIPE_PREMIUM_PRICE_ID=price_your-premium-plan-id
+```
+
+### S3 Storage (Kubernetes Only)
+
+Required for Kubernetes deployments using the S3 Sandwich pattern.
+
+<ParamField path="S3_ACCESS_KEY_ID" type="string">
+  S3 access key ID.
+</ParamField>
+
+<ParamField path="S3_SECRET_ACCESS_KEY" type="string">
+  S3 secret access key.
+</ParamField>
+
+<ParamField path="S3_BUCKET_NAME" type="string" default="tesslate-projects">
+  S3 bucket name for project storage.
+</ParamField>
+
+<ParamField path="S3_ENDPOINT_URL" type="string">
+  S3 endpoint URL. Leave empty for AWS S3, set for MinIO or DigitalOcean Spaces.
+</ParamField>
+
+<ParamField path="S3_REGION" type="string" default="us-east-1">
+  S3 region for signature calculation.
+</ParamField>
+
+```env
+# AWS S3
+S3_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+S3_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+S3_BUCKET_NAME=tesslate-projects
+S3_REGION=us-east-1
+
+# DigitalOcean Spaces
+S3_ENDPOINT_URL=https://nyc3.digitaloceanspaces.com
+S3_BUCKET_NAME=your-space-name
+S3_REGION=nyc3
+
+# MinIO (local development)
+S3_ENDPOINT_URL=http://minio:9000
+S3_BUCKET_NAME=tesslate-projects
+```
+
+### Kubernetes Settings
+
+Configuration for Kubernetes deployments.
+
+<ParamField path="K8S_DEVSERVER_IMAGE" type="string">
+  Docker image for user project containers.
+</ParamField>
+
+<ParamField path="K8S_IMAGE_PULL_SECRET" type="string">
+  Kubernetes secret name for private registry authentication.
+</ParamField>
+
+<ParamField path="K8S_STORAGE_CLASS" type="string" default="tesslate-block-storage">
+  Kubernetes storage class for PVCs.
+</ParamField>
+
+<ParamField path="K8S_USE_S3_STORAGE" type="boolean" default="true">
+  Enable S3 Sandwich pattern for project storage.
+</ParamField>
+
+```env
+# Production (DigitalOcean)
+K8S_DEVSERVER_IMAGE=registry.digitalocean.com/your-registry/tesslate-devserver:latest
+K8S_IMAGE_PULL_SECRET=your-registry-secret
+K8S_STORAGE_CLASS=do-block-storage
+
+# AWS EKS
+K8S_DEVSERVER_IMAGE=123456789.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
+K8S_IMAGE_PULL_SECRET=ecr-credentials
+K8S_STORAGE_CLASS=gp3
+
+# Minikube (local)
+K8S_DEVSERVER_IMAGE=tesslate-devserver:latest
+K8S_IMAGE_PULL_SECRET=
+K8S_STORAGE_CLASS=standard
 ```
 
 ### Logging

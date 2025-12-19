@@ -65,20 +65,60 @@ description: 'Create your account and start building with Tesslate Studio'
   </Accordion>
 </AccordionGroup>
 
+## Social Login (Optional)
+
+Sign in faster using your existing accounts. Tesslate Studio supports OAuth authentication with GitHub and Google.
+
+<Tabs>
+  <Tab title="GitHub Login">
+    <Steps>
+      <Step title="Click GitHub Login">
+        On the login page, click **Continue with GitHub**.
+      </Step>
+
+      <Step title="Authorize Tesslate">
+        You'll be redirected to GitHub to authorize Tesslate Studio. Review the permissions and click **Authorize**.
+      </Step>
+
+      <Step title="Complete Setup">
+        After authorization, you'll be redirected back and logged in automatically. Your GitHub profile info is used to create your account.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Google Login">
+    <Steps>
+      <Step title="Click Google Login">
+        On the login page, click **Continue with Google**.
+      </Step>
+
+      <Step title="Select Account">
+        Choose your Google account or sign in if prompted.
+      </Step>
+
+      <Step title="Complete Setup">
+        After authorization, you'll be redirected back and logged in automatically.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
 ## GitHub Integration (Optional)
 
 Connect your GitHub account to import private repositories and commit code directly from Tesslate Studio.
 
 <Steps>
-  <Step title="Navigate to Dashboard">
-    From your project dashboard, click **Connect GitHub** or go to your profile settings.
+  <Step title="Navigate to Settings">
+    From your project dashboard, click your profile icon and go to **Settings** → **Integrations**.
   </Step>
 
-  <Step title="Authorize GitHub">
+  <Step title="Connect GitHub">
+    Click **Connect GitHub** to start the OAuth flow.
+  </Step>
+
+  <Step title="Authorize Tesslate">
     You'll be redirected to GitHub to authorize Tesslate Studio. Click **Authorize**.
-  </Step>
 
-  <Step title="Grant Permissions">
     Tesslate Studio requests:
     - Read access to your repositories
     - Write access to commit code changes

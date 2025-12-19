@@ -105,7 +105,9 @@
         "guides/api-keys",
         "guides/model-management",
         "guides/kanban-board",
-        "guides/assets"
+        "guides/assets",
+        "guides/external-deployments",
+        "guides/billing"
       ]
     },
     {

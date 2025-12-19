@@ -1,0 +1,204 @@
+---
+title: 'Billing & Subscriptions'
+description: 'Manage your subscription, credits, and usage in Tesslate Studio'
+---
+
+## Overview
+
+Tesslate Studio offers flexible pricing with subscription plans and usage-based billing powered by Stripe.
+
+## Subscription Tiers
+
+<CardGroup cols={2}>
+  <Card title="Free Tier" icon="user">
+    Get started at no cost:
+    - Up to 3 projects
+    - 1 external deployment
+    - Access to community agents
+    - Basic support
+  </Card>
+
+  <Card title="Premium" icon="crown">
+    For serious builders:
+    - Up to 20 projects
+    - 5 external deployments
+    - Priority agent access
+    - Priority support
+    - **$5/month**
+  </Card>
+</CardGroup>
+
+## Managing Your Subscription
+
+### Viewing Current Plan
+
+1. Click your profile icon in the top right
+2. Select **Settings** → **Billing**
+3. View your current plan and usage
+
+### Upgrading to Premium
+
+<Steps>
+  <Step title="Open Billing Settings">
+    Navigate to Settings → Billing
+  </Step>
+
+  <Step title="Click Upgrade">
+    Select the Premium plan
+  </Step>
+
+  <Step title="Enter Payment Details">
+    Complete payment via Stripe secure checkout
+  </Step>
+
+  <Step title="Confirmation">
+    Your plan upgrades immediately. Premium features are now available.
+  </Step>
+</Steps>
+
+### Canceling Subscription
+
+1. Go to Settings → Billing
+2. Click **Manage Subscription**
+3. Select **Cancel Plan**
+4. Your subscription remains active until the end of the billing period
+
+<Warning>
+  After cancellation, you'll lose access to premium features when your current billing period ends. Projects over the free tier limit will become read-only.
+</Warning>
+
+## Credits System
+
+Credits are used for AI agent usage. Each AI model has different credit costs based on token usage.
+
+### Viewing Credits
+
+Your credit balance is shown in:
+- The billing dashboard
+- The chat interface (remaining credits indicator)
+
+### Purchasing Credits
+
+<Steps>
+  <Step title="Open Billing">
+    Navigate to Settings → Billing
+  </Step>
+
+  <Step title="Select Package">
+    Choose a credit package:
+    - **Small**: $5
+    - **Medium**: $10
+    - **Large**: $50
+  </Step>
+
+  <Step title="Complete Purchase">
+    Pay via Stripe. Credits are added immediately.
+  </Step>
+</Steps>
+
+## Usage Tracking
+
+### Viewing Usage
+
+The billing dashboard shows:
+- AI token usage by model
+- Project count vs. limit
+- Deployment count vs. limit
+- Historical usage charts
+
+### Cost Management
+
+<AccordionGroup>
+  <Accordion icon="chart-line" title="Monitor Usage">
+    Check the billing dashboard regularly to track AI costs and avoid unexpected charges.
+  </Accordion>
+
+  <Accordion icon="shield" title="Set Limits">
+    Configure per-run cost limits in your agent settings to prevent runaway AI costs:
+    - `AGENT_MAX_COST`: Maximum cost per agent run
+    - `AGENT_MAX_ITERATIONS`: Maximum tool calls per run
+  </Accordion>
+
+  <Accordion icon="robot" title="Choose Efficient Models">
+    Smaller models (like GPT-4o-mini or Claude Haiku) are more cost-effective for simple tasks. Save powerful models for complex work.
+  </Accordion>
+</AccordionGroup>
+
+## Payment Methods
+
+Tesslate Studio accepts:
+- Credit cards (Visa, Mastercard, Amex)
+- Debit cards
+- Regional payment methods via Stripe
+
+### Updating Payment Method
+
+1. Go to Settings → Billing
+2. Click **Payment Methods**
+3. Add, remove, or set default payment method
+
+## Invoices & Receipts
+
+### Viewing Invoices
+
+All invoices are available in Settings → Billing → Transaction History.
+
+### Download Receipt
+
+Click any transaction to download a PDF receipt for expense reporting.
+
+## Marketplace Purchases
+
+### Buying from Marketplace
+
+Purchase premium agents and bases from the Marketplace:
+
+1. Browse the Marketplace
+2. Click **Purchase** on any paid item
+3. Complete Stripe checkout
+4. Item is added to your Library immediately
+
+### Creator Payouts
+
+If you sell agents or bases on the Marketplace:
+- 90% revenue share goes to creators
+- 10% platform fee
+- Payouts via Stripe Connect
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="credit-card" title="Payment Failed">
+    **Common causes:**
+    - Insufficient funds
+    - Card expired
+    - Bank declined transaction
+
+    **Solution:** Update your payment method in Settings → Billing
+  </Accordion>
+
+  <Accordion icon="circle-exclamation" title="Credits Not Added">
+    Credits should be added immediately after payment. If not:
+    1. Refresh the page
+    2. Check Settings → Billing → Transactions
+    3. Contact support if the transaction shows as failed
+  </Accordion>
+
+  <Accordion icon="ban" title="Subscription Not Active">
+    If your subscription isn't showing as active:
+    1. Check for failed payment notifications
+    2. Verify payment method is valid
+    3. Contact support with your transaction ID
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Marketplace" icon="store" href="/guides/marketplace">
+    Browse agents and bases to purchase
+  </Card>
+  <Card title="Model Management" icon="brain" href="/guides/model-management">
+    Configure AI models and costs
+  </Card>
+</CardGroup>

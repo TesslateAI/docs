@@ -1,0 +1,500 @@
+---
+title: "Contributing Guide"
+description: "How to set up a development environment and contribute to Tesslate Studio"
+---
+
+## Overview
+
+This guide walks you through setting up a local development environment, understanding the codebase structure, and contributing changes to Tesslate Studio. Whether you want to add a new API endpoint, extend the AI agent with a new tool, or fix a bug, this page covers the full workflow.
+
+## Prerequisites
+
+| Software | Version | Purpose |
+|----------|---------|---------|
+| Docker Desktop | Latest | Container runtime (PostgreSQL + user project containers) |
+| Node.js | 20+ | Frontend development |
+| Python | 3.11+ | Backend development |
+| Git | Latest | Version control |
+
+**System requirements:**
+- 8 GB RAM minimum (16 GB recommended)
+- 20 GB free disk space
+- Docker Desktop running with WSL 2 (Windows) or native (macOS/Linux)
+
+## Local Development Setup
+
+You have two options: Docker Compose (recommended for getting started quickly) or native development (recommended for debugging with breakpoints).
+
+<Tabs>
+  <Tab title="Docker Compose (Quick Start)">
+    <Steps>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/your-org/tesslate-studio.git
+        cd tesslate-studio
+        ```
+      </Step>
+      <Step title="Configure environment variables">
+        ```bash
+        cp .env.example .env
+        ```
+
+        Edit `.env` and set the required values:
+        ```bash
+        SECRET_KEY=your-secret-key-here-change-this
+        DEPLOYMENT_MODE=docker
+        POSTGRES_DB=tesslate_dev
+        POSTGRES_USER=tesslate_user
+        POSTGRES_PASSWORD=dev_password_change_me
+        LITELLM_API_BASE=https://your-litellm-url.com/v1
+        LITELLM_MASTER_KEY=your-litellm-master-key
+        APP_PROTOCOL=http
+        APP_DOMAIN=localhost
+        ```
+      </Step>
+      <Step title="Build and start all services">
+        ```bash
+        docker compose up --build -d
+        docker compose ps  # Verify all services are healthy
+        ```
+      </Step>
+      <Step title="Build the devserver image">
+        This image is required for user project containers:
+        ```bash
+        docker build -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
+        ```
+      </Step>
+      <Step title="Run database migrations and seed data">
+        ```bash
+        docker exec tesslate-orchestrator alembic upgrade head
+
+        # Copy and run seed scripts
+        docker cp scripts/seed/seed_marketplace_bases.py tesslate-orchestrator:/tmp/
+        docker cp scripts/seed/seed_marketplace_agents.py tesslate-orchestrator:/tmp/
+        docker cp scripts/seed/seed_opensource_agents.py tesslate-orchestrator:/tmp/
+        docker exec -e PYTHONPATH=/app tesslate-orchestrator python /tmp/seed_marketplace_bases.py
+        docker exec -e PYTHONPATH=/app tesslate-orchestrator python /tmp/seed_marketplace_agents.py
+        docker exec -e PYTHONPATH=/app tesslate-orchestrator python /tmp/seed_opensource_agents.py
+        ```
+      </Step>
+      <Step title="Access the application">
+        | Service | URL |
+        |---------|-----|
+        | Frontend | http://localhost |
+        | Backend API | http://localhost:8000 |
+        | Swagger UI | http://localhost:8000/docs |
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Native Development (Without Docker)">
+    <Steps>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/your-org/tesslate-studio.git
+        cd tesslate-studio
+        ```
+      </Step>
+      <Step title="Start PostgreSQL via Docker">
+        You still need PostgreSQL in Docker:
+        ```bash
+        docker compose up -d postgres
+        docker compose ps postgres  # Verify it's healthy
+        ```
+      </Step>
+      <Step title="Install backend dependencies">
+        ```bash
+        cd orchestrator
+        python -m venv .venv
+
+        # Activate virtual environment
+        # macOS/Linux:
+        source .venv/bin/activate
+        # Windows PowerShell:
+        .\.venv\Scripts\Activate.ps1
+
+        pip install -e ".[dev]"
+        ```
+      </Step>
+      <Step title="Install frontend dependencies">
+        ```bash
+        cd app
+        npm install
+        ```
+      </Step>
+      <Step title="Configure environment">
+        Copy `.env.example` to `.env` (same as Docker tab).
+
+        For the frontend, create `app/.env`:
+        ```bash
+        VITE_API_URL=http://localhost:8000
+        ```
+      </Step>
+      <Step title="Run migrations">
+        ```bash
+        cd orchestrator
+        alembic upgrade head
+        ```
+      </Step>
+      <Step title="Start services in separate terminals">
+        **Terminal 1 (Backend):**
+        ```bash
+        cd orchestrator
+        source .venv/bin/activate
+        uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+        ```
+
+        **Terminal 2 (Frontend):**
+        ```bash
+        cd app
+        npm run dev
+        ```
+      </Step>
+      <Step title="Access the application">
+        | Service | URL |
+        |---------|-----|
+        | Frontend | http://localhost:5173 |
+        | Backend API | http://localhost:8000 |
+        | Swagger UI | http://localhost:8000/docs |
+        | PostgreSQL | localhost:5432 |
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Project Structure
+
+```
+tesslate-studio/
++-- orchestrator/              # FastAPI backend
+|   +-- app/
+|   |   +-- main.py           # Application entry point
+|   |   +-- config.py         # Settings and configuration
+|   |   +-- models.py         # SQLAlchemy models
+|   |   +-- schemas.py        # Pydantic schemas
+|   |   +-- routers/          # API endpoints (25+ files)
+|   |   +-- services/         # Business logic (30+ files)
+|   |   +-- agent/            # AI agent system
+|   |   |   +-- tools/        # Agent tools
+|   |   +-- middleware/        # CSRF, auth middleware
+|   +-- alembic/              # Database migrations
+|   +-- tests/                # Backend tests
+|   +-- Dockerfile            # Backend container
+|   +-- Dockerfile.devserver  # User project container image
+|
++-- app/                      # React frontend
+|   +-- src/
+|   |   +-- pages/            # Page components
+|   |   +-- components/       # Reusable components
+|   |   +-- lib/              # Utilities and API client
+|   |   +-- contexts/         # React contexts (Auth, Command)
+|   +-- public/               # Static assets
+|   +-- Dockerfile.prod       # Frontend container
+|
++-- k8s/                      # Kubernetes manifests (Kustomize)
++-- scripts/                  # Seed scripts, deployment helpers
++-- docker-compose.yml        # Local development setup
+```
+
+## Adding a New API Router
+
+<Steps>
+  <Step title="Create the router file">
+    Create a new file in `orchestrator/app/routers/`. Follow the naming convention of existing routers.
+
+    ```python
+    from fastapi import APIRouter, Depends, HTTPException
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from ..database import get_db
+    from ..users import current_active_user
+    from ..models_auth import User
+
+    router = APIRouter(prefix="/api/your-feature", tags=["your-feature"])
+
+    @router.get("/")
+    async def list_items(
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_db)
+    ):
+        """List all items for the current user."""
+        # Implementation here
+        pass
+    ```
+  </Step>
+  <Step title="Create Pydantic schemas">
+    Add schemas in `orchestrator/app/schemas.py` (or a new `schemas_*.py` file):
+
+    ```python
+    from pydantic import BaseModel, ConfigDict
+    from uuid import UUID
+    from datetime import datetime
+
+    class YourFeatureCreate(BaseModel):
+        name: str
+
+    class YourFeatureResponse(BaseModel):
+        model_config = ConfigDict(from_attributes=True)
+        id: UUID
+        name: str
+        created_at: datetime
+    ```
+  </Step>
+  <Step title="Register in main.py">
+    Open `orchestrator/app/main.py` and add:
+
+    ```python
+    from .routers import your_feature
+    app.include_router(your_feature.router)
+    ```
+  </Step>
+  <Step title="Add database models (if needed)">
+    Add models to `orchestrator/app/models.py`, then generate a migration.
+  </Step>
+  <Step title="Write tests">
+    Create tests in `orchestrator/tests/routers/test_your_feature.py`:
+
+    ```python
+    import pytest
+    from httpx import AsyncClient
+
+    @pytest.mark.asyncio
+    async def test_list_items(client: AsyncClient, auth_headers: dict):
+        response = await client.get("/api/your-feature", headers=auth_headers)
+        assert response.status_code == 200
+    ```
+  </Step>
+</Steps>
+
+## Adding Agent Tools
+
+<Steps>
+  <Step title="Create the tool module">
+    Create a new directory under `orchestrator/app/agent/tools/`:
+
+    ```
+    orchestrator/app/agent/tools/
+    +-- your_tool/
+        +-- __init__.py
+        +-- implementation.py
+    ```
+  </Step>
+  <Step title="Implement the executor function">
+    The executor function receives `params` (tool parameters) and `context` (execution context with user_id, project_id, etc.):
+
+    ```python
+    from ..registry import Tool, ToolCategory
+    from ..output_formatter import success_output, error_output
+
+    async def your_tool_executor(params, context):
+        file_path = params.get("file_path")
+        if not file_path:
+            return error_output(
+                message="file_path is required",
+                suggestion="Provide the path to the file"
+            )
+
+        # Use orchestrator for file/shell operations
+        from ....services.orchestration import get_orchestrator
+        orchestrator = get_orchestrator()
+
+        try:
+            result = await orchestrator.read_file(
+                user_id=context["user_id"],
+                project_id=str(context["project_id"]),
+                container_name=context.get("container_name"),
+                file_path=file_path,
+                project_slug=context.get("project_slug"),
+                subdir=context.get("container_directory")
+            )
+            return success_output(message="Success", result=result)
+        except Exception as e:
+            return error_output(message=f"Failed: {str(e)}")
+    ```
+  </Step>
+  <Step title="Register the tool">
+    Add a registration function and wire it into the registry:
+
+    ```python
+    def register_your_tools(registry):
+        registry.register(Tool(
+            name="your_tool",
+            description="What this tool does (shown to the LLM)",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path relative to project root"
+                    }
+                },
+                "required": ["file_path"]
+            },
+            executor=your_tool_executor,
+            category=ToolCategory.FILE_OPS,
+            examples=['{"tool_name": "your_tool", "parameters": {"file_path": "src/App.tsx"}}']
+        ))
+    ```
+
+    Then edit `orchestrator/app/agent/tools/registry.py` to import and call your registration function in `_register_all_tools()`.
+  </Step>
+  <Step title="Test the tool">
+    Write unit tests with mocked dependencies:
+
+    ```python
+    @pytest.mark.asyncio
+    async def test_your_tool_success():
+        params = {"file_path": "src/App.jsx"}
+        context = {"user_id": "test", "project_id": "test", "project_slug": "test"}
+
+        with patch('...get_orchestrator') as mock:
+            mock.return_value.read_file = AsyncMock(return_value="content")
+            result = await your_tool_executor(params, context)
+            assert result["success"] is True
+    ```
+  </Step>
+</Steps>
+
+## Database Migrations with Alembic
+
+<Steps>
+  <Step title="Make model changes">
+    Edit `orchestrator/app/models.py` (or `models_auth.py` / `models_kanban.py`).
+  </Step>
+  <Step title="Generate migration">
+    ```bash
+    cd orchestrator
+    alembic revision --autogenerate -m "description_of_changes"
+    ```
+  </Step>
+  <Step title="Review the generated migration">
+    Check the new file in `orchestrator/alembic/versions/`. Verify:
+    - Correct column types and nullable settings
+    - Proper index and constraint names
+    - No unintended data loss
+  </Step>
+  <Step title="Apply migration">
+    ```bash
+    alembic upgrade head
+    ```
+  </Step>
+  <Step title="Test rollback">
+    ```bash
+    alembic downgrade -1   # Rollback
+    alembic upgrade head   # Re-apply
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Alembic autogenerate cannot detect column renames (it sees delete + add). For renames, create a manual migration with `alembic revision -m "rename_column"` and use `op.alter_column()`.
+</Warning>
+
+### Running Migrations in Production
+
+```bash
+# Docker Compose
+docker exec tesslate-orchestrator alembic upgrade head
+
+# Kubernetes
+kubectl exec -n tesslate deployment/tesslate-backend -- alembic upgrade head
+```
+
+## Code Style and Patterns
+
+### Backend (Python)
+
+- **Async everywhere:** All I/O operations must use `async/await`.
+- **Dependency injection:** Receive database sessions and config as function parameters; never create sessions inside services.
+- **Factory pattern:** Use `get_orchestrator()` for container operations.
+- **Error handling:** Use `HTTPException` with appropriate status codes; log errors with context.
+- **Non-blocking:** Use `BackgroundTasks` for long-running operations.
+
+```python
+# Good: Non-blocking, returns immediately
+@router.post("/start")
+async def start_project(background_tasks: BackgroundTasks):
+    background_tasks.add_task(setup_containers, project)
+    return {"status": "starting"}
+
+# Bad: Blocks for 30+ seconds
+@router.post("/start")
+async def start_project():
+    await setup_containers(project)
+    return {"status": "started"}
+```
+
+### Frontend (TypeScript)
+
+- **Functional components:** Use React hooks, not class components.
+- **Type safety:** Define interfaces for all props and API responses.
+- **API calls:** Use the centralized `api.ts` client.
+- **State management:** Use React Context for global state; local state for component-specific data.
+
+## Running Tests
+
+```bash
+# Backend tests
+cd orchestrator
+pytest
+
+# Frontend tests
+cd app
+npm test
+```
+
+## Common Development Tasks
+
+<AccordionGroup>
+  <Accordion title="Reset the database">
+    ```bash
+    docker compose down
+    docker volume rm tesslate-postgres-dev-data
+    docker compose up -d postgres
+    cd orchestrator && alembic upgrade head
+    ```
+  </Accordion>
+  <Accordion title="Access the database shell">
+    ```bash
+    docker compose exec postgres psql -U tesslate_user -d tesslate_dev
+    ```
+  </Accordion>
+  <Accordion title="Rebuild a Docker image with no cache">
+    ```bash
+    docker rmi -f tesslate-backend:latest
+    docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
+    ```
+  </Accordion>
+  <Accordion title="View backend logs">
+    ```bash
+    # Docker Compose
+    docker compose logs -f orchestrator
+
+    # Kubernetes
+    kubectl logs -f deployment/tesslate-backend -n tesslate
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Pull Request Process
+
+<Steps>
+  <Step title="Create a feature branch">
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+  <Step title="Make your changes">
+    Follow the code style and patterns described above. Write tests for new functionality.
+  </Step>
+  <Step title="Run tests locally">
+    Ensure all existing and new tests pass.
+  </Step>
+  <Step title="Commit with descriptive messages">
+    Keep commits focused on a single logical change.
+  </Step>
+  <Step title="Push and open a pull request">
+    Include a description of what changed and why. Reference any related issues.
+  </Step>
+  <Step title="Address review feedback">
+    Update the PR based on reviewer comments. Keep the conversation focused on code quality and correctness.
+  </Step>
+</Steps>

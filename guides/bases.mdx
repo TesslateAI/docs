@@ -1,88 +1,219 @@
 ---
 title: 'Project Bases'
-description: 'Pre-built templates to start your projects faster'
+description: 'Pre-built project templates with defined tech stacks, ready to clone and customize'
 ---
 
 ## What are Bases?
 
-Bases are pre-configured project templates that include:
-- **Tech Stack**: Pre-installed libraries and frameworks
-- **File Structure**: Organized folder layout
-- **Sample Code**: Example implementations
-- **Configuration**: Ready-to-use config files
+A base is a project template backed by a Git repository. When you create a project from a base, Tesslate clones the repository into your project container, installs dependencies, and starts the dev server. This gives you a fully working application in seconds instead of starting from scratch.
 
-## Why Use Bases?
+Each base is stored as a `MarketplaceBase` record in the database with the following key properties:
+
+- **git_repo_url**: The GitHub (or other provider) repository that gets cloned
+- **category**: Classification such as `fullstack`, `frontend`, `backend`, or `mobile`
+- **tech_stack**: Array of technologies used (for example, `["React", "FastAPI", "PostgreSQL"]`)
+- **features**: Array of capabilities (for example, `["Hot reload", "API ready", "Database setup"]`)
+- **tags**: Searchable keywords (for example, `["vite", "react", "tailwind"]`)
 
 <CardGroup cols={2}>
   <Card title="Save Time" icon="clock">
-    Start with working code instead of from scratch
+    Start with a working application instead of configuring from scratch
   </Card>
   <Card title="Best Practices" icon="star">
-    Learn from well-structured examples
+    Learn from well-structured, tested project layouts
   </Card>
   <Card title="Pre-configured" icon="gear">
-    Skip setup, start building features
+    Dependencies, build tools, and dev server are already set up
   </Card>
   <Card title="Customizable" icon="sliders">
-    Modify to fit your exact needs
+    Every file is yours to modify after creation
   </Card>
 </CardGroup>
 
+## Types of Bases
+
+### Official Bases (Tesslate-Seeded)
+
+These are maintained by the Tesslate team and ship with every installation. They include:
+
+| Base | Tech Stack | Description |
+|------|-----------|-------------|
+| Next.js 16 Starter | Next.js, React, TypeScript | Full-featured Next.js application |
+| Vite + React + FastAPI | React, Vite, FastAPI, PostgreSQL | Full-stack with Python backend |
+| Vite + React + Go | React, Vite, Go | Full-stack with Go backend |
+| Expo Starter | React Native, Expo | Mobile application template |
+
+### Community Bases (User-Submitted)
+
+Any user can submit a base to the marketplace by providing a public Git repository URL. Community bases cover a wide range of frameworks:
+
+<AccordionGroup>
+  <Accordion icon="globe" title="Full-Stack Frameworks">
+    Django, Laravel, Rails, .NET, Spring Boot, and more. Community bases bring support for frameworks beyond the default Node.js ecosystem.
+  </Accordion>
+
+  <Accordion icon="server" title="Backend Frameworks">
+    Go (Gin, Fiber, Echo), Rust (Actix, Axum), Python (Flask, Django), PHP (Laravel, Symfony).
+  </Accordion>
+
+  <Accordion icon="mobile" title="Mobile & Desktop">
+    Flutter, React Native (Expo), Tauri, and Electron starter templates.
+  </Accordion>
+
+  <Accordion icon="browser" title="Frontend Frameworks">
+    Vue 3, Svelte, Angular, Astro, Solid, and various React configurations.
+  </Accordion>
+</AccordionGroup>
+
+<Info>
+  Community bases that lack a `TESSLATE.md` configuration file may need agent-assisted startup. If the dev server does not start automatically, the platform will offer an "Ask Agent to start it" button that lets the AI figure out the correct startup command.
+</Info>
+
+### Visibility
+
+Bases have a `visibility` property:
+
+- **public**: Visible to everyone in the marketplace
+- **private**: Only visible to the creator
+
+Bases created by the Tesslate team (where `created_by_user_id` is null) are always public.
+
 ## Finding Bases
 
-Browse bases in the [Marketplace](/guides/marketplace):
-1. Click **Marketplace** in the sidebar
-2. Select **Bases** tab
-3. Filter by category or search
-4. View details and tech stack
-5. Click **Install** to add to library
-
-## Creating Projects from Bases
-
 <Steps>
-  <Step title="Install Base">
-    Add the base to your library from the marketplace
+  <Step title="Open the Marketplace">
+    Click **Marketplace** in the sidebar navigation.
   </Step>
-  <Step title="Create Project">
-    Click **Create New Project** from dashboard
+  <Step title="Select the Bases Tab">
+    Switch to the **Bases** section to browse available templates.
   </Step>
-  <Step title="Select Base">
-    Choose **Base** as source and select from your library
+  <Step title="Filter and Search">
+    Filter by category (fullstack, frontend, backend, mobile) or search by name, tech stack, or tags.
   </Step>
-  <Step title="Start Building">
-    Project initializes with base structure ready to customize
+  <Step title="View Details">
+    Click a base to see its full description, tech stack, features, download count, and user rating.
+  </Step>
+  <Step title="Install">
+    Click **Install** to add the base to your personal library.
   </Step>
 </Steps>
 
-## Popular Base Types
+## Creating a Project from a Base
+
+<Steps>
+  <Step title="Install the Base">
+    Add the base to your library from the Marketplace (if you have not already).
+  </Step>
+  <Step title="Open the Dashboard">
+    Navigate to your Dashboard and click **Create New Project**.
+  </Step>
+  <Step title="Select Base as Source">
+    Choose **Base** as your project source, then pick from your installed bases.
+  </Step>
+  <Step title="Name Your Project">
+    Enter a project name. Tesslate generates a unique slug automatically (for example, `my-saas-app-x7k2m1`).
+  </Step>
+  <Step title="Wait for Initialization">
+    A background task clones the base repository, installs dependencies, and starts the dev server. This typically takes 10 to 30 seconds.
+  </Step>
+</Steps>
+
+Behind the scenes, the API call looks like this:
+
+```
+POST /api/projects/
+{
+  "name": "My SaaS App",
+  "source_type": "base",
+  "base_id": "<base-uuid>"
+}
+```
+
+The server returns a `task_id` that the frontend polls until the project setup completes.
+
+## Base Data Model
+
+For developers and advanced users, here is what the `MarketplaceBase` record includes:
+
+<Tabs>
+  <Tab title="Identity">
+    - `id`: Unique UUID
+    - `name`: Display name (for example, "Next.js Starter")
+    - `slug`: URL-safe identifier (for example, `nextjs-starter`)
+    - `description`: Short summary
+    - `long_description`: Full description in Markdown
+  </Tab>
+
+  <Tab title="Repository">
+    - `git_repo_url`: The GitHub/GitLab URL to clone
+    - `default_branch`: Which branch to use (usually `main`)
+  </Tab>
+
+  <Tab title="Metadata">
+    - `category`: fullstack, frontend, backend, mobile
+    - `tech_stack`: JSON array of technologies
+    - `features`: JSON array of capabilities
+    - `tags`: JSON array of searchable keywords
+    - `icon`: Emoji identifier
+    - `preview_image`: Screenshot URL
+  </Tab>
+
+  <Tab title="Pricing & Stats">
+    - `pricing_type`: free, one_time, or monthly
+    - `price`: Amount in cents (0 for free bases)
+    - `downloads`: Total install count
+    - `rating`: Average user rating (1 to 5)
+    - `reviews_count`: Number of reviews
+  </Tab>
+</Tabs>
+
+## Submitting Your Own Base
+
+You can contribute bases to the marketplace by submitting a public Git repository.
+
+<Steps>
+  <Step title="Prepare Your Repository">
+    Make sure your repository is publicly accessible, has a working dev server configuration, and ideally includes a `TESSLATE.md` file that defines the startup command and port.
+  </Step>
+  <Step title="Open the Submit Base Dialog">
+    In the Marketplace, click **Submit Base** (or find the option in your Library).
+  </Step>
+  <Step title="Provide Details">
+    Enter the repository URL, name, description, category, tech stack, and tags.
+  </Step>
+  <Step title="Set Visibility">
+    Choose **public** to make it available to everyone, or **private** to keep it in your personal library only.
+  </Step>
+  <Step title="Submit">
+    Your base is created with your user ID as the `created_by_user_id`. Public bases appear in the marketplace browse page.
+  </Step>
+</Steps>
+
+<Info>
+  Adding a `TESSLATE.md` file to the root of your repository helps Tesslate detect the correct startup command, port, and framework. Without this file, the platform falls back to `npm install && npm run dev` on port 3000, which may not work for non-Node.js projects.
+</Info>
+
+## Ratings and Reviews
+
+Users can leave reviews on bases with a 1 to 5 star rating and an optional text comment. The average rating and review count are displayed on the base card in the marketplace, helping others make informed decisions.
+
+## Best Practices
 
 <AccordionGroup>
-  <Accordion icon="browser" title="Landing Page Bases">
-    - Hero sections and CTAs
-    - Feature showcases
-    - Contact forms
-    - Responsive layouts
+  <Accordion icon="magnifying-glass" title="Choose the Right Base">
+    Match the base's tech stack to your project requirements. If you need a Python backend, choose a base that includes FastAPI or Django rather than adding it manually after creation.
   </Accordion>
 
-  <Accordion icon="chart-line" title="Dashboard Bases">
-    - Data visualization
-    - Admin panels
-    - Analytics displays
-    - User management
+  <Accordion icon="file-lines" title="Include TESSLATE.md in Your Bases">
+    If you are submitting a base, add a `TESSLATE.md` file that specifies the framework, startup command, and port. This ensures reliable automatic startup for every user who creates a project from your base.
   </Accordion>
 
-  <Accordion icon="cart-shopping" title="E-commerce Bases">
-    - Product catalogs
-    - Shopping carts
-    - Checkout flows
-    - Order management
+  <Accordion icon="star" title="Check Ratings Before Installing">
+    Higher-rated bases with more downloads tend to be better tested and maintained. Read reviews to understand any known issues or limitations.
   </Accordion>
 
-  <Accordion icon="user" title="Authentication Bases">
-    - Login/signup forms
-    - User profiles
-    - Password reset
-    - Protected routes
+  <Accordion icon="code-branch" title="Fork and Customize">
+    After creating a project from a base, the code is entirely yours. Modify any file, add or remove dependencies, and restructure the project to fit your needs.
   </Accordion>
 </AccordionGroup>
 
@@ -90,17 +221,17 @@ Browse bases in the [Marketplace](/guides/marketplace):
 
 <CardGroup cols={2}>
   <Card
-    title="Browse Marketplace"
+    title="Browse the Marketplace"
     icon="store"
     href="/guides/marketplace"
   >
-    Discover available bases
+    Discover all available bases and AI agents
   </Card>
   <Card
-    title="Create Project"
+    title="Create a Project"
     icon="plus"
     href="/guides/creating-projects"
   >
-    Start a project from a base
+    Use a base to start your next project
   </Card>
 </CardGroup>

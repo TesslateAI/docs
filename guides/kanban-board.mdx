@@ -1,105 +1,102 @@
 ---
 title: 'Kanban Board'
-description: 'Track tasks and manage your project workflow'
+description: 'Track tasks, manage workflows, and organize your project with the built-in Kanban board'
 ---
 
 ## Overview
 
-The Kanban Board helps you track features, bugs, and tasks for your projects using a visual workflow system.
+Every Tesslate Studio project includes a built-in Kanban board for tracking features, bugs, and tasks. The board is stored in the database and fully integrated with the project workspace, so you can manage your workflow without leaving the editor.
 
 <CardGroup cols={2}>
   <Card title="Visual Workflow" icon="columns">
-    Drag-and-drop task management
+    Drag-and-drop task management with customizable columns
   </Card>
   <Card title="AI Integration" icon="robot">
-    Create tasks from AI conversations
+    Create tasks from AI agent conversations automatically
   </Card>
-  <Card title="Per-Project" icon="folder">
-    Each project has its own board
+  <Card title="Per-Project Boards" icon="folder">
+    Each project has its own dedicated board with independent columns and tasks
   </Card>
-  <Card title="Sync with Code" icon="code">
-    Link tasks to files and features
+  <Card title="Rich Task Metadata" icon="tags">
+    Priority levels, task types, assignees, due dates, and tags
   </Card>
 </CardGroup>
 
 ## Board Structure
 
+Each project has one `KanbanBoard` with customizable `KanbanColumn` entries. By default, boards are created with four columns, but you can add, remove, or rename columns to fit your workflow.
+
 <Tabs>
   <Tab title="Backlog">
     **Ideas and future work**
-    - Feature ideas
+
+    The backlog column (marked with `is_backlog = true`) is for:
+    - Feature ideas and brainstorms
     - Future enhancements
-    - Nice-to-have features
+    - Low-priority items
     - Unplanned work
 
-    Low priority, not yet started
+    Tasks here are not yet scheduled for development.
   </Tab>
 
   <Tab title="To Do">
     **Ready to start**
-    - Planned features
-    - Assigned tasks
-    - Next up
-    - Ready for work
 
-    Planned and prioritized
+    Planned and prioritized tasks:
+    - Assigned features
+    - Scheduled bug fixes
+    - Next up in the pipeline
+
+    Tasks here have been triaged and are ready for work.
   </Tab>
 
   <Tab title="In Progress">
-    **Currently working on**
-    - Active development
-    - Being built
+    **Currently being worked on**
+
+    Active development items:
     - Work in progress
+    - Actively being built or fixed
     - Focus area
 
-    Limited to 3-5 tasks recommended
-  </Tab>
-
-  <Tab title="Review">
-    **Needs testing or review**
-    - Code review
-    - Testing
-    - QA
-    - Approval needed
-
-    Done but needs verification
+    Consider setting a **WIP (Work In Progress) limit** on this column (e.g., 3 to 5 tasks) to maintain focus. Columns support a `task_limit` field for this purpose.
   </Tab>
 
   <Tab title="Done">
-    **Completed work**
+    **Completed work** (marked with `is_completed = true`)
+
+    Finished items:
     - Shipped features
     - Fixed bugs
     - Completed tasks
-    - Delivered
 
-    Finished and deployed
+    Tasks in the Done column are considered finished and delivered.
   </Tab>
 </Tabs>
 
 ## Creating Tasks
 
 <Steps>
-  <Step title="Open Board">
-    Click **Kanban** icon in project toolbar
+  <Step title="Open the Kanban Board">
+    Click the **Kanban** icon in the project toolbar, or use the keyboard shortcut if configured.
   </Step>
 
-  <Step title="Add Task">
-    Click **+ Add Task** in any column
+  <Step title="Add a Task">
+    Click **+ Add Task** at the top or bottom of any column.
   </Step>
 
-  <Step title="Enter Details">
-    - Task title
-    - Description
-    - Priority (High/Medium/Low)
-    - Assignee (you or team member)
-  </Step>
-
-  <Step title="Add Labels">
-    Tag with Feature, Bug, Enhancement, etc.
+  <Step title="Enter Task Details">
+    Fill in the task form:
+    - **Title**: A clear, concise description of the work
+    - **Description**: Detailed explanation, acceptance criteria, or notes (supports rich text)
+    - **Priority**: Urgent, High, Medium, or Low
+    - **Task Type**: Feature, Bug, Enhancement, Refactor, Docs, or Testing
+    - **Assignee**: Assign to yourself or a team member
+    - **Due Date**: Optional deadline
+    - **Tags**: Custom labels for categorization (stored as JSON)
   </Step>
 
   <Step title="Create">
-    Task appears in the column
+    Click **Create**. The task appears in the selected column and is saved to the database immediately.
   </Step>
 </Steps>
 
@@ -110,7 +107,7 @@ The Kanban Board helps you track features, bugs, and tasks for your projects usi
     New functionality to build
   </Card>
   <Card title="Bug" icon="bug">
-    Issues to fix
+    Issues that need fixing
   </Card>
   <Card title="Enhancement" icon="arrow-up">
     Improvements to existing features
@@ -126,30 +123,123 @@ The Kanban Board helps you track features, bugs, and tasks for your projects usi
   </Card>
 </CardGroup>
 
+## Moving Tasks
+
+Drag and drop tasks between columns to update their status. When you move a task:
+
+1. The task's column assignment updates in the database
+2. The task's position within the column is preserved
+3. Other tasks in both the source and destination columns reorder automatically
+
+You can also reorder tasks within a column by dragging them up or down.
+
+## Task Comments
+
+Each task supports a comment thread for collaboration:
+
+<Steps>
+  <Step title="Open a Task">
+    Click on any task card to open its detail view
+  </Step>
+
+  <Step title="Add a Comment">
+    Type your comment in the text area at the bottom of the task detail panel
+  </Step>
+
+  <Step title="Submit">
+    Click **Post** to save the comment. Comments include the author and timestamp.
+  </Step>
+</Steps>
+
+Comments are stored in the `KanbanTaskComment` model and linked to both the task and the commenting user.
+
+## Customizing Columns
+
+### Adding Columns
+
+You can add new columns to your board to match your team's workflow. For example, you might add a "Review" column between "In Progress" and "Done."
+
+### Column Properties
+
+Each column has configurable properties:
+
+| Property | Description |
+|----------|-------------|
+| `name` | Display name of the column |
+| `position` | Order in the board (0-based) |
+| `is_backlog` | Marks the column as the backlog (special styling) |
+| `is_completed` | Marks the column as the completion column |
+| `task_limit` | Optional WIP limit; visual warning when exceeded |
+
+## Project Notes
+
+In addition to the Kanban board, each project includes a **Notes** panel for freeform documentation. Notes use a rich text editor (TipTap) and are stored in the `ProjectNote` model.
+
+Use notes for:
+- Architecture decision records
+- Meeting notes
+- Quick reference documentation
+- Design specifications
+
+## AI-Powered Task Creation
+
+You can create tasks directly from your AI agent conversations:
+
+1. While chatting with an agent about a feature or bug, the agent can suggest tasks
+2. Tasks created by the agent automatically populate with relevant details from the conversation
+3. You can review and adjust the task before it is added to the board
+
+This is especially useful when the agent identifies multiple subtasks during a feature discussion.
+
 ## Best Practices
 
 <AccordionGroup>
-  <Accordion icon="list-check" title="Keep Tasks Small">
-    **Do:**
+  <Accordion icon="list-check" title="Keep Tasks Small and Specific">
+    **Good task titles:**
     - "Create product card component"
-    - "Build product grid"
-    - "Add filter controls"
+    - "Add pagination to product list"
+    - "Fix mobile navigation overflow"
 
-    Smaller tasks = faster completion
+    **Avoid vague titles like:**
+    - "Work on products"
+    - "Fix bugs"
+
+    Smaller tasks lead to faster completion and clearer progress tracking.
   </Accordion>
 
   <Accordion icon="signal" title="Limit Work in Progress">
-    - Max 3-5 tasks in "In Progress"
-    - Finish before starting new
+    Set a WIP limit of 3 to 5 tasks on your "In Progress" column. This:
     - Reduces context switching
+    - Forces you to finish before starting new work
+    - Makes blockers visible sooner
   </Accordion>
 
-  <Accordion icon="arrows-rotate" title="Move Tasks Regularly">
-    - Update status daily
-    - Move completed work to Done
-    - Keep board current
+  <Accordion icon="arrows-rotate" title="Update the Board Regularly">
+    - Move tasks to "Done" as soon as they are complete
+    - Update task descriptions with learnings or blockers
+    - Review the backlog weekly to prioritize upcoming work
+    - Archive or delete tasks that are no longer relevant
+  </Accordion>
+
+  <Accordion icon="tags" title="Use Tags for Cross-Cutting Concerns">
+    Tags are stored as JSON arrays and support any custom labels. Useful tag categories:
+    - **Component**: `header`, `sidebar`, `auth-flow`
+    - **Effort**: `quick-win`, `large-effort`
+    - **Area**: `frontend`, `backend`, `infrastructure`
   </Accordion>
 </AccordionGroup>
+
+## Data Model Reference
+
+For developers and advanced users, here is the underlying data structure:
+
+| Model | Key Fields | Description |
+|-------|------------|-------------|
+| `KanbanBoard` | `project_id`, `name`, `settings` | One board per project |
+| `KanbanColumn` | `name`, `position`, `is_backlog`, `is_completed`, `task_limit` | Ordered columns within a board |
+| `KanbanTask` | `title`, `description`, `priority`, `task_type`, `assignee_id`, `due_date`, `tags` | Individual task cards |
+| `KanbanTaskComment` | `task_id`, `user_id`, `content` | Comment thread on tasks |
+| `ProjectNote` | `project_id`, `content`, `content_format` | Rich text notes |
 
 ## Next Steps
 
@@ -159,27 +249,27 @@ The Kanban Board helps you track features, bugs, and tasks for your projects usi
     icon="comments"
     href="/guides/chat-interface"
   >
-    Create tasks from AI conversations
+    Create tasks from AI agent conversations
   </Card>
   <Card
     title="Using Agents"
     icon="robot"
     href="/guides/using-agents"
   >
-    Build features from tasks
+    Let AI build features based on your tasks
   </Card>
   <Card
     title="GitHub Integration"
     icon="github"
     href="/guides/github-integration"
   >
-    Link tasks to commits
+    Link tasks to commits and branches
   </Card>
   <Card
     title="Projects"
     icon="folder"
     href="/guides/projects"
   >
-    Manage your projects
+    Manage your project settings and structure
   </Card>
 </CardGroup>

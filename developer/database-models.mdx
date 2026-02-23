@@ -1,0 +1,596 @@
+---
+title: "Database Models"
+description: "All 39+ SQLAlchemy models powering Tesslate Studio"
+---
+
+## Overview
+
+Tesslate Studio uses PostgreSQL with SQLAlchemy 2.x (async) as the ORM. The schema consists of 39+ models organized into functional domains. All models use UUID primary keys, timezone-aware timestamps, and cascade deletes for clean data removal.
+
+This reference covers every model, its key fields, and its relationships. If you are adding a new model or modifying the schema, read the [Contributing Guide](/developer/contributing) section on database migrations.
+
+## Common Patterns
+
+Before diving into individual models, here are the patterns shared across the codebase.
+
+<Tabs>
+  <Tab title="UUID Primary Keys">
+    ```python
+    from sqlalchemy.dialects.postgresql import UUID
+    import uuid
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    ```
+  </Tab>
+  <Tab title="Timestamps">
+    ```python
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    ```
+  </Tab>
+  <Tab title="Cascade Deletes">
+    ```python
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"))
+    ```
+  </Tab>
+  <Tab title="JSON Columns">
+    ```python
+    settings = Column(JSON, nullable=True)       # Flexible metadata
+    environment_vars = Column(JSON, nullable=True) # Container env vars
+    tags = Column(JSON)                           # ["react", "typescript"]
+    ```
+  </Tab>
+</Tabs>
+
+## Model Hierarchy
+
+```
+User (owner)
+  +-> Projects (multiple)
+  |   +-> Containers (frontend, backend, db)
+  |   |   +-> ContainerConnections (networking)
+  |   +-> BrowserPreviews (live preview windows)
+  |   +-> ProjectFiles (code files)
+  |   +-> ProjectAssets (images, fonts)
+  |   +-> Chats (AI conversations)
+  |   |   +-> Messages (user/assistant)
+  |   |   +-> AgentCommandLog (audit trail)
+  |   +-> ShellSessions (persistent terminals)
+  |   +-> KanbanBoard (task management)
+  |   +-> Deployments (external hosting)
+  |   +-> ProjectNotes (rich text notes)
+  +-> UserPurchasedAgents -> MarketplaceAgents
+  +-> DeploymentCredentials
+  +-> GitProviderCredentials
+  +-> UserAPIKeys / UserCustomModels
+```
+
+## Auth Models
+
+Defined in `orchestrator/app/models_auth.py`.
+
+### User
+
+The central identity model. Extends FastAPI-Users' `SQLAlchemyBaseUserTable` with Tesslate-specific features.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `email` | String | Unique, indexed |
+| `hashed_password` | String | bcrypt hashed |
+| `name` | String | Display name |
+| `username` | String | Unique login identifier |
+| `slug` | String | URL-safe identifier |
+| `subscription_tier` | String | free, basic, pro, ultra |
+| `stripe_customer_id` | String | Stripe customer reference |
+| `bundled_credits` | Integer | Monthly allowance (resets on billing date) |
+| `purchased_credits` | Integer | Never expire |
+| `signup_bonus_credits` | Integer | Expires after N days |
+| `daily_credits` | Integer | Free tier daily allowance |
+| `theme_preset` | String | Current theme ID (default: "default-dark") |
+| `chat_position` | String | Chat panel: "left", "center", "right" |
+| `disabled_models` | JSON | Model IDs hidden from chat selector |
+| `two_fa_enabled` | Boolean | Whether 2FA is active |
+| `avatar_url` | String | Profile picture URL |
+| `referral_code` | String | Unique referral code |
+
+**Key relationships:** `projects`, `chats`, `purchased_agents`, `purchased_bases`, `api_keys`, `custom_models`, `deployment_credentials`, `oauth_accounts`, `access_tokens`
+
+### OAuthAccount
+
+Stores OAuth provider tokens (GitHub, Google). Managed by FastAPI-Users.
+
+### AccessToken
+
+JWT access tokens for session management. Managed by FastAPI-Users.
+
+### EmailVerificationCode
+
+Stores hashed 2FA codes and password reset tokens.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `user_id` | UUID | FK to users (CASCADE) |
+| `code_hash` | String | argon2 hashed code (never plaintext) |
+| `purpose` | String | "2fa_login" or "password_reset" |
+| `attempts` | Integer | Failed verification attempts |
+| `max_attempts` | Integer | Default: 5 |
+| `expires_at` | DateTime | Code expiration time |
+| `used` | Boolean | Whether code has been consumed |
+
+## Core Models
+
+Defined in `orchestrator/app/models.py`.
+
+### Project
+
+Top-level organizational unit. Each project can contain multiple containers forming a monorepo architecture.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `name` | String | Display name |
+| `slug` | String | URL-safe identifier (auto-generated with random suffix) |
+| `owner_id` | UUID | FK to users |
+| `description` | String | Project description |
+| `has_git_repo` | Boolean | Whether Git is initialized |
+| `git_remote_url` | String | Remote repository URL |
+| `architecture_diagram` | String | Mermaid diagram source |
+| `settings` | JSON | Project settings (preview_mode, etc.) |
+| `network_name` | String | Docker network: `tesslate-{slug}` |
+| `environment_status` | String | active, hibernated, starting, stopping |
+| `last_activity` | DateTime | Last user interaction |
+| `hibernated_at` | DateTime | When project was hibernated |
+| `s3_archive_size_bytes` | Integer | Size of S3 archive |
+
+**Key relationships:** `owner`, `containers`, `files`, `assets`, `browser_previews`, `chats`, `project_agents`, `kanban_board`, `notes`, `deployments`, `shell_sessions`
+
+**Environment status lifecycle:**
+```
+active -> stopping -> hibernated
+hibernated -> starting -> active
+```
+
+### Container
+
+Individual services within a project (frontend, backend, database).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `base_id` | UUID | FK to marketplace_bases (NULL for custom) |
+| `name` | String | Display name: "frontend", "api", "database" |
+| `directory` | String | Directory in monorepo: "packages/frontend" |
+| `container_name` | String | Docker/K8s container name |
+| `port` | Integer | Exposed port (host side) |
+| `internal_port` | Integer | Port the dev server listens on inside container |
+| `environment_vars` | JSON | Environment variables |
+| `container_type` | String | "base" (user app) or "service" (infra) |
+| `service_slug` | String | For services: "postgres", "redis", etc. |
+| `deployment_mode` | String | "container" or "external" |
+| `external_endpoint` | String | For external: "https://xxx.supabase.co" |
+| `status` | String | stopped, starting, running, failed, connected |
+| `position_x` / `position_y` | Float | React Flow canvas position |
+
+**Key relationships:** `project`, `base`, `connections_from`, `connections_to`
+
+<Note>
+  The `effective_port` property returns `internal_port or port or 3000`. Always use this instead of writing ad-hoc fallback chains.
+</Note>
+
+### ContainerConnection
+
+Edges in the React Flow graph defining how containers communicate.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `source_container_id` | UUID | Source container (arrow tail) |
+| `target_container_id` | UUID | Target container (arrow head) |
+| `connector_type` | String | env_injection, http_api, database, cache, websocket, etc. |
+| `config` | JSON | Connector-specific settings |
+| `label` | String | Optional edge label |
+
+### BrowserPreview
+
+Live preview windows displayed on the React Flow canvas.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `connected_container_id` | UUID | Container being previewed (nullable) |
+| `position_x` / `position_y` | Float | Canvas position |
+| `current_path` | String | Current URL path (default: "/") |
+
+### ProjectFile
+
+Database-backed file content storage for the Monaco editor.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `file_path` | String | Relative path: "src/App.tsx" |
+| `content` | Text | File content |
+
+### ProjectAsset
+
+Tracks uploaded binary assets (images, fonts, videos).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `filename` | String | Original filename |
+| `directory` | String | Target directory: "/public/images" |
+| `file_type` | String | image, video, font, document, other |
+| `file_size` | Integer | Size in bytes |
+| `mime_type` | String | MIME type: "image/png" |
+| `width` / `height` | Integer | Image dimensions (images only) |
+
+### ProjectSnapshot
+
+EBS VolumeSnapshot records for project versioning and timeline.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `snapshot_type` | String | "hibernation" or "manual" |
+| `status` | String | pending, ready, restoring, deleted |
+| `label` | String | User-provided label |
+
+## Chat Models
+
+### Chat
+
+Conversation threads with AI agents.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `project_id` | UUID | FK to projects |
+| `created_at` | DateTime | When the chat started |
+
+**Key relationships:** `messages` (one-to-many)
+
+### Message
+
+Individual messages in a chat (user or assistant).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `chat_id` | UUID | FK to chats |
+| `role` | String | "user" or "assistant" |
+| `content` | Text | Message content |
+| `message_metadata` | JSON | Agent execution steps, tool calls |
+
+### AgentCommandLog
+
+Audit log for shell commands executed by AI agents.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `project_id` | UUID | FK to projects |
+| `command` | String | The shell command |
+| `working_dir` | String | Working directory |
+| `success` | Boolean | Whether execution succeeded |
+| `exit_code` | Integer | Process exit code |
+| `stdout` / `stderr` | Text | Command output |
+| `risk_level` | String | Risk assessment ("safe", "moderate", "high") |
+| `duration_ms` | Integer | Execution duration |
+
+### ShellSession
+
+Persistent terminal sessions for WebSocket connections.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `session_id` | String | Unique session identifier |
+| `project_id` | UUID | FK to projects |
+| `container_name` | String | Target container |
+| `status` | String | active, closed |
+| `bytes_read` / `bytes_written` | Integer | Resource tracking |
+
+## Marketplace Models
+
+### MarketplaceAgent
+
+AI agents available for purchase or free use.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `name` | String | Agent display name |
+| `slug` | String | URL-safe identifier |
+| `description` | Text | Agent description |
+| `system_prompt` | Text | LLM system prompt |
+| `tools` | JSON | List of enabled tool names |
+| `tool_configs` | JSON | Per-tool configuration overrides |
+| `model` | String | LLM model to use |
+| `pricing_type` | String | free, monthly, api, one_time |
+| `price` | Integer | Price in cents |
+| `is_forkable` | Boolean | Can users fork this agent |
+| `parent_agent_id` | UUID | FK to self (for forks) |
+| `downloads` | Integer | Total download count |
+| `rating` | Float | Average rating (1-5) |
+
+### MarketplaceBase
+
+Project templates (React, FastAPI, Next.js, etc.).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `name` | String | Template name |
+| `slug` | String | URL-safe identifier |
+| `git_repo_url` | String | Source Git repository |
+| `category` | String | Template category |
+| `tech_stack` | JSON | Technologies used |
+| `pricing_type` | String | free or paid |
+| `created_by_user_id` | UUID | NULL for seeded, user UUID for user-submitted |
+| `visibility` | String | "private" or "public" |
+
+### WorkflowTemplate
+
+Pre-configured multi-container workflows.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `name` | String | Workflow name |
+| `template_definition` | JSON | Container and connection definitions |
+| `required_credentials` | JSON | Required deployment credentials |
+
+### UserPurchasedAgent
+
+Tracks agents in a user's library.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `user_id` | UUID | FK to users |
+| `agent_id` | UUID | FK to marketplace_agents |
+| `purchase_type` | String | free, purchased, subscription |
+| `is_active` | Boolean | Whether the license is active |
+
+### ProjectAgent
+
+Assigns agents to specific projects.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `project_id` | UUID | FK to projects |
+| `agent_id` | UUID | FK to marketplace_agents |
+| `enabled` | Boolean | Whether agent is active on this project |
+
+### AgentReview / BaseReview
+
+User reviews and ratings for agents and bases.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `agent_id` or `base_id` | UUID | FK to the reviewed item |
+| `rating` | Integer | 1 to 5 |
+| `comment` | Text | Review text |
+
+### AgentCoInstall
+
+Recommendation system data ("People also installed").
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | FK to marketplace_agents |
+| `related_agent_id` | UUID | FK to marketplace_agents |
+| `co_install_count` | Integer | Number of co-installations |
+
+## Deployment Models
+
+### Deployment
+
+External deployment history and status.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `provider` | String | vercel, netlify, cloudflare |
+| `deployment_url` | String | Live deployment URL |
+| `status` | String | deploying, deployed, failed |
+| `error` | Text | Error message if failed |
+| `deployment_metadata` | JSON | Provider-specific metadata |
+
+### DeploymentCredential
+
+Encrypted OAuth tokens for deployment providers.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `project_id` | UUID | FK to projects (optional) |
+| `provider` | String | vercel, netlify, cloudflare, supabase |
+| `access_token_encrypted` | String | Fernet-encrypted token |
+| `provider_metadata` | JSON | Provider-specific metadata |
+
+### GitProviderCredential
+
+Unified Git provider OAuth credentials.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `provider` | String | github, gitlab, bitbucket |
+| `access_token` | String | Encrypted access token |
+| `provider_username` | String | Username on the provider |
+
+## Billing Models
+
+### MarketplaceTransaction
+
+Revenue from agent purchases and usage.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `amount_total` | Integer | Total amount in cents |
+| `amount_creator` | Integer | Creator's share (90%) |
+| `amount_platform` | Integer | Platform's share (10%) |
+| `payout_status` | String | pending, paid, failed |
+
+### CreditPurchase
+
+Credit package purchases.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `amount_cents` | Integer | Purchase amount |
+| `credits_amount` | Integer | Credits received |
+| `stripe_payment_intent` | String | Stripe reference |
+| `status` | String | pending, completed, failed |
+
+### UsageLog
+
+Token usage tracking for billing.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `model` | String | LLM model used |
+| `tokens_input` | Integer | Input tokens consumed |
+| `tokens_output` | Integer | Output tokens consumed |
+| `cost_total` | Integer | Total cost in cents |
+
+### UserAPIKey
+
+User API keys for BYOK (Bring Your Own Key) providers.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `provider` | String | openrouter, openai, groq, z-ai, etc. |
+| `encrypted_value` | String | Encrypted API key |
+
+### UserCustomModel
+
+User-added models under BYOK providers.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `model_id` | String | Model identifier |
+| `model_name` | String | Display name |
+| `provider` | String | Parent BYOK provider |
+| `pricing_input` / `pricing_output` | Float | Per-token pricing |
+
+## Kanban Models
+
+Defined in `orchestrator/app/models_kanban.py`.
+
+### KanbanBoard
+
+One board per project.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `name` | String | Board name |
+| `settings` | JSON | Board settings |
+
+### KanbanColumn
+
+Customizable columns (Backlog, To Do, In Progress, Done).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `board_id` | UUID | FK to kanban_boards |
+| `name` | String | Column name |
+| `position` | Integer | Sort order |
+| `is_backlog` | Boolean | Whether this is the backlog column |
+| `is_completed` | Boolean | Whether this is the done column |
+| `task_limit` | Integer | WIP limit (optional) |
+
+### KanbanTask
+
+Individual tasks with rich metadata.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `column_id` | UUID | FK to kanban_columns |
+| `title` | String | Task title |
+| `description` | Text | Task description |
+| `priority` | String | Priority level |
+| `task_type` | String | Task category |
+| `assignee_id` | UUID | FK to users (optional) |
+| `due_date` | DateTime | Due date (optional) |
+| `tags` | JSON | Tag list |
+
+### KanbanTaskComment
+
+Collaboration comments on tasks.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `task_id` | UUID | FK to kanban_tasks |
+| `user_id` | UUID | FK to users |
+| `content` | Text | Comment content |
+
+### ProjectNote
+
+Rich text notes using TipTap editor.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `project_id` | UUID | FK to projects |
+| `content` | Text | Note content |
+| `content_format` | String | Content format identifier |
+
+## Feedback Models
+
+### FeedbackPost
+
+User bug reports and feature suggestions.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK to users |
+| `type` | String | bug or suggestion |
+| `title` | String | Post title |
+| `status` | String | Current status |
+| `upvote_count` | Integer | Total upvotes |
+
+### FeedbackUpvote / FeedbackComment
+
+Upvotes (one per user per post) and comments on feedback posts.
+
+## Source Files
+
+| File | Contents |
+|------|----------|
+| `orchestrator/app/models.py` | Main models (39 classes) |
+| `orchestrator/app/models_auth.py` | User, OAuthAccount, AccessToken |
+| `orchestrator/app/models_kanban.py` | KanbanBoard, KanbanColumn, KanbanTask, KanbanTaskComment, ProjectNote |
+| `orchestrator/app/schemas.py` | Pydantic request/response schemas |
+| `orchestrator/app/database.py` | Async SQLAlchemy engine and session setup |
+| `orchestrator/alembic/versions/` | Migration files |

@@ -1,151 +1,274 @@
 ---
 title: 'Architecture Diagrams'
-description: 'Visualize your project structure with AI-generated diagrams'
+description: 'Visualize your project structure with React Flow based architecture diagrams'
 ---
 
 ## Overview
 
-Architecture Diagrams help you visualize and understand your project's structure, components, and data flow using AI-generated visual representations.
+Architecture Diagrams in Tesslate Studio let you visualize your project's multi-container structure, dependency graphs, and data flow. Built on top of React Flow (XYFlow), diagrams are interactive, AI-generated, and directly tied to your live project containers.
 
 <CardGroup cols={2}>
-  <Card title="Auto-Generate" icon="wand-magic-sparkles">
-    AI analyzes your code and creates diagrams
+  <Card title="React Flow Powered" icon="diagram-project">
+    Interactive graph canvas with drag, zoom, and pan
   </Card>
-  <Card title="Multiple Types" icon="diagram-project">
-    Component trees, data flow, file structure
+  <Card title="AI Generated" icon="wand-magic-sparkles">
+    AI analyzes your code and creates diagrams automatically
   </Card>
-  <Card title="Interactive" icon="hand-pointer">
-    Click to navigate to files and components
+  <Card title="Live Containers" icon="server">
+    Diagrams reflect running containers and their connections
   </Card>
-  <Card title="Export" icon="download">
-    Download as PNG or SVG
+  <Card title="Export Ready" icon="download">
+    Download as PNG, SVG, or JSON for documentation
   </Card>
 </CardGroup>
+
+## How Diagrams Work
+
+Tesslate Studio uses a graph canvas built on React Flow to render architecture diagrams. Each container in your project becomes a node, and connections between containers become edges.
+
+<Steps>
+  <Step title="Project Analysis">
+    When you open a project, Tesslate reads the container definitions and their connections from the database. Each `Container` model has position coordinates (`position_x`, `position_y`) stored for layout persistence.
+  </Step>
+
+  <Step title="Node Generation">
+    Each container is rendered as a custom `ContainerNode` inside the React Flow canvas. Node data includes the container name, status (running, stopped, building), port, and framework type.
+  </Step>
+
+  <Step title="Edge Mapping">
+    `ContainerConnection` records define edges between nodes. These represent networking dependencies, such as a frontend container connecting to a backend API container.
+  </Step>
+
+  <Step title="Live Preview Nodes">
+    `BrowserPreview` nodes can be attached to containers, showing a live iframe preview of the running application directly on the canvas.
+  </Step>
+
+  <Step title="AI Enhancement">
+    Ask the AI agent to generate or refine diagrams. The agent uses the `diagram_model` preference (configurable per user) to analyze your codebase and produce visual output.
+  </Step>
+</Steps>
+
+<Info>
+  First-time diagram generation may take 30 to 60 seconds while the AI analyzes your entire project structure.
+</Info>
+
+## Multi-Container Project Visualization
+
+Tesslate projects can contain multiple containers (frontend, backend, database, cache, etc.), and the architecture diagram shows how they all connect.
+
+<Tabs>
+  <Tab title="Container Nodes">
+    **Each container appears as a node on the canvas**
+
+    Node data includes:
+    - Container name and type (base or service)
+    - Framework (React, Next.js, FastAPI, etc.)
+    - Running status with live indicators
+    - Port information (the `effective_port` property resolves `internal_port`, then `port`, then defaults to 3000)
+    - Deployment mode (container or external)
+
+    Nodes are draggable; positions persist to the database.
+  </Tab>
+
+  <Tab title="Dependency Edges">
+    **Connections between containers visualize dependencies**
+
+    Edge types include:
+    - Network connections (frontend to backend API)
+    - Database connections (backend to PostgreSQL, Redis)
+    - Service dependencies (backend to external services)
+
+    Each edge is stored as a `ContainerConnection` with `source_container_id`, `target_container_id`, `connector_type`, and optional `config` JSON.
+  </Tab>
+
+  <Tab title="Browser Previews">
+    **Live preview windows embedded in the graph**
+
+    `BrowserPreview` nodes connect to a container and render an iframe showing the live application. You can:
+    - Navigate within the preview
+    - See real-time updates as you edit code
+    - Position previews anywhere on the canvas
+  </Tab>
+
+  <Tab title="Layout Engine">
+    **Automatic layout with Dagre algorithm**
+
+    Tesslate includes an auto-layout utility (`autoLayout.ts`) that uses the Dagre graph layout algorithm to arrange nodes when:
+    - A project is first opened
+    - You click the "Auto Layout" button
+    - New containers are added to the project
+
+    Layout direction can be vertical or horizontal.
+  </Tab>
+</Tabs>
 
 ## Diagram Types
 
 <Tabs>
+  <Tab title="Container Graph">
+    **Project infrastructure view**
+
+    Shows all containers in your project, how they connect, and their current status. This is the primary diagram type, rendered automatically when you open a project.
+
+    Best for: Understanding project architecture at a glance
+  </Tab>
+
   <Tab title="Component Tree">
-    **Visualize React component hierarchy**
+    **React component hierarchy**
 
-    Shows:
-    - Parent-child relationships
-    - Component dependencies
-    - Prop flow
-    - State management connections
+    Shows parent-child relationships, component dependencies, prop flow, and state management connections within a single container's codebase.
 
-    Best for: Understanding component structure
+    Best for: Understanding frontend structure
   </Tab>
 
   <Tab title="Data Flow">
     **Track how data moves through your app**
 
-    Shows:
-    - API calls and responses
-    - State updates
-    - Event handlers
-    - Data transformations
+    Shows API calls and responses, state updates, event handlers, and data transformations across containers.
 
-    Best for: Understanding data management
+    Best for: Understanding how containers communicate
   </Tab>
 
-  <Tab title="File Structure">
-    **Project organization diagram**
-
-    Shows:
-    - Folder hierarchy
-    - File relationships
-    - Import/export connections
-    - Module dependencies
-
-    Best for: Onboarding new team members
-  </Tab>
-
-  <Tab title="Custom">
+  <Tab title="Custom AI Diagram">
     **Ask AI to generate specific diagrams**
 
     Examples:
-    - "Show the authentication flow"
-    - "Diagram the shopping cart feature"
-    - "Visualize the API structure"
+    - "Show the authentication flow across frontend and backend"
+    - "Diagram the API endpoints and their relationships"
+    - "Visualize the database schema connections"
 
-    Best for: Specific feature visualization
+    Best for: Feature-specific or domain-specific visualization
   </Tab>
 </Tabs>
 
-## Generating Diagrams
-
-<Steps>
-  <Step title="Open Project">
-    Open the project you want to diagram
-  </Step>
-
-  <Step title="Click Diagram Icon">
-    Find the Architecture Diagram button in toolbar
-  </Step>
-
-  <Step title="Choose Type">
-    Select diagram type or use auto-detect
-  </Step>
-
-  <Step title="Generate">
-    AI analyzes your codebase
-  </Step>
-
-  <Step title="View Result">
-    Interactive diagram appears
-  </Step>
-
-  <Step title="Refine">
-    Ask AI to adjust or add details
-  </Step>
-</Steps>
-
-<Info>
-  First diagram generation may take 30-60 seconds as AI analyzes your entire project.
-</Info>
-
-## Diagram Features
-
-### Interactive Elements
+## Interactive Features
 
 <CardGroup cols={2}>
   <Card title="Click to Navigate" icon="cursor">
-    Click components to open their files
+    Click container nodes to open their files in the code editor
   </Card>
-  <Card title="Zoom & Pan" icon="magnifying-glass">
-    Zoom in/out, pan around large diagrams
+  <Card title="Zoom and Pan" icon="magnifying-glass">
+    Scroll to zoom, drag the canvas to pan around large diagrams
   </Card>
-  <Card title="Hover Details" icon="info-circle">
-    Hover for additional information
+  <Card title="Drag to Reposition" icon="arrows-up-down-left-right">
+    Drag nodes to rearrange; positions save automatically
   </Card>
-  <Card title="Filter" icon="filter">
-    Show/hide certain elements
+  <Card title="Live Status" icon="circle-check">
+    Nodes show real-time container status (running, stopped, error)
   </Card>
 </CardGroup>
 
-### Customization
+## Customization
 
 <AccordionGroup>
   <Accordion icon="palette" title="Styling">
-    - Color schemes
-    - Layout direction (vertical/horizontal)
-    - Spacing and sizing
-    - Dark/light mode
+    - Color schemes follow your active theme (dark or light mode)
+    - Layout direction: vertical or horizontal
+    - Adjustable spacing and sizing
+    - Node styles adapt to container type
   </Accordion>
 
-  <Accordion icon="eye" title="Visibility">
-    - Show/hide node_modules
-    - Filter by file type
-    - Focus on specific features
-    - Collapse/expand sections
+  <Accordion icon="eye" title="Visibility Controls">
+    - Show or hide service containers (databases, caches)
+    - Filter by container type (base vs. service)
+    - Focus on specific containers
+    - Collapse or expand grouped sections
   </Accordion>
 
-  <Accordion icon="list" title="Detail Level">
-    - High-level overview
-    - Detailed view with props
-    - Show function signatures
-    - Include comments
+  <Accordion icon="robot" title="AI Diagram Model">
+    You can choose which AI model generates your diagrams. Go to **Settings > Preferences** and set your preferred `diagram_model`. The model processes your codebase and outputs structured diagram data.
+  </Accordion>
+</AccordionGroup>
+
+## Generating AI Diagrams
+
+### Natural Language Requests
+
+Ask the AI agent to generate or modify diagrams:
+
+- "Show me the full architecture of this project"
+- "Diagram how authentication works across the frontend and API"
+- "Visualize the data flow from the shopping cart to Stripe checkout"
+- "Show only the containers that connect to the database"
+- "Create a component tree for the dashboard page"
+
+### Refining Diagrams
+
+<Tabs>
+  <Tab title="Add Details">
+    - "Include the port numbers on each container node"
+    - "Show which containers fetch data from external APIs"
+    - "Add the database schema to the diagram"
+  </Tab>
+
+  <Tab title="Simplify">
+    - "Remove utility containers from the diagram"
+    - "Show only the main frontend and backend containers"
+    - "Hide third-party service nodes"
+  </Tab>
+
+  <Tab title="Focus">
+    - "Focus on the payment processing flow"
+    - "Show only authentication-related containers and endpoints"
+    - "Diagram just the admin panel section"
+  </Tab>
+</Tabs>
+
+## Exporting Diagrams
+
+<Steps>
+  <Step title="Open the Diagram">
+    View the architecture diagram you want to export
+  </Step>
+
+  <Step title="Click Export">
+    Click the Export button in the diagram toolbar
+  </Step>
+
+  <Step title="Choose Format">
+    - **PNG**: For documents, presentations, and READMEs
+    - **SVG**: For scalable web graphics
+    - **JSON**: For re-importing the diagram layout later
+  </Step>
+
+  <Step title="Adjust Settings">
+    Set resolution, background color, and included area
+  </Step>
+
+  <Step title="Download">
+    Save the exported file to your computer
+  </Step>
+</Steps>
+
+## Technical Details
+
+For developers who want to understand the underlying implementation:
+
+<AccordionGroup>
+  <Accordion icon="code" title="React Flow Integration">
+    The graph canvas uses `@xyflow/react` (React Flow) with custom node types:
+
+    - `containerNode`: Renders a `ContainerNode` component with status, port, and framework info
+    - `browserPreview`: Renders a `BrowserPreviewNode` with an embedded iframe
+
+    Node types are registered via the `nodeTypes` object passed to the `ReactFlow` component.
+  </Accordion>
+
+  <Accordion icon="database" title="Data Model">
+    Three database models power the diagram:
+
+    - **Container**: Stores `position_x`, `position_y`, `name`, `port`, `internal_port`, `container_type`, and `status`
+    - **ContainerConnection**: Stores `source_container_id`, `target_container_id`, `connector_type`, and `config` (JSON)
+    - **BrowserPreview**: Stores `connected_container_id`, `position_x`, `position_y`, and `current_path`
+  </Accordion>
+
+  <Accordion icon="arrows-rotate" title="Auto-Layout Algorithm">
+    The auto-layout utility in `autoLayout.ts` uses the Dagre directed graph layout library to compute optimal node positions. It considers:
+
+    - Edge direction (top to bottom or left to right)
+    - Node dimensions
+    - Connection density
+    - Minimum spacing between nodes
   </Accordion>
 </AccordionGroup>
 
@@ -155,231 +278,79 @@ Architecture Diagrams help you visualize and understand your project's structure
 
 <Steps>
   <Step title="Generate Overview">
-    Create high-level architecture diagram
+    Open the project and let the container graph render automatically
   </Step>
 
-  <Step title="Show Structure">
-    Display file and component organization
+  <Step title="Explain Architecture">
+    Walk through each container and its role in the system
   </Step>
 
-  <Step title="Explain Flow">
-    Generate data flow diagrams
+  <Step title="Show Data Flow">
+    Ask AI to generate a data flow diagram across containers
   </Step>
 
-  <Step title="Document Features">
-    Create feature-specific diagrams
-  </Step>
-
-  <Step title="Share">
-    Export and include in documentation
+  <Step title="Export for Docs">
+    Export the diagram as PNG and include it in your project README
   </Step>
 </Steps>
 
 ### Refactoring
 
-Visualize before refactoring:
-
-1. **Current State**: Generate diagram of existing structure
-2. **Identify Issues**: Spot circular dependencies, complexity
-3. **Plan Changes**: Sketch desired structure
-4. **Refactor**: Make changes
-5. **Verify**: Generate new diagram to confirm improvements
-
-### Documentation
-
-<CardGroup cols={2}>
-  <Card title="README" icon="file-lines">
-    Include architecture diagram in README
-  </Card>
-  <Card title="Technical Docs" icon="book">
-    Illustrate complex systems
-  </Card>
-  <Card title="Presentations" icon="presentation">
-    Show project structure to stakeholders
-  </Card>
-  <Card title="Code Reviews" icon="code-pull-request">
-    Visualize changes and impact
-  </Card>
-</CardGroup>
-
-## AI Diagram Generation
-
-### Natural Language Requests
-
-Ask AI to generate specific diagrams:
-
-**Examples:**
-- "Show me how authentication works in this app"
-- "Diagram the product catalog feature"
-- "Visualize all components that use the user context"
-- "Show the API endpoints and their relationships"
-- "Create a flowchart of the checkout process"
-
-### Refining Diagrams
-
-<Tabs>
-  <Tab title="Add Details">
-    - "Include prop types in the component diagram"
-    - "Show which components fetch data"
-    - "Add state management connections"
-  </Tab>
-
-  <Tab title="Simplify">
-    - "Remove utility files from the diagram"
-    - "Show only the main page components"
-    - "Hide third-party dependencies"
-  </Tab>
-
-  <Tab title="Focus">
-    - "Focus on the shopping cart feature"
-    - "Show only authentication-related components"
-    - "Diagram the admin panel section"
-  </Tab>
-
-  <Tab title="Style">
-    - "Use a vertical layout instead"
-    - "Make the nodes larger"
-    - "Use different colors for pages vs components"
-  </Tab>
-</Tabs>
-
-## Exporting Diagrams
-
-<Steps>
-  <Step title="Open Diagram">
-    View the diagram you want to export
-  </Step>
-
-  <Step title="Click Export">
-    Click Export button in diagram toolbar
-  </Step>
-
-  <Step title="Choose Format">
-    - PNG (for documents, presentations)
-    - SVG (for web, scalable graphics)
-    - JSON (for re-importing later)
-  </Step>
-
-  <Step title="Adjust Settings">
-    Set resolution, size, background
-  </Step>
-
-  <Step title="Download">
-    Save to your computer
-  </Step>
-</Steps>
-
-## Best Practices
-
-<AccordionGroup>
-  <Accordion icon="layer-group" title="Start High-Level">
-    - Generate overview diagram first
-    - Get sense of project structure
-    - Then drill into specific features
-    - Avoid overwhelming detail initially
-  </Accordion>
-
-  <Accordion icon="rotate" title="Update Regularly">
-    - Regenerate after major changes
-    - Keep diagrams current
-    - Update documentation
-    - Track architecture evolution
-  </Accordion>
-
-  <Accordion icon="share-nodes" title="Share with Team">
-    - Export for onboarding docs
-    - Include in README
-    - Use in code reviews
-    - Reference in discussions
-  </Accordion>
-
-  <Accordion icon="comments" title="Add Annotations">
-    - Explain complex relationships
-    - Note important patterns
-    - Document decisions
-    - Highlight problem areas
-  </Accordion>
-</AccordionGroup>
-
-## Advanced Features
-
-### Version Comparison
-
-Coming soon:
-- Compare diagram from different branches
-- Visualize changes over time
-- Track architecture evolution
-- Before/after refactoring views
-
-### Collaborative Editing
-
-Coming soon:
-- Annotate diagrams with team
-- Discuss architecture decisions
-- Propose changes visually
-- Vote on structure improvements
-
-### Auto-Update
-
-Coming soon:
-- Diagrams update as code changes
-- Real-time sync with codebase
-- Highlight recent changes
-- Track diagram history
+1. **Current State**: Open the architecture diagram to see the existing container structure
+2. **Identify Issues**: Spot unnecessary connections, missing services, or overly coupled containers
+3. **Plan Changes**: Use the AI to sketch a proposed architecture
+4. **Refactor**: Make changes to your containers and connections
+5. **Verify**: Refresh the diagram to confirm the improved structure
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="circle-xmark" title="Diagram Won't Generate">
+  <Accordion icon="circle-xmark" title="Diagram Not Rendering">
     **Solutions:**
-    - Ensure project has compiled successfully
-    - Check for syntax errors in code
-    - Verify project structure is valid
-    - Try smaller scope (specific feature)
-    - Restart and try again
+    - Ensure the project has at least one container
+    - Check that containers have valid position data
+    - Refresh the page to reload the React Flow canvas
+    - Verify the project is in "active" or "running" status
   </Accordion>
 
   <Accordion icon="diagram-project" title="Diagram Too Complex">
     **Solutions:**
-    - Filter to show specific parts
-    - Generate feature-specific diagrams
-    - Hide utilities and helpers
-    - Use high-level view
-    - Split into multiple diagrams
+    - Use the visibility filters to hide service containers
+    - Generate feature-specific diagrams instead of full project views
+    - Use the auto-layout to clean up overlapping nodes
+    - Split visualization into multiple focused diagrams
   </Accordion>
 
-  <Accordion icon="triangle-exclamation" title="Missing Components">
+  <Accordion icon="triangle-exclamation" title="Nodes Overlapping">
     **Solutions:**
-    - Ensure components are imported
-    - Check file naming conventions
-    - Verify exports are correct
-    - Regenerate diagram
-    - Report missing items
+    - Click the "Auto Layout" button to recalculate positions
+    - Manually drag nodes to better positions (positions save automatically)
+    - Adjust layout direction from vertical to horizontal
   </Accordion>
 
-  <Accordion icon="arrows-rotate" title="Diagram Not Updating">
+  <Accordion icon="arrows-rotate" title="Live Preview Not Loading">
     **Solutions:**
-    - Click refresh button
-    - Close and regenerate
-    - Clear cache
-    - Check auto-update settings
+    - Verify the connected container is running
+    - Check that the container's port is accessible
+    - Refresh the browser preview node
+    - Ensure the dev server inside the container has started
   </Accordion>
 </AccordionGroup>
 
-## Tips for Better Diagrams
+## Best Practices
 
 <CardGroup cols={2}>
-  <Card title="Clean Code Structure" icon="broom">
-    Organized code = clearer diagrams
+  <Card title="Start with the Container Graph" icon="layer-group">
+    The default container graph gives you the best high-level overview before drilling into specifics
   </Card>
-  <Card title="Descriptive Names" icon="tag">
-    Component names show up in diagrams
+  <Card title="Use Descriptive Container Names" icon="tag">
+    Container names appear in diagram nodes, so clear names improve readability
   </Card>
-  <Card title="Logical Organization" icon="folder-tree">
-    Folder structure reflects in file diagrams
+  <Card title="Export for Documentation" icon="file-lines">
+    Include architecture diagrams in your README and project docs
   </Card>
-  <Card title="Document Complex Parts" icon="comment">
-    Comments help AI understand relationships
+  <Card title="Refresh After Changes" icon="rotate">
+    Regenerate diagrams after adding or removing containers to keep visuals current
   </Card>
 </CardGroup>
 
@@ -387,31 +358,31 @@ Coming soon:
 
 <CardGroup cols={2}>
   <Card
-    title="Project Structure"
+    title="Projects"
     icon="sitemap"
     href="/guides/projects"
   >
-    Learn about project organization
+    Learn about project structure and containers
   </Card>
   <Card
     title="Code Editor"
     icon="code"
     href="/guides/code-editor"
   >
-    Navigate your codebase
+    Navigate your codebase from diagram nodes
   </Card>
   <Card
     title="Using Agents"
     icon="robot"
     href="/guides/using-agents"
   >
-    Let AI help you understand code
+    Let AI generate and refine architecture diagrams
   </Card>
   <Card
     title="GitHub Integration"
     icon="github"
     href="/guides/github-integration"
   >
-    Include diagrams in your repo
+    Include diagrams in your repository
   </Card>
 </CardGroup>

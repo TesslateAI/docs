@@ -1,0 +1,355 @@
+---
+title: "API Endpoints"
+description: "Complete reference of all backend REST API endpoints"
+---
+
+## Overview
+
+Tesslate Studio exposes a REST API through FastAPI. All endpoints are served from the Orchestrator backend. Authenticated endpoints require a valid JWT token (via `Authorization: Bearer {token}` header) or an HTTP-only session cookie.
+
+This reference organizes every endpoint by router. For each endpoint, you will find the HTTP method, path, a brief description, and whether authentication is required.
+
+<Note>
+  Visit `http://localhost:8000/docs` (local) or `https://your-domain/docs` (production) to access the interactive Swagger UI, which includes live request testing and schema documentation.
+</Note>
+
+## Auth Endpoints
+
+Authentication, registration, and session management.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/auth/register` | Register a new user (email + password) | No |
+| POST | `/api/auth/login` | Login with email and password (returns JWT) | No |
+| POST | `/api/auth/logout` | Logout and invalidate session | Yes |
+| POST | `/api/auth/forgot-password` | Request password reset email | No |
+| POST | `/api/auth/reset-password` | Reset password using token from email | No |
+| POST | `/api/auth/verify` | Verify email address | No |
+| GET | `/api/auth/google/authorize` | Initiate Google OAuth login | No |
+| GET | `/api/auth/google/callback` | Google OAuth callback handler | No |
+| GET | `/api/auth/github/authorize` | Initiate GitHub OAuth login | No |
+| GET | `/api/auth/github/callback` | GitHub OAuth callback handler | No |
+| POST | `/api/auth/2fa/verify` | Verify 2FA email code | No |
+| POST | `/api/auth/2fa/resend` | Resend 2FA verification code | No |
+| POST | `/api/auth/verify-pod-access` | Verify pod access token (K8s internal) | No |
+
+## User Endpoints
+
+User profile management.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/users/me` | Get current user profile | Yes |
+| PATCH | `/api/users/me` | Update current user profile | Yes |
+| GET | `/api/users/{id}` | Get user public profile | No |
+
+## Project Endpoints
+
+Project CRUD, file operations, container management, and assets.
+
+### Project Management
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/projects` | List user's projects | Yes |
+| POST | `/api/projects` | Create a new project | Yes |
+| GET | `/api/projects/{id}` | Get project details | Yes |
+| PATCH | `/api/projects/{id}` | Update project metadata | Yes |
+| DELETE | `/api/projects/{id}` | Delete a project | Yes |
+| GET | `/api/projects/{id}/status` | Get project container status | Yes |
+
+### Container Lifecycle
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/projects/{id}/start` | Start project containers | Yes |
+| POST | `/api/projects/{id}/stop` | Stop project containers | Yes |
+| POST | `/api/projects/{id}/restart` | Restart project containers | Yes |
+| POST | `/api/projects/{id}/containers` | Add a container to the project | Yes |
+| DELETE | `/api/projects/{id}/containers/{container_id}` | Remove a container | Yes |
+| PATCH | `/api/projects/{id}/containers/{container_id}` | Update container config | Yes |
+| POST | `/api/projects/{id}/containers/{container_id}/start` | Start a single container | Yes |
+| POST | `/api/projects/{id}/containers/{container_id}/stop` | Stop a single container | Yes |
+
+### File Operations
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/projects/{id}/files` | List all project files | Yes |
+| GET | `/api/projects/{id}/files/{path}` | Read a file | Yes |
+| PUT | `/api/projects/{id}/files/{path}` | Write/update a file | Yes |
+| DELETE | `/api/projects/{id}/files/{path}` | Delete a file | Yes |
+| POST | `/api/projects/{id}/files/rename` | Rename/move a file | Yes |
+| POST | `/api/projects/{id}/files/directory` | Create a directory | Yes |
+
+### Assets
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/projects/{id}/assets` | List project assets | Yes |
+| POST | `/api/projects/{id}/assets` | Upload an asset | Yes |
+| DELETE | `/api/projects/{id}/assets/{asset_id}` | Delete an asset | Yes |
+
+### Connections and Previews
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/projects/{id}/connections` | List container connections | Yes |
+| POST | `/api/projects/{id}/connections` | Create a container connection | Yes |
+| DELETE | `/api/projects/{id}/connections/{conn_id}` | Delete a connection | Yes |
+| GET | `/api/projects/{id}/previews` | List browser previews | Yes |
+| POST | `/api/projects/{id}/previews` | Create a browser preview | Yes |
+| DELETE | `/api/projects/{id}/previews/{preview_id}` | Delete a preview | Yes |
+
+### Snapshots
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/projects/{id}/snapshots` | List project snapshots (timeline) | Yes |
+| POST | `/api/projects/{id}/snapshots` | Create a manual snapshot | Yes |
+| POST | `/api/projects/{id}/snapshots/{snapshot_id}/restore` | Restore from snapshot | Yes |
+
+## Chat Endpoints
+
+AI agent chat management and streaming.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/chat/history/{project_id}` | Get chat history for a project | Yes |
+| GET | `/api/chat/{chat_id}` | Get a specific chat with messages | Yes |
+| POST | `/api/chat/stream` | Stream agent response (SSE) | Yes |
+| POST | `/api/chat/cancel` | Cancel an in-progress agent run | Yes |
+| DELETE | `/api/chat/{chat_id}` | Delete a chat | Yes |
+| WS | `/api/chat/ws/{chat_id}` | WebSocket for real-time chat | Yes |
+
+## Git Endpoints
+
+Git operations executed inside project containers.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/git/init` | Initialize a Git repository | Yes |
+| POST | `/api/git/clone` | Clone a repository into project | Yes |
+| POST | `/api/git/commit` | Stage and commit changes | Yes |
+| POST | `/api/git/push` | Push commits to remote | Yes |
+| POST | `/api/git/pull` | Pull changes from remote | Yes |
+| GET | `/api/git/status/{project_id}` | Get Git status (changed files) | Yes |
+| GET | `/api/git/branches/{project_id}` | List branches | Yes |
+| POST | `/api/git/checkout` | Checkout a branch | Yes |
+
+### Git Provider Endpoints
+
+Multi-provider Git integration (GitHub, GitLab, Bitbucket).
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/git-providers/providers` | List connected Git providers | Yes |
+| GET | `/api/git-providers/{provider}/repos` | List repositories from provider | Yes |
+| POST | `/api/git-providers/{provider}/connect` | Connect a Git provider (OAuth) | Yes |
+| DELETE | `/api/git-providers/{provider}/disconnect` | Disconnect a Git provider | Yes |
+
+## Deployment Endpoints
+
+External deployments to Vercel, Netlify, and Cloudflare.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/deployments/{project_id}` | List deployments for a project | Yes |
+| POST | `/api/deployments` | Create a new deployment | Yes |
+| POST | `/api/deployments/deploy-all` | Deploy all containers in a project | Yes |
+| GET | `/api/deployments/{deployment_id}/status` | Get deployment status | Yes |
+| DELETE | `/api/deployments/{deployment_id}` | Delete a deployment record | Yes |
+
+### Deployment Credentials
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/deployment-credentials` | List connected deployment providers | Yes |
+| POST | `/api/deployment-credentials` | Store deployment credentials | Yes |
+| DELETE | `/api/deployment-credentials/{id}` | Remove deployment credentials | Yes |
+
+### Deployment OAuth
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/deployment-oauth/{provider}/authorize` | Initiate OAuth for deployment provider | Yes |
+| GET | `/api/deployment-oauth/{provider}/callback` | OAuth callback handler | Yes |
+
+## Marketplace Endpoints
+
+Browse, purchase, and manage AI agents and project templates.
+
+### Agents
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/marketplace/agents` | Browse marketplace agents | Optional |
+| GET | `/api/marketplace/agents/{slug}` | Get agent details | Optional |
+| POST | `/api/marketplace/agents` | Publish a new agent | Yes |
+| PATCH | `/api/marketplace/agents/{id}` | Update an agent | Yes |
+| DELETE | `/api/marketplace/agents/{id}` | Delete an agent | Yes |
+| POST | `/api/marketplace/agents/{id}/purchase` | Purchase an agent | Yes |
+| POST | `/api/marketplace/agents/{id}/fork` | Fork an agent | Yes |
+| GET | `/api/marketplace/agents/{id}/reviews` | Get agent reviews | Optional |
+| POST | `/api/marketplace/agents/{id}/reviews` | Submit a review | Yes |
+
+### Bases (Project Templates)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/marketplace/bases` | List project templates | Optional |
+| GET | `/api/marketplace/bases/browse` | Browse with pagination and filters | Optional |
+| GET | `/api/marketplace/bases/{slug}` | Get base details | Optional |
+| GET | `/api/marketplace/bases/{slug}/versions` | List available git tag versions | Optional |
+| POST | `/api/marketplace/bases` | Submit a new base | Yes |
+| GET | `/api/marketplace/bases/{id}/reviews` | Get base reviews | Optional |
+| POST | `/api/marketplace/bases/{id}/reviews` | Submit a review | Yes |
+
+### User Library
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/marketplace/library/agents` | List purchased agents | Yes |
+| GET | `/api/marketplace/library/bases` | List purchased bases | Yes |
+
+## Billing Endpoints
+
+Subscription management, credits, and usage tracking.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/billing/subscription` | Get current subscription details | Yes |
+| POST | `/api/billing/checkout` | Create Stripe checkout session | Yes |
+| POST | `/api/billing/portal` | Create Stripe customer portal session | Yes |
+| GET | `/api/billing/credits` | Get credit balance | Yes |
+| POST | `/api/billing/credits/purchase` | Purchase credit package | Yes |
+| GET | `/api/billing/usage` | Get usage history | Yes |
+| POST | `/api/webhooks/stripe` | Stripe webhook handler | No |
+
+## Admin Endpoints
+
+Platform administration (requires superuser role).
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/admin/metrics` | Platform-wide metrics | Superuser |
+| GET | `/api/admin/users` | List all users | Superuser |
+| GET | `/api/admin/users/{id}` | Get user details | Superuser |
+| PATCH | `/api/admin/users/{id}` | Update user (ban, change tier) | Superuser |
+| GET | `/api/admin/projects` | List all projects | Superuser |
+| GET | `/api/admin/agents` | List all marketplace agents | Superuser |
+| PATCH | `/api/admin/agents/{id}` | Moderate an agent | Superuser |
+
+## Theme Endpoints
+
+Public theme API (no authentication required).
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/themes` | List all available themes | No |
+| GET | `/api/themes/{id}` | Get theme details | No |
+
+## Additional Endpoints
+
+### Shell Sessions
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/shell/sessions` | Create a shell session | Yes |
+| WS | `/api/shell/ws/{session_id}` | WebSocket for terminal I/O | Yes |
+| DELETE | `/api/shell/sessions/{id}` | Close a shell session | Yes |
+
+### Secrets (Environment Variables)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/secrets/{project_id}` | List project secrets | Yes |
+| POST | `/api/secrets/{project_id}` | Set a secret | Yes |
+| DELETE | `/api/secrets/{project_id}/{key}` | Delete a secret | Yes |
+
+### Kanban (Task Board)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/kanban/{project_id}` | Get kanban board | Yes |
+| POST | `/api/kanban/{project_id}/columns` | Create a column | Yes |
+| PATCH | `/api/kanban/{project_id}/columns/{id}` | Update a column | Yes |
+| DELETE | `/api/kanban/{project_id}/columns/{id}` | Delete a column | Yes |
+| POST | `/api/kanban/{project_id}/tasks` | Create a task | Yes |
+| PATCH | `/api/kanban/{project_id}/tasks/{id}` | Update a task | Yes |
+| DELETE | `/api/kanban/{project_id}/tasks/{id}` | Delete a task | Yes |
+| POST | `/api/kanban/{project_id}/tasks/{id}/comments` | Add a comment | Yes |
+
+### Background Tasks
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/tasks/{task_id}` | Get background task status | Yes |
+
+### Feedback
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/feedback` | List feedback posts | Yes |
+| POST | `/api/feedback` | Submit feedback | Yes |
+| POST | `/api/feedback/{id}/upvote` | Upvote a post | Yes |
+| POST | `/api/feedback/{id}/comments` | Comment on a post | Yes |
+
+### Referrals and Creators
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/referrals/code` | Get user's referral code | Yes |
+| POST | `/api/referrals/apply` | Apply a referral code | Yes |
+| GET | `/api/creators/dashboard` | Creator program dashboard | Yes |
+| POST | `/api/creators/payout` | Request creator payout | Yes |
+
+### Health and Configuration
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/health` | Backend health check | No |
+| GET | `/api/config` | Public config (deployment mode, app domain) | No |
+
+## Common Response Patterns
+
+<AccordionGroup>
+  <Accordion title="Success Response">
+    ```json
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "My App",
+      "slug": "my-app-k3x8n2",
+      "created_at": "2026-01-09T12:00:00Z",
+      "status": "running"
+    }
+    ```
+  </Accordion>
+  <Accordion title="Error Response">
+    ```json
+    {
+      "detail": "Project not found"
+    }
+    ```
+
+    Common status codes:
+    - `400` Bad Request (invalid input, validation errors)
+    - `401` Unauthorized (authentication required)
+    - `403` Forbidden (insufficient permissions)
+    - `404` Not Found (resource does not exist)
+    - `422` Unprocessable Entity (Pydantic validation error)
+    - `500` Internal Server Error (unexpected server error)
+  </Accordion>
+  <Accordion title="Paginated List Response">
+    ```json
+    {
+      "items": [...],
+      "total": 42,
+      "page": 1,
+      "total_pages": 3
+    }
+    ```
+
+    List endpoints support pagination via `skip` and `limit` query parameters (or `page` and `limit` for marketplace browse endpoints).
+  </Accordion>
+</AccordionGroup>

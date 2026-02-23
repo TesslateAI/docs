@@ -1,0 +1,451 @@
+---
+title: "Troubleshooting"
+description: "Common issues and solutions for developers and self-hosters"
+---
+
+## Overview
+
+This page collects the most common issues encountered when developing, deploying, and self-hosting Tesslate Studio. Each section includes symptoms, diagnosis commands, root causes, and solutions. If you are new to the codebase, scan the section headers to find the category that matches your problem.
+
+## Container Issues
+
+### Devserver Image Missing
+
+**Symptoms:** User project containers fail to start. Pods stuck in `ImagePullBackOff` or `ErrImagePull`.
+
+**Diagnosis:**
+```bash
+# Kubernetes: check which image is being requested
+kubectl describe pod -n proj-<uuid> | grep Image
+
+# Check backend environment variable
+kubectl exec -n tesslate deployment/tesslate-backend -- env | grep K8S_DEVSERVER
+
+# Docker: check if the image exists locally
+docker images | grep tesslate-devserver
+```
+
+**Root cause:** The `tesslate-devserver` image was never built or loaded into the cluster.
+
+**Solution:**
+
+<Tabs>
+  <Tab title="Docker Compose">
+    ```bash
+    docker build -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
+    ```
+  </Tab>
+  <Tab title="Minikube">
+    ```bash
+    docker build -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
+    minikube -p tesslate image load tesslate-devserver:latest
+    ```
+  </Tab>
+  <Tab title="AWS EKS">
+    ```bash
+    docker build -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
+    docker tag tesslate-devserver:latest <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
+    docker push <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
+    ```
+  </Tab>
+</Tabs>
+
+### ImagePullBackOff
+
+**Symptoms:** Pod stuck in `ImagePullBackOff` state.
+
+**Diagnosis:**
+```bash
+kubectl describe pod <pod-name> -n <namespace>
+# Look for "Failed to pull image" in Events
+```
+
+**Common causes and solutions:**
+1. **Image not loaded into cluster (Minikube):** Run `minikube -p tesslate image load <image>:latest`
+2. **ECR credentials expired (AWS):** Re-authenticate: `aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com`
+3. **Wrong image name in config:** Verify `K8S_DEVSERVER_IMAGE` in the backend environment matches the actual image name
+
+### Pod Stuck in CrashLoopBackOff
+
+**Symptoms:** Pod repeatedly crashes and restarts.
+
+**Diagnosis:**
+```bash
+# Check current pod status
+kubectl get pods -n <namespace>
+
+# Check pod events
+kubectl describe pod <pod-name> -n <namespace>
+
+# Check container logs (current and previous)
+kubectl logs <pod-name> -n <namespace>
+kubectl logs <pod-name> -n <namespace> --previous
+```
+
+**Common causes:**
+1. **Missing environment variables:** Verify secrets are properly mounted: `kubectl exec -n tesslate deployment/tesslate-backend -- env | grep DATABASE`
+2. **Database connection failure:** Check `DATABASE_URL` and ensure the database pod is running
+3. **Missing Python dependencies:** Rebuild the image with `--no-cache`
+
+### Namespace Stuck in Terminating
+
+**Symptoms:** A project namespace stays in `Terminating` state and never completes deletion.
+
+**Diagnosis:**
+```bash
+kubectl get ns | grep proj-
+kubectl get all -n proj-<uuid>
+```
+
+**Solution:** Force-delete the namespace by removing its finalizers:
+```bash
+kubectl get ns proj-<uuid> -o json | \
+  jq '.spec.finalizers = []' | \
+  kubectl replace --raw "/api/v1/namespaces/proj-<uuid>/finalize" -f -
+```
+
+<Warning>
+  Force-deleting a namespace skips finalizer cleanup. Ensure no critical resources (like PVCs with important data) are left orphaned.
+</Warning>
+
+## Database Issues
+
+### Connection Refused
+
+**Symptoms:** Backend logs show `Connection refused` or `timeout` errors for PostgreSQL.
+
+**Diagnosis:**
+```bash
+# Docker: check postgres container
+docker compose ps postgres
+
+# Kubernetes: check postgres pod
+kubectl get pods -n tesslate | grep postgres
+kubectl logs -n tesslate deployment/tesslate-postgres
+```
+
+**Common causes:**
+1. **Database not running:** Restart it: `docker compose up -d postgres` or `kubectl rollout restart deployment/tesslate-postgres -n tesslate`
+2. **Wrong DATABASE_URL:** Verify the format: `postgresql+asyncpg://user:pass@host:5432/dbname`. Check with: `kubectl exec -n tesslate deployment/tesslate-backend -- env | grep DATABASE_URL`
+3. **Network policy blocking:** Ensure the NetworkPolicy allows backend-to-database traffic
+
+### Migration Errors
+
+**Symptoms:** `alembic upgrade head` fails.
+
+**Diagnosis:**
+```bash
+cd orchestrator
+alembic current   # Show current revision
+alembic history   # Show migration history
+```
+
+**Common issues and solutions:**
+
+<AccordionGroup>
+  <Accordion title="Multiple heads detected">
+    ```
+    alembic: ERROR: Multiple heads detected
+    ```
+    Two developers created migrations from the same revision. Merge them:
+    ```bash
+    alembic merge heads -m "merge_heads"
+    alembic upgrade head
+    ```
+  </Accordion>
+  <Accordion title="Relation does not exist">
+    ```
+    relation "tablename" does not exist
+    ```
+    Run all pending migrations:
+    ```bash
+    alembic upgrade head
+    ```
+  </Accordion>
+  <Accordion title="Migration partially applied">
+    If a migration fails midway, check the current state and fix manually:
+    ```bash
+    alembic current
+    # If the migration was already applied manually, stamp it:
+    alembic stamp <revision_id>
+    ```
+  </Accordion>
+  <Accordion title="Autogenerate misses changes">
+    Ensure all model files are imported in `alembic/env.py`:
+    ```python
+    from app.database import Base
+    from app import models
+    from app import models_kanban
+    from app import models_auth
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Database Seeding Failures
+
+**Symptoms:** Seed scripts fail or produce no data.
+
+**Diagnosis:**
+```bash
+# Check if migrations have been applied
+docker exec tesslate-orchestrator alembic current
+
+# Run seed script with verbose output
+docker exec -e PYTHONPATH=/app tesslate-orchestrator python /tmp/seed_marketplace_bases.py
+```
+
+**Common causes:**
+1. **Migrations not applied:** Run `alembic upgrade head` first
+2. **Script not copied into container:** Verify the `docker cp` step completed successfully
+3. **PYTHONPATH not set:** Always include `-e PYTHONPATH=/app` when running scripts inside the container
+
+## Agent Issues
+
+### LLM Timeout or No Response
+
+**Symptoms:** Chat messages do not get responses. The UI spins indefinitely.
+
+**Diagnosis:**
+```bash
+# Check backend logs for chat/agent errors
+kubectl logs -n tesslate deployment/tesslate-backend | grep -i "chat\|agent\|litellm"
+
+# Check LiteLLM configuration
+kubectl exec -n tesslate deployment/tesslate-backend -- env | grep LITELLM
+```
+
+**Common causes:**
+1. **Missing API key:** Verify `LITELLM_API_BASE` and `LITELLM_MASTER_KEY` are set
+2. **Rate limiting:** Check logs for rate limit errors; implement exponential backoff
+3. **Model not available:** Verify the model name in `LITELLM_DEFAULT_MODELS` is correct and accessible
+
+### Tool Execution Failures
+
+**Symptoms:** Agent tool calls fail. Logs show tool execution errors.
+
+**Diagnosis:**
+```bash
+kubectl logs -n tesslate deployment/tesslate-backend | grep -i "tool\|execute"
+```
+
+**Common causes:**
+1. **Container not running:** The user project container must be started before the agent can execute file or shell operations
+2. **File path issues:** Tool file paths are relative to the project root; verify the expected file exists
+3. **Permission denied:** Check that the container user has write access to the target directory
+
+### Streaming Errors
+
+**Symptoms:** Agent responses cut off mid-stream or the SSE connection drops.
+
+**Common causes:**
+1. **Proxy timeout:** NGINX Ingress default timeouts may be too short for long agent runs. Ingress annotations should set `proxy-read-timeout` and `proxy-send-timeout` to 3600
+2. **Client-side EventSource disconnect:** Ensure the frontend properly handles reconnection
+3. **Backend exception during streaming:** Check backend logs for tracebacks during the stream
+
+## Deployment Issues (External Providers)
+
+### SSL Certificate Not Valid
+
+**Symptoms:** Browser shows certificate warning when accessing the application.
+
+**Diagnosis:**
+```bash
+# Check certificate status
+kubectl get certificate -n tesslate
+kubectl describe certificate tesslate-wildcard-tls -n tesslate
+
+# Check cert-manager logs
+kubectl logs -n cert-manager deployment/cert-manager --tail=50
+```
+
+**Common causes:**
+1. **DNS not propagated:** Wait up to 48 hours for DNS propagation
+2. **Cloudflare API token invalid:** The token needs Zone:Zone:Read and Zone:DNS:Edit permissions
+3. **Wildcard cert subdomain limitation:** `*.domain.com` only covers one level. `foo.bar.domain.com` requires a separate cert or Cloudflare proxy
+
+### Domain Routing (503 Service Unavailable)
+
+**Symptoms:** Browser shows 503 error when accessing the application or a user project.
+
+**Diagnosis:**
+```bash
+# Check pod readiness
+kubectl get pods -n tesslate
+
+# Check service endpoints
+kubectl get endpoints -n tesslate
+
+# Check ingress controller logs
+kubectl logs -n ingress-nginx deployment/ingress-nginx-controller --tail=50
+```
+
+**Solutions:**
+1. **Pod not ready:** Wait for the pod to pass readiness checks, or check why it is failing
+2. **Service endpoint stale:** Restart the ingress controller: `kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx`
+3. **Ingress misconfigured:** Inspect with `kubectl describe ingress -n tesslate`
+
+### CORS Errors
+
+**Symptoms:** Browser console shows `Access to fetch has been blocked by CORS policy`.
+
+**Solutions:**
+1. Verify `APP_DOMAIN` in backend config matches your frontend origin
+2. Check the `DynamicCORSMiddleware` in `main.py` includes the correct URL patterns
+3. Ensure both HTTP and HTTPS origins are allowed if your setup uses both
+
+## Docker Issues
+
+### Image Not Updating After Rebuild
+
+**Symptoms:** Code changes do not appear after rebuilding and redeploying.
+
+**Root cause:** Docker (and Minikube) caches images and does not overwrite existing images with the same tag.
+
+**Solution (Minikube):**
+```bash
+# 1. Delete old image from Minikube
+minikube -p tesslate ssh -- docker rmi -f tesslate-backend:latest
+
+# 2. Rebuild with --no-cache
+docker rmi -f tesslate-backend:latest
+docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
+
+# 3. Load to Minikube
+minikube -p tesslate image load tesslate-backend:latest
+
+# 4. Delete pod to force restart
+kubectl delete pod -n tesslate -l app=tesslate-backend
+```
+
+### Volume Permission Errors
+
+**Symptoms:** Container fails to read or write files. Logs show "Permission denied."
+
+**Common causes:**
+1. **Wrong user inside container:** Ensure the container user (1000:1000) owns the project files
+2. **Host filesystem permissions:** On Linux, Docker volumes may inherit restrictive host permissions
+3. **Windows line endings:** Files created on Windows may cause script execution failures inside Linux containers
+
+### Network Conflicts
+
+**Symptoms:** Containers cannot communicate. Port conflicts on the host.
+
+**Diagnosis:**
+```bash
+docker network ls | grep tesslate
+docker port <container-name>
+```
+
+**Solutions:**
+1. Stop conflicting services on the host that use the same ports (5432, 8000, 5173)
+2. Ensure the project network is connected to Traefik: check the Compose file for network configuration
+
+## Kubernetes Issues
+
+### Minikube Image Caching
+
+**Problem:** `minikube image load` does not overwrite existing images with the same tag.
+
+**Solution:** Always delete the old image before loading the new one:
+```bash
+minikube -p tesslate ssh -- docker rmi -f <image>:latest
+minikube -p tesslate image load <image>:latest
+```
+
+### NGINX Ingress Configuration
+
+**Problem:** Ingress returns 503 or the wrong backend.
+
+**Diagnosis:**
+```bash
+kubectl get ingress -n tesslate -o yaml
+kubectl describe ingress <name> -n tesslate
+kubectl logs -n ingress-nginx deployment/ingress-nginx-controller --tail=50
+```
+
+**Common fixes:**
+1. Restart the ingress controller after backend deployments: `kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx`
+2. Verify service selectors match pod labels
+3. Check that the ingress class annotation matches your controller
+
+### PVC Not Bound
+
+**Symptoms:** Pod stuck in `Pending` with event "unbound PersistentVolumeClaims."
+
+**Diagnosis:**
+```bash
+kubectl get pvc -n proj-<uuid>
+kubectl describe pvc project-storage -n proj-<uuid>
+```
+
+**Common causes:**
+1. **StorageClass not found:** Verify `K8S_STORAGE_CLASS` matches an available StorageClass: `kubectl get sc`
+2. **No available PersistentVolumes:** The dynamic provisioner may not be configured
+3. **Pod affinity violation:** All pods sharing a RWO PVC must be on the same node. Check for affinity constraint failures
+
+### VolumeSnapshot Hibernation Failures
+
+**Symptoms:** Hibernation fails with "snapshot not ready" or "snapshot creation failed."
+
+**Diagnosis:**
+```bash
+# Check backend logs
+kubectl logs -n tesslate deployment/tesslate-backend | grep -i snapshot
+
+# Check VolumeSnapshot status
+kubectl get volumesnapshot -n proj-<uuid>
+kubectl describe volumesnapshot <name> -n proj-<uuid>
+
+# Check snapshot controller
+kubectl logs -n kube-system -l app=snapshot-controller
+```
+
+**Common causes:**
+1. **VolumeSnapshotClass not configured:** Ensure `tesslate-ebs-snapshots` exists: `kubectl get volumesnapshotclass`
+2. **EBS CSI driver not installed:** The snapshot feature requires the AWS EBS CSI driver with snapshot support
+3. **PVC does not exist or is not bound:** Verify the PVC is in `Bound` state before attempting a snapshot
+
+## Quick Diagnostic Commands
+
+```bash
+# Overall cluster health
+kubectl get pods --all-namespaces
+kubectl get events --all-namespaces --sort-by=.lastTimestamp | tail -20
+
+# Tesslate-specific
+kubectl get pods -n tesslate -o wide
+kubectl logs -n tesslate deployment/tesslate-backend --tail=100
+kubectl logs -n tesslate deployment/tesslate-frontend --tail=100
+
+# User project namespaces
+kubectl get pods --all-namespaces | grep proj-
+kubectl get ingress --all-namespaces | grep proj-
+
+# Resource usage
+kubectl top pods -n tesslate
+kubectl top nodes
+
+# Network
+kubectl get svc -n tesslate
+kubectl get endpoints -n tesslate
+```
+
+## Getting Help
+
+If you cannot resolve an issue:
+
+<Steps>
+  <Step title="Collect diagnostic information">
+    ```bash
+    kubectl get pods -n tesslate -o yaml > pods.yaml
+    kubectl logs -n tesslate deployment/tesslate-backend --tail=500 > backend.log
+    kubectl describe pods -n tesslate > describe.txt
+    ```
+  </Step>
+  <Step title="Search the codebase">
+    Search for the error message in the source code. Many errors have comments explaining the root cause and fix.
+  </Step>
+  <Step title="Create a detailed issue report">
+    Include: steps to reproduce, expected vs. actual behavior, relevant logs, configuration, and environment details (Minikube/AWS, versions).
+  </Step>
+</Steps>

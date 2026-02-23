@@ -1,47 +1,48 @@
 ---
 title: 'Agent Marketplace'
-description: 'Discover and install specialized AI agents'
+description: 'Discover, install, rate, and publish specialized AI agents'
 ---
 
 ## Marketplace Overview
 
-The Agent Marketplace is your hub for discovering specialized AI agents created by Tesslate and the community.
+The Agent Marketplace is where you find specialized AI agents built by Tesslate and the community. Each agent is pre-configured with a system prompt, agent type, tool permissions, and (optionally) a model, so you can install and start using it immediately.
 
 <CardGroup cols={2}>
   <Card title="Official Agents" icon="badge-check">
-    Built and maintained by Tesslate
+    Built, tested, and maintained by the Tesslate team
   </Card>
   <Card title="Community Agents" icon="users">
-    Created and shared by users
+    Created and shared by developers in the community
   </Card>
-  <Card title="Specialized" icon="star">
-    Focused on specific frameworks or tasks
+  <Card title="Open Source" icon="code-branch">
+    Fork and customize open-source agents to fit your needs
   </Card>
-  <Card title="Try Before You Commit" icon="vial">
-    Install and test any agent for free
+  <Card title="Free and Paid" icon="tag">
+    Most agents are free; premium agents offer advanced capabilities
   </Card>
 </CardGroup>
 
 ## Browsing Agents
 
 <Steps>
-  <Step title="Open Marketplace">
-    Click **Marketplace** in the sidebar
+  <Step title="Open the Marketplace">
+    Click **Marketplace** in the sidebar navigation.
   </Step>
 
-  <Step title="Select Agents Tab">
-    View all available AI agents
+  <Step title="Select the Agents Tab">
+    View all available AI agents. You can also browse bases, tools, and integrations.
   </Step>
 
-  <Step title="Browse or Search">
-    - Browse featured agents
-    - Search by name or description
-    - Filter by category
-    - Sort by popularity or rating
+  <Step title="Search and Filter">
+    - Search by name, description, or technology
+    - Filter by category (Builder, Frontend, Full-stack, Data, Specialized)
+    - Filter by pricing (Free or Paid)
+    - Filter by source type (Open Source or Closed Source)
+    - Sort by popularity, rating, or recency
   </Step>
 
-  <Step title="View Details">
-    Click any agent to see full information
+  <Step title="View Agent Details">
+    Click any agent to see its full description, capabilities, tech stack, stats, reviews, and pricing.
   </Step>
 </Steps>
 
@@ -56,18 +57,18 @@ The Agent Marketplace is your hub for discovering specialized AI agents created 
     - Component Builder
     - Rapid Prototyper
 
-    Best for: General development tasks
+    Best for: everyday development tasks and scaffolding
   </Tab>
 
   <Tab title="Frontend">
     **UI-focused agents**
 
-    - Tailwind Specialist
+    - Tailwind CSS Specialist
     - Responsive Design Expert
-    - Animation Master
+    - Animation and Motion
     - Component Library Builder
 
-    Best for: Building interfaces
+    Best for: building polished user interfaces
   </Tab>
 
   <Tab title="Full-stack">
@@ -78,423 +79,367 @@ The Agent Marketplace is your hub for discovering specialized AI agents created 
     - Database Schema Designer
     - Full-stack Developer
 
-    Best for: Complete features
+    Best for: features that span frontend and backend
   </Tab>
 
   <Tab title="Data & AI">
-    **Data processing and ML**
+    **Data processing and visualization**
 
-    - Data Viz Specialist
+    - Data Visualization Specialist
     - API Designer
     - Analytics Builder
     - ML Integration Expert
 
-    Best for: Data-heavy applications
+    Best for: data-heavy applications and dashboards
   </Tab>
 
   <Tab title="Specialized">
-    **Framework-specific**
+    **Framework and task specific**
 
     - Next.js Expert
     - React Query Specialist
     - Form Builder Pro
     - E-commerce Builder
 
-    Best for: Specific tech stacks
+    Best for: specific tech stacks or problem domains
   </Tab>
 </Tabs>
 
-## Agent Details Page
+## Agent Detail Page
 
-When you click an agent, you see:
+When you click an agent, you see comprehensive information:
 
 <AccordionGroup>
-  <Accordion icon="file-lines" title="Description">
-    - What the agent does
-    - Key capabilities
-    - When to use it
-    - Example use cases
+  <Accordion icon="file-lines" title="Description and Capabilities">
+    What the agent does, its key strengths, when to use it, and example use cases. This helps you decide if the agent fits your needs.
   </Accordion>
 
-  <Accordion icon="star" title="Features">
-    - Specialized skills
-    - Technologies it knows
-    - Patterns it follows
-    - Unique capabilities
+  <Accordion icon="robot" title="Agent Type">
+    Which architecture the agent uses:
+    - **StreamAgent**: Fast single-pass generation, no tools
+    - **IterativeAgent**: Multi-step with tool calling
+    - **ReActAgent**: Explicit reasoning pattern
+    - **TesslateAgent**: Full-featured with native function calling
+
+    The agent type determines how the agent processes requests and what features are available.
   </Accordion>
 
-  <Accordion icon="cube" title="Tech Stack">
-    - Frameworks it uses
-    - Libraries it prefers
-    - Coding standards
-    - Dependencies
+  <Accordion icon="wrench" title="Tool Access">
+    Which tools the agent has access to. Some agents have full tool access; others are restricted to specific categories (e.g., file ops only, or read-only tools).
   </Accordion>
 
   <Accordion icon="brain" title="AI Model">
-    - Which AI model powers it
-    - Model capabilities
-    - Performance characteristics
-    - (Can change for open-source)
+    Which model powers the agent. For open-source agents, you can change this after installing.
   </Accordion>
 
-  <Accordion icon="chart-line" title="Stats">
-    - Usage count
-    - User ratings
-    - Reviews
-    - Install count
+  <Accordion icon="chart-line" title="Stats and Reviews">
+    Download count, average rating, individual reviews, and usage statistics. These help you gauge quality and popularity.
   </Accordion>
 
   <Accordion icon="tag" title="Pricing">
-    - Free or paid
-    - Subscription model
-    - API costs (BYOK)
-    - Trial availability
+    - **Free**: No cost. Pay only for LLM API usage.
+    - **Monthly subscription**: Premium features with recurring payment.
+    - **One-time purchase**: Pay once, use forever.
   </Accordion>
 
   <Accordion icon="code-branch" title="Source Type">
-    - Open source: Can customize
-    - Closed source: Use as-is
-    - License information
+    - **Open source**: You can view the system prompt, fork, and customize.
+    - **Closed source**: Use as-is. The system prompt is hidden.
+    - **Forkable**: Whether the agent allows forking.
   </Accordion>
 </AccordionGroup>
 
 ## Installing Agents
 
 <Steps>
-  <Step title="Find Agent">
-    Browse marketplace and find an agent you want
+  <Step title="Find an Agent">
+    Browse or search the marketplace for an agent that fits your needs.
   </Step>
 
   <Step title="Review Details">
-    Read description, features, and reviews
+    Read the description, check the agent type, review the tool access, and read community reviews.
   </Step>
 
   <Step title="Click Install">
-    Click **Install** or **Add to Library**
+    Click **Add to Library** (free) or **Purchase** (paid).
+
+    For paid agents, you complete the checkout through Stripe and the agent appears in your library after payment confirmation.
   </Step>
 
-  <Step title="Confirm">
-    Confirm installation (free) or payment (paid)
+  <Step title="Go to Your Library">
+    The agent appears in Library under the Agents tab.
   </Step>
 
-  <Step title="Go to Library">
-    Agent appears in your Library → Agents
+  <Step title="Enable the Agent">
+    Toggle the agent on to make it available in the project chat dropdown.
   </Step>
 
-  <Step title="Enable">
-    Toggle the agent on to use in projects
+  <Step title="Select a Model (Optional)">
+    For open-source agents, you can change the AI model before using it.
   </Step>
 
   <Step title="Start Using">
-    Select it from agent dropdown in any project
+    Open any project, select the agent from the dropdown, and start chatting.
   </Step>
 </Steps>
 
 <Info>
-  Installing an agent doesn't automatically enable it. You control which agents appear in your selector.
+  Installing an agent adds it to your library but does not automatically enable it. You control which agents appear in the project chat dropdown by toggling them on or off.
 </Info>
 
-## Featured Agents
-
-### Official Tesslate Agents
+## Featured Official Agents
 
 <CardGroup cols={2}>
-  <Card title="Tesslate Builder" icon="hammer">
-    **General-purpose Stream agent**
-    - Fast UI generation
-    - React + Tailwind
-    - Great for landing pages
-    - Free and open source
+  <Card title="Stream Builder" icon="water">
+    **StreamAgent, Free, Open Source**
+
+    Fast UI generation with React and Tailwind CSS. Great for landing pages, component scaffolding, and rapid prototyping.
   </Card>
 
-  <Card title="Tesslate Pro" icon="rocket">
-    **Advanced Iterative agent**
-    - Complex logic and features
-    - Full-stack capabilities
-    - API integration
-    - Free and open source
+  <Card title="Tesslate Agent" icon="rocket">
+    **TesslateAgent/IterativeAgent, Free, Open Source**
+
+    Full-featured development agent with tool calling, error recovery, and multi-step task execution. The default agent for most users.
   </Card>
 
-  <Card title="Frontend Specialist" icon="browser">
-    **UI-focused builder**
-    - Responsive design expert
-    - Component libraries
-    - Accessibility focused
-    - Free
+  <Card title="React Component Builder" icon="cubes">
+    **IterativeAgent, Free, Open Source**
+
+    Specialized in creating reusable React components with TypeScript, accessibility standards, and proper prop typing.
   </Card>
 
-  <Card title="Full-stack Expert" icon="layer-group">
-    **End-to-end developer**
-    - Frontend + Backend
-    - Database design
-    - Authentication flows
-    - Free
+  <Card title="API Integration Expert" icon="server">
+    **IterativeAgent, Free, Open Source**
+
+    Focused on building API integrations, data fetching patterns, error handling, and server state management.
+  </Card>
+
+  <Card title="ReAct Reasoning Agent" icon="brain">
+    **ReActAgent, Free, Open Source**
+
+    Uses explicit reasoning before every action. Best for debugging, investigation, and tasks where auditable thinking is important.
   </Card>
 </CardGroup>
 
 ## Community Agents
 
-Browse agents created by the community:
+The community creates and shares specialized agents:
 
-- **Specialized frameworks**: Next.js, Vue, Svelte experts
-- **UI libraries**: MUI, Chakra, shadcn/ui specialists
-- **Specific tasks**: Form builders, chart generators, etc.
-- **Industry-specific**: E-commerce, SaaS, portfolio builders
+- **Code Analyzer**: Reads your codebase and provides quality, complexity, and improvement insights
+- **Documentation Writer**: Generates documentation for your components and APIs
+- **Refactoring Assistant**: Helps reorganize and improve existing code
+- **Test Generator**: Creates test suites for your components and functions
+- **API Designer**: Designs RESTful API schemas and endpoints
+- **Database Schema Designer**: Plans and creates database schemas
 
 <Info>
-  Community agents are reviewed by Tesslate before appearing in the marketplace.
+  All community agents are reviewed by Tesslate before appearing in the marketplace. Reviews check for quality, safety, and compliance with guidelines.
 </Info>
 
-## Filtering and Search
+## Managing Installed Agents
 
-<Tabs>
-  <Tab title="Search">
-    **Find specific agents**
-    - Search by name
-    - Search by description
-    - Search by technology
-    - Instant results
-  </Tab>
+After installing, manage agents in your Library:
 
-  <Tab title="Filter">
-    **Narrow down options**
-    - By category
-    - By pricing (Free/Paid)
-    - By source type (Open/Closed)
-    - By popularity
-    - By rating
-  </Tab>
+<AccordionGroup>
+  <Accordion icon="toggle-on" title="Enable and Disable">
+    Toggle agents on or off for projects. Disabled agents stay in your library and can be re-enabled at any time.
+  </Accordion>
 
-  <Tab title="Sort">
-    **Order results**
-    - Most popular
-    - Highest rated
-    - Recently added
-    - Alphabetical
-    - Most installed
-  </Tab>
-</Tabs>
+  <Accordion icon="brain" title="Change Model">
+    For open-source agents, switch the underlying AI model. Try different models to find the best balance of quality and cost for your tasks.
+  </Accordion>
+
+  <Accordion icon="code-branch" title="Fork and Customize">
+    Fork open-source agents to create your own version. Edit the system prompt, change tool access, and customize behavior while keeping the original untouched.
+  </Accordion>
+
+  <Accordion icon="plus" title="Add to Projects">
+    Add specific agents to specific projects. Go to Project Settings and choose which agents are available in that project's chat dropdown.
+  </Accordion>
+
+  <Accordion icon="trash" title="Uninstall">
+    Remove agents you no longer need. You can reinstall them from the marketplace at any time.
+  </Accordion>
+</AccordionGroup>
+
+## Rating and Reviews
+
+Help the community by rating agents you use:
+
+<Steps>
+  <Step title="Use the Agent">
+    Try the agent in real projects with various tasks before rating.
+  </Step>
+
+  <Step title="Open Agent Details">
+    Go to the marketplace and click on the agent.
+  </Step>
+
+  <Step title="Leave a Rating">
+    Rate 1 to 5 stars based on your experience.
+  </Step>
+
+  <Step title="Write a Review">
+    Share specifics: what worked, what didn't, which tasks it excels at, and any limitations you found.
+  </Step>
+
+  <Step title="Submit">
+    Your review helps others make informed decisions.
+  </Step>
+</Steps>
+
+### What to Evaluate
+
+<CardGroup cols={2}>
+  <Card title="Code Quality" icon="code">
+    Does it generate clean, working, well-structured code?
+  </Card>
+  <Card title="Accuracy" icon="bullseye">
+    Does it understand requests correctly and follow instructions?
+  </Card>
+  <Card title="Consistency" icon="arrows-rotate">
+    Does it produce reliable results across different requests?
+  </Card>
+  <Card title="Value" icon="scale-balanced">
+    Is the quality worth the cost (if paid)?
+  </Card>
+</CardGroup>
+
+## Publishing Your Agent
+
+Created a great custom agent? Share it with the community.
+
+<Steps>
+  <Step title="Create and Test">
+    Build your agent and test it thoroughly with real tasks. See the [Customizing Agents](/guides/customizing-agents) guide for best practices.
+  </Step>
+
+  <Step title="Write Documentation">
+    Create a clear description covering: what the agent does, which technologies it specializes in, when to use it, example prompts, and any limitations.
+  </Step>
+
+  <Step title="Configure Marketplace Settings">
+    - Choose a category and add searchable tags
+    - Set source type (open or closed source)
+    - Set pricing model (free, monthly subscription, or one-time purchase)
+    - Enable or disable forking
+  </Step>
+
+  <Step title="Submit for Review">
+    Click **Publish to Marketplace** in agent settings. The Tesslate team reviews your submission for quality and guidelines compliance.
+  </Step>
+
+  <Step title="Go Live">
+    Once approved, your agent appears in the marketplace. You receive download counts, ratings, and reviews.
+  </Step>
+</Steps>
+
+### Marketplace Data Model
+
+Each marketplace agent entry stores:
+
+| Field | Description |
+|-------|-------------|
+| Name and slug | Display name and URL-safe identifier |
+| Agent type | StreamAgent, IterativeAgent, ReActAgent, or TesslateAgent |
+| System prompt | Core instructions (visible for open-source agents) |
+| Tools | List of permitted tools (null for full access) |
+| Tool configs | Custom tool descriptions and examples |
+| Model | Default AI model |
+| Pricing type | free, monthly, or one_time |
+| Source type | open or closed |
+| Is forkable | Whether users can fork the agent |
+| Stats | Downloads, rating, review count |
+
+<Warning>
+  Published agents are visible to all Tesslate users. Test thoroughly before publishing. Once published, users depend on your agent working correctly.
+</Warning>
 
 ## Pricing Models
 
 <Tabs>
   <Tab title="Free">
-    **No cost agents**
+    **No subscription fee**
 
-    - No subscription fee
-    - Full access to features
-    - Often open source
+    - Full access to the agent
+    - Often open source (forkable)
     - Community supported
-    - Pay only for AI API usage (your key)
+    - You pay only for LLM API usage (through your own key or Tesslate credits)
 
-    **Best for:** Most users, trying out agents
+    Best for: most users, trying out agents, community contributions
   </Tab>
 
-  <Tab title="Subscription">
-    **Monthly/yearly fee**
+  <Tab title="Monthly Subscription">
+    **Recurring fee**
 
-    - Premium features
-    - Priority support
-    - Regular updates
-    - Exclusive capabilities
-    - Still need your AI API keys
+    - Premium features or capabilities
+    - Priority support from the creator
+    - Regular updates and improvements
+    - LLM API usage still separate
 
-    **Best for:** Professional use, specialized needs
+    Best for: professional use, specialized needs, teams
   </Tab>
 
-  <Tab title="BYOK (Bring Your Own Key)">
-    **Use your API keys**
+  <Tab title="One-Time Purchase">
+    **Pay once**
 
-    - Agent is free or subscription
-    - You provide OpenAI/Anthropic API key
-    - Pay AI providers directly
-    - Full control over costs
-    - Usage billed to your account
+    - Lifetime access to the agent
+    - No recurring fees
+    - Updates included
+    - LLM API usage still separate
 
-    **Best for:** Cost control, high usage
+    Best for: specific tools you plan to use long-term
   </Tab>
 </Tabs>
-
-## Rating and Reviews
-
-Help the community by rating agents:
-
-<Steps>
-  <Step title="Use Agent">
-    Try the agent in real projects
-  </Step>
-
-  <Step title="Open Agent Details">
-    Go to marketplace → click the agent
-  </Step>
-
-  <Step title="Leave Rating">
-    Rate 1-5 stars based on experience
-  </Step>
-
-  <Step title="Write Review">
-    Share what you liked or didn't like
-  </Step>
-
-  <Step title="Submit">
-    Help others make informed decisions
-  </Step>
-</Steps>
-
-### What to Rate
-
-<CardGroup cols={2}>
-  <Card title="Code Quality" icon="code">
-    Does it generate clean, working code?
-  </Card>
-  <Card title="Accuracy" icon="bullseye">
-    Does it understand requests correctly?
-  </Card>
-  <Card title="Consistency" icon="arrows-rotate">
-    Similar results for similar requests?
-  </Card>
-  <Card title="Value" icon="dollar-sign">
-    Worth the price (if paid)?
-  </Card>
-</CardGroup>
-
-## Managing Installed Agents
-
-After installing, manage in your Library:
-
-<AccordionGroup>
-  <Accordion icon="toggle-on" title="Enable/Disable">
-    - Turn agents on/off for projects
-    - Disabled agents stay in library
-    - Re-enable anytime
-  </Accordion>
-
-  <Accordion icon="pen" title="Customize (Open Source)">
-    - Fork to create custom version
-    - Edit system prompt
-    - Change AI model
-    - Keep original untouched
-  </Accordion>
-
-  <Accordion icon="trash" title="Uninstall">
-    - Remove from library
-    - Frees up space
-    - Can reinstall later
-    - No data lost
-  </Accordion>
-
-  <Accordion icon="arrow-up" title="Update">
-    - Get latest improvements
-    - Bug fixes
-    - New features
-    - Automatic notifications
-  </Accordion>
-</AccordionGroup>
-
-## Publishing Your Agent
-
-Created a great custom agent? Share it:
-
-<Steps>
-  <Step title="Create & Test">
-    Build and thoroughly test your agent
-  </Step>
-
-  <Step title="Document">
-    Write clear description and usage guide
-  </Step>
-
-  <Step title="Set Details">
-    Choose category, pricing, tags
-  </Step>
-
-  <Step title="Submit">
-    Click **Publish to Marketplace**
-  </Step>
-
-  <Step title="Review Process">
-    Tesslate reviews for quality
-  </Step>
-
-  <Step title="Go Live">
-    Appears in marketplace when approved
-  </Step>
-
-  <Step title="Earn">
-    Gain users, reviews, and reputation (or revenue if paid)
-  </Step>
-</Steps>
-
-<Info>
-  Check out the [Customizing Agents](/guides/customizing-agents) guide for creating high-quality agents to publish.
-</Info>
 
 ## Best Practices
 
 <AccordionGroup>
-  <Accordion icon="book-open" title="Read Descriptions">
-    - Understand what agent does
-    - Check tech stack compatibility
-    - Review example use cases
-    - Read reviews from others
+  <Accordion icon="book-open" title="Read Descriptions Carefully">
+    Check the agent type, tool access, and supported technologies before installing. An IterativeAgent that only has read_file access will behave very differently from one with full tool access.
   </Accordion>
 
-  <Accordion icon="vial" title="Test Before Committing">
-    - Try agent on test project first
-    - Test with your typical use cases
-    - Verify it matches your style
-    - Compare with similar agents
+  <Accordion icon="vial" title="Test on a Side Project">
+    Try agents on a test project before using them in production work. This lets you evaluate quality without risking your main codebase.
   </Accordion>
 
-  <Accordion icon="star" title="Start with Featured">
-    - Curated for quality
-    - Well-tested
-    - Good documentation
-    - Regular updates
+  <Accordion icon="star" title="Start with Featured Agents">
+    Featured agents are curated for quality, well-tested, and regularly updated. They are a safe starting point.
   </Accordion>
 
-  <Accordion icon="users" title="Check Community Feedback">
-    - Read ratings and reviews
-    - Look for recent activity
-    - Check install count
-    - See what others say
+  <Accordion icon="code-branch" title="Fork Before Customizing">
+    If an open-source agent is close to what you need, fork it instead of building from scratch. You start with a proven foundation.
   </Accordion>
 
-  <Accordion icon="code-branch" title="Try Open Source First">
-    - Can customize if needed
-    - Usually free
-    - Learn from prompt
-    - Fork to create your own
+  <Accordion icon="users" title="Read Community Reviews">
+    Reviews from other users provide real-world insights about an agent's strengths and weaknesses that descriptions alone cannot convey.
   </Accordion>
 </AccordionGroup>
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="circle-xmark" title="Can't Install Agent">
-    **Solutions:**
-    - Check internet connection
-    - Ensure you're logged in
-    - Verify payment method (if paid)
-    - Try refreshing page
-    - Contact support
+  <Accordion icon="circle-xmark" title="Cannot Install an Agent">
+    - Verify you are logged in
+    - Check your internet connection
+    - For paid agents, verify your payment method is valid
+    - Try refreshing the page
+    - Contact support if the issue persists
   </Accordion>
 
-  <Accordion icon="ban" title="Agent Not Appearing">
-    **Solutions:**
-    - Check it's enabled in Library
-    - Refresh project
-    - Ensure agent supports your project type
+  <Accordion icon="ban" title="Agent Not Appearing in Project Chat">
+    - Confirm the agent is enabled in your Library (toggle it on)
+    - Refresh the project page
+    - Check that the agent has been added to the project (Project Settings)
     - Reinstall if needed
   </Accordion>
 
-  <Accordion icon="triangle-exclamation" title="Agent Not Working Well">
-    **Solutions:**
-    - Check you're using it for intended purpose
-    - Try more specific prompts
-    - Compare with agent description
-    - Leave feedback for creator
-    - Try different agent
+  <Accordion icon="triangle-exclamation" title="Agent Not Performing Well">
+    - Verify you are using it for its intended purpose (check the description)
+    - Try more specific prompts aligned with the agent's specialty
+    - Check if a different AI model improves results (for open-source agents)
+    - Leave feedback for the creator
+    - Try a different agent with similar capabilities
   </Accordion>
 </AccordionGroup>
 
@@ -503,10 +448,10 @@ Created a great custom agent? Share it:
 <CardGroup cols={2}>
   <Card
     title="Using Agents"
-    icon="robot"
+    icon="comments"
     href="/guides/using-agents"
   >
-    Learn to use agents effectively
+    Learn how to prompt and interact with agents effectively
   </Card>
   <Card
     title="Customizing Agents"
@@ -516,17 +461,17 @@ Created a great custom agent? Share it:
     Create your own custom agents
   </Card>
   <Card
-    title="Library"
-    icon="books"
-    href="/guides/library"
-  >
-    Manage your installed agents
-  </Card>
-  <Card
     title="Agent Types"
     icon="robot"
     href="/guides/agent-types"
   >
-    Understand Stream vs Iterative
+    Understand the four agent architectures
+  </Card>
+  <Card
+    title="AI Agents Overview"
+    icon="book-open"
+    href="/guides/agents"
+  >
+    Core concepts and architecture
   </Card>
 </CardGroup>

@@ -1,0 +1,488 @@
+---
+title: "Data Flow Patterns"
+description: "How requests flow through Tesslate Studio from frontend to backend"
+---
+
+## Overview
+
+Every user interaction in Tesslate Studio follows a consistent request/response pattern that flows through the frontend, orchestrator, database, and (optionally) the container runtime. This page documents the lifecycle of each major flow: general API requests, agent chat, file operations, container management, Git operations, deployments, and streaming patterns.
+
+If you are new to the codebase, start with the General API Request Flow to understand the common pattern, then explore the specific flows relevant to your work.
+
+## General API Request Flow
+
+All user interactions follow this eight-step lifecycle.
+
+<Steps>
+  <Step title="User interaction">
+    The user performs an action in the browser (click, type, navigate).
+  </Step>
+  <Step title="Frontend sends request">
+    The React app sends an HTTP or WebSocket request to the Orchestrator.
+    Authentication is included via `Authorization: Bearer {jwt}` header or session cookie.
+  </Step>
+  <Step title="Orchestrator validates auth">
+    FastAPI middleware decodes the JWT token, verifies the user session, and checks permissions (RBAC).
+  </Step>
+  <Step title="Database query or update">
+    The Orchestrator queries or updates PostgreSQL using async SQLAlchemy.
+  </Step>
+  <Step title="Perform operation">
+    Depending on the request type, the Orchestrator delegates to the appropriate subsystem:
+    - **File operation**: Container filesystem (direct in Docker, pod exec in K8s)
+    - **Container operation**: Docker Compose or Kubernetes API
+    - **AI chat**: LiteLLM proxy to OpenAI/Anthropic
+    - **Deployment**: Vercel/Netlify/Cloudflare API
+  </Step>
+  <Step title="Build response">
+    The Orchestrator assembles the JSON response from the operation result and database state.
+  </Step>
+  <Step title="Return to frontend">
+    The response is sent back to the React app over the same HTTP connection (or as SSE/WebSocket events for streaming).
+  </Step>
+  <Step title="UI update">
+    The frontend updates its state and re-renders the relevant components.
+  </Step>
+</Steps>
+
+### Request Flow Diagram
+
+```
++----------+
+|  User    |
+| Browser  |
++----+-----+
+     |
+     | 1. User interaction (click, type, etc.)
+     v
++----------------+
+|   Frontend     |
+|  (React App)   |
++----+-----------+
+     |
+     | 2. HTTP/WebSocket request
+     |    Authorization: Bearer {jwt} OR Cookie: {session}
+     v
++----------------+
+| Orchestrator   |
+| (FastAPI API)  |
++----+-----------+
+     |
+     | 3. Validate authentication
+     | 4. Query/update database
+     v
++----------------+
+|  PostgreSQL    |
+|   Database     |
++----+-----------+
+     |
+     | 5. Database response
+     v
++----------------+
+| Orchestrator   |  6. Perform operation:
+| (FastAPI API)  |     File op -> Container filesystem
++----+-----------+     Container op -> Docker/K8s API
+     |                 AI chat -> LiteLLM -> AI provider
+     | 7. Return JSON  Deployment -> Vercel/Netlify API
+     v
++----------------+
+|   Frontend     |
+|  (React App)   |  8. Update UI with response data
++----------------+
+```
+
+## Agent Chat Flow
+
+The agent chat is the most complex data flow, involving LLM calls, tool execution, and real-time streaming to the frontend via Server-Sent Events (SSE).
+
+<Steps>
+  <Step title="User types a message">
+    The user enters a message in the chat UI (e.g., "Create a React component for a todo list").
+  </Step>
+  <Step title="Frontend opens SSE connection">
+    The frontend sends `POST /api/chat/stream` with `{ project_id, message, chat_id }` and opens an EventSource for streaming.
+  </Step>
+  <Step title="Load chat history">
+    The chat router loads previous messages from the database and builds conversation context.
+  </Step>
+  <Step title="Create agent instance">
+    `agent/factory.py` instantiates a `StreamAgent` with the appropriate system prompt, available tools (read_file, write_file, bash_exec, etc.), and LLM model.
+  </Step>
+  <Step title="Agent execution loop">
+    The `StreamAgent` enters a loop:
+
+    1. Call the LLM with system prompt + conversation history
+    2. If the LLM returns tool calls, execute them (e.g., `write_file`, `bash_exec`)
+    3. Stream each tool execution event to the frontend
+    4. Call the LLM again with tool results
+    5. Repeat until the LLM produces a final text response
+  </Step>
+  <Step title="Stream final response">
+    The agent streams its final message to the frontend, which renders it in real-time in the chat UI.
+  </Step>
+</Steps>
+
+### Agent Tool Execution Example
+
+**User prompt:** "Create a React component for a todo list"
+
+```
+LLM Call 1:
+  Input:  System prompt + user message
+  Output: Tool call: write_file("src/TodoList.tsx", "import React...")
+
+Tool Execution (write_file):
+  Docker mode: Write to users/{user_id}/{project_slug}/src/TodoList.tsx
+  K8s mode:    Exec into file-manager pod, write to /app/src/TodoList.tsx
+
+Stream Event to Frontend:
+  {
+    "type": "tool_execution",
+    "tool": "write_file",
+    "args": { "path": "src/TodoList.tsx" },
+    "result": "File created successfully"
+  }
+
+LLM Call 2:
+  Input:  Previous context + tool result
+  Output: "I've created a TodoList component in src/TodoList.tsx..."
+
+Stream Event to Frontend:
+  {
+    "type": "message",
+    "content": "I've created a TodoList component..."
+  }
+```
+
+### Available Agent Tools
+
+| Tool | File | Purpose |
+|------|------|---------|
+| `read_file` / `write_file` | `agent/tools/file_ops/read_write.py` | Read and write files in the project |
+| `patch_file` / `multi_edit` | `agent/tools/file_ops/edit.py` | Edit specific file sections |
+| `bash_exec` | `agent/tools/shell_ops/bash.py` | Execute shell commands |
+| `shell_exec` / `shell_open` | `agent/tools/shell_ops/session.py` | Persistent shell sessions |
+| `web_fetch` | `agent/tools/web_ops/fetch.py` | HTTP requests for web content |
+| `todos` | `agent/tools/planning_ops/todos.py` | Task planning and tracking |
+| `get_project_info` | `agent/tools/project_ops/metadata.py` | Query project information |
+
+## File Operations Flow
+
+File reads and writes differ depending on deployment mode. In Docker mode, the orchestrator accesses the filesystem directly. In Kubernetes mode, it executes commands inside the file-manager pod.
+
+<Tabs>
+  <Tab title="Read File">
+    ```
+    User clicks file in browser
+        |
+        v
+    Frontend: GET /api/projects/{id}/files/{path}
+        |
+        v
+    Orchestrator validates auth, gets project
+        |
+        v
+    Check deployment mode:
+      Docker mode:
+        file_path = "users/{user_id}/{slug}/{path}"
+        content = open(file_path).read()
+      Kubernetes mode:
+        namespace = "proj-{project_id}"
+        pod = file-manager pod
+        content = kubectl exec cat /app/{subdir}/{path}
+        |
+        v
+    Return { content } to frontend
+        |
+        v
+    Display in Monaco editor
+    ```
+  </Tab>
+  <Tab title="Write File">
+    ```
+    User edits file in Monaco editor
+        |
+        v
+    Frontend: PUT /api/projects/{id}/files/{path}
+              Body: { content: "..." }
+        |
+        v
+    Orchestrator validates auth, gets project
+        |
+        v
+    Check deployment mode:
+      Docker mode:
+        file_path = "users/{user_id}/{slug}/{path}"
+        open(file_path, 'w').write(content)
+      Kubernetes mode:
+        Encode content as base64
+        kubectl exec mkdir -p {dir_path}
+        kubectl exec sh -c "echo '{base64}' | base64 -d > {path}"
+        |
+        v
+    Update project.last_activity
+        |
+        v
+    Return { status: "success" } to frontend
+    ```
+  </Tab>
+</Tabs>
+
+## Container Operations Flow
+
+Container start and stop operations are non-blocking. The Orchestrator returns immediately and the frontend polls for status updates.
+
+### Start Project Containers
+
+<Steps>
+  <Step title="User clicks Start">
+    Frontend sends `POST /api/projects/{id}/start`.
+  </Step>
+  <Step title="Validation and background task">
+    The Orchestrator validates auth, checks that the project is not already running, queues a background task for container setup, and returns `{ "status": "starting" }` immediately.
+  </Step>
+  <Step title="Frontend polls for status">
+    The frontend polls `GET /api/projects/{id}/status` every 2 seconds.
+  </Step>
+  <Step title="Background task executes (Kubernetes mode)">
+    1. Create namespace (`proj-{uuid}`)
+    2. Create PVC (shared storage, e.g. 10Gi RWO)
+    3. Restore from VolumeSnapshot if hibernated (or hydrate from S3 for legacy projects)
+    4. Create file-manager pod (always running)
+    5. For each container: create Deployment + Service + Ingress
+    6. Create NetworkPolicy for isolation
+    7. Update project status in database to "running"
+    8. Return container URLs
+  </Step>
+  <Step title="Frontend detects running state">
+    Status poll detects "running". The frontend displays container URLs and enables the live preview iframe.
+  </Step>
+</Steps>
+
+### Stop Project Containers
+
+<Steps>
+  <Step title="User clicks Stop (or navigates away)">
+    Frontend sends `POST /api/projects/{id}/stop`.
+  </Step>
+  <Step title="Background task: dehydrate and delete">
+    1. Create VolumeSnapshot from PVC (under 5 seconds)
+    2. Wait for snapshot readiness
+    3. Delete namespace (cascades to all resources: Deployments, Services, Ingress, PVC, NetworkPolicy)
+    4. Update project status to "hibernated"
+  </Step>
+  <Step title="Frontend detects stopped state">
+    Status poll detects "stopped" or "hibernated". Live preview is disabled and the Start button appears.
+  </Step>
+</Steps>
+
+<Warning>
+  In Kubernetes mode, hibernation creates an EBS VolumeSnapshot that preserves the entire filesystem state including `node_modules`. No `npm install` is needed on restore. Projects restore in under 10 seconds thanks to EBS lazy-loading.
+</Warning>
+
+## Git Operations Flow
+
+### Clone Repository
+
+```
+User clicks "Import from GitHub"
+    |
+    v
+Frontend: POST /api/git/clone
+          Body: { repo_url, project_id }
+    |
+    v
+Orchestrator validates auth, queues background task
+Returns { "status": "cloning" }
+    |
+    v
+Background task:
+  Kubernetes mode:
+    Generate git clone script
+    Execute in file-manager pod via kubectl exec
+  Docker mode:
+    Clone directly to filesystem: users/{user_id}/{slug}/
+    |
+    v
+Frontend polls, detects "cloned"
+Refreshes file tree
+```
+
+### Commit and Push
+
+```
+User (or agent) clicks "Commit"
+    |
+    v
+Frontend: POST /api/git/commit
+          Body: { message, project_id }
+    |
+    v
+Orchestrator:
+  Kubernetes mode:
+    kubectl exec git config user.name {name}
+    kubectl exec git config user.email {email}
+    kubectl exec git add .
+    kubectl exec git commit -m {message}
+    kubectl exec git push
+  Docker mode:
+    Execute git commands on filesystem
+    |
+    v
+Return { "status": "pushed", "commit_hash": "..." }
+```
+
+## Deployment Flow (External Providers)
+
+External deployments to Vercel, Netlify, or Cloudflare follow a consistent non-blocking pattern.
+
+<Steps>
+  <Step title="User initiates deployment">
+    Frontend sends `POST /api/deployments` with provider name, project ID, and configuration.
+  </Step>
+  <Step title="Retrieve OAuth credentials">
+    The Orchestrator decrypts the user's stored `DeploymentCredential` for the chosen provider.
+  </Step>
+  <Step title="Background build and deploy">
+    1. Build the project locally (e.g., `npm run build`)
+    2. Push to Git if needed (create/update GitHub repo)
+    3. Call provider API to create deployment
+    4. Poll provider API until deployment status is "READY"
+    5. Save deployment record to database
+  </Step>
+  <Step title="Notify frontend">
+    A WebSocket message or status poll delivers the live URL to the frontend, which displays a success message with a link to the deployed application.
+  </Step>
+</Steps>
+
+## WebSocket and SSE Streaming Patterns
+
+Tesslate Studio uses two streaming mechanisms for real-time communication.
+
+<Tabs>
+  <Tab title="Server-Sent Events (Agent Chat)">
+    **Backend (FastAPI):**
+    ```python
+    async def stream_agent_response(project_id, message):
+        async for event in agent.run(message):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    @router.post("/stream")
+    async def chat_stream(request: ChatRequest):
+        return StreamingResponse(
+            stream_agent_response(request.project_id, request.message),
+            media_type="text/event-stream"
+        )
+    ```
+
+    **Frontend (EventSource):**
+    ```typescript
+    const eventSource = new EventSource('/api/chat/stream', {
+      body: JSON.stringify({ message, project_id }),
+      method: 'POST'
+    });
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      switch (data.type) {
+        case 'tool_execution':
+          displayToolExecution(data.tool, data.args);
+          break;
+        case 'message':
+          displayAgentMessage(data.content);
+          break;
+        case 'error':
+          displayError(data.error);
+          break;
+      }
+    };
+    ```
+
+    **Use cases:** Agent chat streaming, build output streaming.
+  </Tab>
+  <Tab title="Polling (Status Checks)">
+    **Frontend:**
+    ```typescript
+    const pollStatus = async () => {
+      const status = await api.get(`/api/projects/${id}/status`);
+      if (status.state !== 'running') {
+        setTimeout(pollStatus, 2000); // Poll every 2 seconds
+      }
+    };
+    ```
+
+    **Use cases:** Container startup status, deployment progress, background task status.
+  </Tab>
+  <Tab title="WebSocket (Bidirectional)">
+    **Backend (FastAPI):**
+    ```python
+    @router.websocket("/ws/{chat_id}")
+    async def websocket_endpoint(websocket: WebSocket, chat_id: str):
+        await websocket.accept()
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await websocket.send_text(response)
+        except WebSocketDisconnect:
+            pass
+    ```
+
+    **Use cases:** Live terminal sessions, real-time log streaming, hibernation notifications.
+  </Tab>
+</Tabs>
+
+## Performance Optimizations
+
+<AccordionGroup>
+  <Accordion title="Non-Blocking Operations">
+    Long-running operations return immediately and execute in the background. The frontend polls for status.
+
+    ```python
+    # Return immediately, execute in background
+    @router.post("/")
+    async def create_project(data: ProjectCreate, background_tasks: BackgroundTasks):
+        project = await db_create_project(data)
+        background_tasks.add_task(setup_containers, project)
+        return project  # Frontend polls /status
+    ```
+  </Accordion>
+
+  <Accordion title="Database Query Optimization">
+    Use `selectinload()` to prevent N+1 queries and load related objects in a single query.
+
+    ```python
+    # Single query with joined loading
+    project = await db.execute(
+        select(Project)
+        .options(
+            selectinload(Project.containers),
+            selectinload(Project.containers)
+                .selectinload(Container.connections)
+        )
+        .where(Project.id == project_id)
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Streaming vs. Polling Decision Guide">
+    | Pattern | When to Use | Example |
+    |---------|-------------|---------|
+    | SSE (Server-Sent Events) | Unidirectional, real-time data from server | Agent chat responses |
+    | Polling | Simple status checks, stateless | Container startup status |
+    | WebSocket | Bidirectional, real-time communication | Live terminal, shell sessions |
+  </Accordion>
+</AccordionGroup>
+
+## Key Source Files
+
+| File | Purpose |
+|------|---------|
+| `orchestrator/app/routers/projects.py` | Project CRUD, file operations, container lifecycle |
+| `orchestrator/app/routers/chat.py` | Agent chat and streaming |
+| `orchestrator/app/routers/git.py` | Git operations |
+| `orchestrator/app/routers/deployments.py` | External deployments |
+| `orchestrator/app/agent/stream_agent.py` | Streaming AI agent implementation |
+| `orchestrator/app/agent/factory.py` | Agent creation from config |
+| `orchestrator/app/agent/tools/` | Agent tool implementations |
+| `orchestrator/app/services/orchestration/kubernetes_orchestrator.py` | K8s container management |
+| `orchestrator/app/services/s3_manager.py` | S3 hydration/dehydration |

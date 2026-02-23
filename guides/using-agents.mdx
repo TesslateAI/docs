@@ -1,52 +1,52 @@
 ---
 title: 'Using AI Agents'
-description: 'Master working with AI agents to build applications'
+description: 'Practical guide to chatting with agents, understanding tool calls, approval flows, and edit modes'
 ---
 
-## Getting Started with Agents
+## Getting Started
 
-AI agents are your coding partners. Describe what you want in natural language, and they generate the code for you.
+AI agents are your coding partners inside Tesslate Studio. You describe what you want in natural language, and the agent reads your files, writes code, runs commands, and iterates until the task is done.
 
 <CardGroup cols={2}>
   <Card title="Natural Language" icon="message">
-    No coding required - just describe it
-  </Card>
-  <Card title="Real-Time Generation" icon="bolt">
-    Watch code appear instantly
-  </Card>
-  <Card title="Interactive" icon="comments">
-    Refine through conversation
+    No coding syntax required. Just describe what you want.
   </Card>
   <Card title="Context-Aware" icon="brain">
-    Agents understand your full project
+    Agents see your project files, directory structure, and git status.
+  </Card>
+  <Card title="Tool-Powered" icon="wrench">
+    Agents call tools to read, write, execute, and plan.
+  </Card>
+  <Card title="Approval Control" icon="shield-halved">
+    You control which operations execute automatically.
   </Card>
 </CardGroup>
 
 ## Your First Agent Interaction
 
 <Steps>
-  <Step title="Open Project">
-    Open any project in Tesslate Studio
+  <Step title="Open a Project">
+    Open any project in Tesslate Studio.
   </Step>
 
-  <Step title="Select Agent">
-    Choose an agent from the dropdown (try Stream Agent first)
+  <Step title="Select an Agent">
+    Choose an agent from the dropdown in the chat interface. For your first time, try the default TesslateAgent or an IterativeAgent.
   </Step>
 
-  <Step title="Describe Feature">
-    Type: "Create a hero section with a title, subtitle, and call-to-action button"
+  <Step title="Describe What You Want">
+    Type a request like: "Create a hero section with a title, subtitle, and call-to-action button using Tailwind CSS"
   </Step>
 
-  <Step title="Watch Generation">
-    Agent generates code in real-time
+  <Step title="Watch the Agent Work">
+    The agent reads your project, plans its approach, and executes tool calls. You see each step in real time.
   </Step>
 
-  <Step title="See Preview">
-    Your hero section appears in the live preview
+  <Step title="Approve Operations (Ask Mode)">
+    If you are in Ask Before Edit mode (the default), the agent requests approval before writing files or running commands. Click **Allow Once**, **Allow All**, or **Stop**.
   </Step>
 
-  <Step title="Refine">
-    Say: "Make the button larger and orange"
+  <Step title="See Results">
+    Your changes appear in the code editor and live preview. Continue the conversation to refine.
   </Step>
 </Steps>
 
@@ -62,335 +62,368 @@ Good prompts include:
 
 1. **What** you want to build
 2. **How** it should look or behave
-3. **Which** technologies to use (optional)
-4. **Why** specific requirements matter (optional)
+3. **Which** technologies to use (optional but helpful)
+4. **Context** about existing code (optional)
 
-### Examples
+### Prompt Examples by Complexity
 
 <Tabs>
   <Tab title="UI Components">
     **Basic:**
-    - "Create a button"
+    "Create a button"
 
     **Better:**
-    - "Create a primary button with rounded corners and an orange background"
+    "Create a primary button with rounded corners and an orange background"
 
     **Best:**
-    - "Create a primary button with rounded corners, orange background (#F97316), white text, and a hover effect that darkens it slightly. Use Tailwind CSS."
+    "Create a reusable Button component in src/components/Button.tsx using TypeScript. It should accept variant (primary, secondary, ghost), size (sm, md, lg), and children props. Use Tailwind CSS with orange-500 as the primary color. Include hover and focus states."
 
-    **Why best wins:** Specific colors, exact styling, technology choice
-  </Tab>
-
-  <Tab title="Layouts">
-    **Basic:**
-    - "Make a navigation bar"
-
-    **Better:**
-    - "Create a navigation bar with logo on left and menu on right"
-
-    **Best:**
-    - "Create a sticky navigation bar with the logo on the left, menu items (Home, Features, Pricing, About) centered, and a 'Sign Up' button on the right. Use flexbox and make it responsive - stack vertically on mobile."
-
-    **Why best wins:** Exact layout, specific items, responsive behavior
+    The best version specifies the file path, typing, variants, and styling framework.
   </Tab>
 
   <Tab title="Features">
     **Basic:**
-    - "Add a contact form"
+    "Add a contact form"
 
     **Better:**
-    - "Create a contact form with name, email, and message fields"
+    "Create a contact form with name, email, and message fields with validation"
 
     **Best:**
-    - "Create a contact form with fields for name (text), email (validated), and message (textarea). Include form validation using React Hook Form and Zod. Show error messages in red below each field. Add a submit button that shows a loading state."
+    "Create a contact form in src/components/ContactForm.tsx with fields for name (required), email (validated format), and message (textarea, min 10 chars). Use React Hook Form with Zod validation. Show error messages in red below each field. Add a submit button with loading state. On success, show a green confirmation message and reset the form."
 
-    **Why best wins:** Exact fields, validation library, error handling, UX details
+    The best version covers validation, UX states, and success behavior.
+  </Tab>
+
+  <Tab title="Shell Commands">
+    **Basic:**
+    "Install dependencies"
+
+    **Better:**
+    "Install React Query and set up a basic query client"
+
+    **Best:**
+    "Install @tanstack/react-query and create a QueryClientProvider wrapper in src/providers/QueryProvider.tsx. Configure it with a default stale time of 5 minutes and retry count of 2. Wrap the App component with this provider in src/main.tsx."
+
+    The best version includes the configuration details and integration points.
   </Tab>
 </Tabs>
 
-## Prompt Patterns
+### Prompt Patterns
 
-### Adding Features
-
+**Adding features:**
 ```
-"Add a [feature] that [does something] with [specific details]"
-```
-
-**Examples:**
-- "Add a product card that displays an image, title, price, and 'Add to Cart' button"
-- "Add a search bar that filters the product list in real-time as the user types"
-- "Add a dark mode toggle that switches between light and dark themes"
-
-### Modifying Existing Code
-
-```
-"Make the [element] [change] by [method]"
+"Add a [feature] to [location] that [behavior] using [technology]"
 ```
 
-**Examples:**
-- "Make the navigation bar sticky at the top when scrolling"
-- "Make the hero section full height with content vertically centered"
-- "Make all buttons have a subtle shadow and slight lift on hover"
-
-### Styling Changes
-
+**Modifying existing code:**
 ```
-"Change the [element] to have [styles]"
+"In [file/component], change [element] to [new behavior]"
 ```
 
-**Examples:**
-- "Change the primary color to #F97316 throughout the app"
-- "Change the font to Inter and increase the base size to 16px"
-- "Change the card backgrounds to white with a subtle border instead of shadows"
-
-### Debugging
-
+**Debugging:**
 ```
-"Fix the [issue] where [problem description]"
+"Fix the bug in [file/component] where [problem description]. The expected behavior is [expected]."
 ```
 
-**Examples:**
-- "Fix the bug where the form submits even with validation errors"
-- "Fix the layout breaking on mobile screens below 640px"
-- "Fix the TypeScript error in the UserProfile component"
+**Refactoring:**
+```
+"Refactor [file/component] to [improvement]. Keep the existing functionality but [specific change]."
+```
 
-## Advanced Techniques
+## Understanding Tool Calls
+
+When an IterativeAgent, ReActAgent, or TesslateAgent works on your request, it calls tools to interact with your project. Here is what each tool category does and when the agent uses it.
+
+### File Operations
+
+<AccordionGroup>
+  <Accordion icon="file" title="read_file">
+    **What it does:** Reads the contents of a file from your project.
+
+    **When the agent uses it:** Before modifying a file (to understand current code), when investigating a bug, or when you reference a specific file.
+
+    **Example:** The agent reads `src/App.jsx` before adding a new route to the router.
+  </Accordion>
+
+  <Accordion icon="file-pen" title="write_file">
+    **What it does:** Creates a new file or completely overwrites an existing one.
+
+    **When the agent uses it:** Creating new components, configuration files, or when a file needs a full rewrite.
+
+    **Example:** The agent creates `src/components/Button.tsx` with a new component.
+  </Accordion>
+
+  <Accordion icon="scissors" title="patch_file">
+    **What it does:** Applies a surgical search/replace edit to an existing file using fuzzy matching.
+
+    **When the agent uses it:** Making small, targeted changes to existing files. More efficient than rewriting the entire file.
+
+    **Example:** The agent changes `bg-blue-500` to `bg-green-500` in a specific component.
+  </Accordion>
+
+  <Accordion icon="layer-group" title="multi_edit">
+    **What it does:** Applies multiple search/replace patches to a single file atomically. Edits are applied sequentially.
+
+    **When the agent uses it:** Batch refactoring, renaming variables, or making several related changes to one file.
+
+    **Example:** The agent updates an interface, function signature, and JSX in one operation.
+  </Accordion>
+</AccordionGroup>
+
+### Shell Operations
+
+<AccordionGroup>
+  <Accordion icon="terminal" title="bash_exec">
+    **What it does:** Executes a one-off shell command with automatic session management. Reuses sessions within the same agent run for efficiency.
+
+    **When the agent uses it:** Installing packages, running builds, checking git status, listing files, running tests.
+
+    **Example:** `npm install @tanstack/react-query` or `npm run build`
+
+    **Tip:** For long-running commands (like test suites), the agent can increase the wait time using the `wait_seconds` parameter.
+  </Accordion>
+
+  <Accordion icon="rectangle-terminal" title="shell_open / shell_exec / shell_close">
+    **What they do:** Open a persistent shell session, execute commands within it (preserving state like working directory), and close it when done.
+
+    **When the agent uses them:** Multi-step workflows that need state persistence. For example, navigating to a directory and running several commands there.
+
+    **Example:** Open a session, `cd src`, `ls -la`, then close.
+  </Accordion>
+</AccordionGroup>
+
+### Graph Operations
+
+Graph operations are available only when you are viewing the architecture/graph canvas. They let the agent manage your project's container topology.
+
+<AccordionGroup>
+  <Accordion icon="play" title="Container Lifecycle">
+    **Tools:** `graph_start_container`, `graph_stop_container`, `graph_start_all`, `graph_stop_all`, `graph_container_status`
+
+    **When the agent uses them:** Starting or stopping services, checking which containers are running, launching the entire application stack.
+  </Accordion>
+
+  <Accordion icon="diagram-project" title="Grid Management">
+    **Tools:** `graph_add_container`, `graph_add_browser_preview`, `graph_add_connection`, `graph_remove_item`
+
+    **When the agent uses them:** Setting up project architecture. Adding frontend/backend/database containers, connecting them with environment variables or API endpoints, and adding browser preview nodes.
+
+    **Connection types:** `env_injection`, `http_api`, `database`, `cache`, `depends_on`
+  </Accordion>
+</AccordionGroup>
+
+## Approval Flows
+
+In **Ask Before Edit** mode (the default), dangerous operations require your approval.
+
+### Which Tools Need Approval?
+
+**Dangerous tools (require approval):**
+- `write_file`, `patch_file`, `multi_edit` (file modifications)
+- `bash_exec`, `shell_exec`, `shell_open` (shell operations)
+- `web_fetch` (web operations)
+
+**Safe tools (execute immediately):**
+- `read_file`, `get_project_info`, `todo_read`, `todo_write`
+
+### The Approval Dialog
+
+When the agent requests a dangerous operation, you see an approval card with three options:
+
+<Tabs>
+  <Tab title="Allow Once">
+    Approves this single operation only. The next time the same tool is called, you will be asked again.
+  </Tab>
+
+  <Tab title="Allow All">
+    Behavior depends on the tool type:
+
+    **For write tools** (write_file, patch_file, multi_edit): Approves all write operations for this session and automatically switches you to "Allow All Edits" mode.
+
+    **For bash/exec tools** (bash_exec, shell_exec, shell_open, web_fetch): Approves this specific tool type for the session. Other dangerous tools still require approval. The mode stays on "Ask Before Edit."
+  </Tab>
+
+  <Tab title="Stop">
+    Cancels the operation. The agent sees "User cancelled operation" and stops the current task.
+  </Tab>
+</Tabs>
+
+### Session Management
+
+- Approvals persist until you use the `/clear` command or start a new chat
+- The `/clear` command resets all approvals and mode switches
+- Each chat session tracks approvals independently
+
+## Edit Modes
+
+The edit mode button in the chat input lets you control agent autonomy. Three modes are available:
+
+<Tabs>
+  <Tab title="Ask Before Edit (Default)">
+    **Border color:** Grey
+
+    The agent can read freely but must request approval for writes and shell commands. This is the safest mode and recommended for most work.
+
+    Dangerous tools are blocked until you approve them. You can approve per-operation or per-tool-type for the session.
+  </Tab>
+
+  <Tab title="Allow All Edits">
+    **Border color:** Orange
+
+    Full access. All tools execute immediately without approval. The agent operates autonomously.
+
+    Use this when you trust the agent completely and want maximum speed.
+  </Tab>
+
+  <Tab title="Plan Mode">
+    **Border color:** Green
+
+    Read-only. The agent can read files and gather context, but all write operations and shell commands are blocked at the registry level. Instead of executing changes, the agent creates a detailed markdown plan explaining what it would do.
+
+    Activate with the mode button or the `/plan` slash command.
+
+    Plan mode is useful when you want to review the agent's approach before letting it make changes.
+  </Tab>
+</Tabs>
+
+<Warning>
+  Plan mode blocks tools at the ToolRegistry level. This means it works automatically for all agents, including custom ones. You do not need to configure anything special.
+</Warning>
+
+## Advanced Prompting Techniques
 
 ### Referencing Existing Code
 
 <AccordionGroup>
-  <Accordion icon="file" title="Mention Files">
-    "Update the Button component in components/Button.tsx to use the new color scheme"
+  <Accordion icon="file" title="Mention Specific Files">
+    "Update the Button component in src/components/Button.tsx to add a `loading` prop that shows a spinner"
+
+    When you reference specific paths, the agent reads those files first.
   </Accordion>
 
-  <Accordion icon="code" title="Reference Components">
-    "Make the ProductCard component match the styling of the existing FeatureCard"
+  <Accordion icon="code" title="Reference Patterns">
+    "Make the ProductCard component match the styling pattern used in FeatureCard"
+
+    The agent reads both components to understand the pattern.
   </Accordion>
 
-  <Accordion icon="layer-group" title="Specify Location">
-    "Add a new component called Newsletter in the components/marketing folder"
+  <Accordion icon="layer-group" title="Specify Locations">
+    "Create a new hook called useDebounce in src/hooks/useDebounce.ts"
+
+    Giving exact paths reduces ambiguity.
   </Accordion>
 </AccordionGroup>
 
+### Multi-Step Feature Requests
+
+For complex features, break them into numbered steps:
+
+```
+I want to build a shopping cart. Let's work through it step by step:
+
+1. Create a CartContext with state for items, add, remove, and clear actions
+2. Add "Add to Cart" buttons to the product cards
+3. Build a cart sidebar that slides in from the right
+4. Add quantity controls and a remove button for each item
+5. Show the subtotal and a "Checkout" button at the bottom
+
+Start with step 1.
+```
+
+<Info>
+  Breaking complex features into steps helps the agent focus on one piece at a time and reduces the chance of errors.
+</Info>
+
 ### Iterative Refinement
 
-Build features gradually:
+Build gradually:
 
 <Steps>
   <Step title="Start Simple">
-    "Create a basic product grid showing 6 products"
+    "Create a basic product grid showing 6 placeholder products"
   </Step>
 
   <Step title="Add Details">
     "Add product images, titles, and prices to each card"
   </Step>
 
-  <Step title="Enhance">
-    "Add hover effects and 'Quick View' buttons to each product"
+  <Step title="Enhance UX">
+    "Add hover effects, shadows, and a Quick View button to each product"
   </Step>
 
-  <Step title="Functionality">
-    "Make the products filterable by category"
+  <Step title="Add Functionality">
+    "Make the products filterable by category with a dropdown"
   </Step>
 
   <Step title="Polish">
-    "Add loading skeletons while products load"
+    "Add loading skeletons while data loads and empty state when no results match"
   </Step>
 </Steps>
-
-### Multi-Step Features
-
-For complex features, break down the steps:
-
-```
-"I want to build a shopping cart feature. Let's start by:
-
-1. Creating a Cart context to manage cart state
-2. Adding 'Add to Cart' buttons to product cards
-3. Creating a cart sidebar that shows added items
-4. Adding quantity controls and remove buttons
-5. Calculating and displaying the total
-
-Let's start with step 1 - create the Cart context."
-```
-
-<Info>
-  Breaking down complex features helps the agent understand the full scope and build it correctly piece by piece.
-</Info>
-
-## Working with Different Agents
-
-### Stream Agent Workflow
-
-<CardGroup cols={2}>
-  <Card title="1. Quick UI" icon="bolt">
-    Build visual components fast
-  </Card>
-  <Card title="2. Iterate Rapidly" icon="rotate">
-    Try different designs quickly
-  </Card>
-  <Card title="3. Refine Styling" icon="paintbrush">
-    Perfect colors, spacing, typography
-  </Card>
-  <Card title="4. Switch for Logic" icon="brain">
-    Move to Iterative for functionality
-  </Card>
-</CardGroup>
-
-### Iterative Agent Workflow
-
-<CardGroup cols={2}>
-  <Card title="1. Plan Feature" icon="list">
-    Describe the complete feature
-  </Card>
-  <Card title="2. Let It Think" icon="brain">
-    Agent plans multi-step approach
-  </Card>
-  <Card title="3. Review Code" icon="eye">
-    Check generated logic carefully
-  </Card>
-  <Card title="4. Test & Refine" icon="vial">
-    Fix issues through conversation
-  </Card>
-</CardGroup>
 
 ## Best Practices
 
 <AccordionGroup>
   <Accordion icon="target" title="Be Specific">
     **Vague:** "Make it look better"
-    **Specific:** "Increase the padding to 24px, use a softer shadow, and make the corners more rounded"
 
-    More details = better results
+    **Specific:** "Increase card padding to 24px, use a softer shadow (shadow-sm), round corners to 12px, and change the background to gray-50"
+
+    More details lead to better results every time.
   </Accordion>
 
   <Accordion icon="stairs" title="Build Incrementally">
-    **Don't:** "Build a complete e-commerce site"
-    **Do:**
-    1. "Create product card component"
-    2. "Create product grid layout"
-    3. "Add filtering controls"
-    4. "Implement shopping cart"
+    **Avoid:** "Build a complete e-commerce site with cart, checkout, user accounts, and admin panel"
 
-    One feature at a time
+    **Instead:** Build one feature at a time, test it, then move to the next. This gives you better control and fewer issues.
   </Accordion>
 
   <Accordion icon="eye" title="Review Generated Code">
-    - Always check what the agent created
-    - Look for potential issues
-    - Understand the code
-    - Test functionality
-    - Ask for explanations if unclear
-
-    Don't blindly accept everything
+    Always check what the agent created. Look for potential issues, understand the patterns used, and test functionality. Ask the agent to explain any code you do not understand.
   </Accordion>
 
-  <Accordion icon="comments" title="Provide Feedback">
-    - Tell the agent what worked
-    - Explain what didn't work
-    - Give examples of desired behavior
-    - Ask for alternatives if needed
+  <Accordion icon="arrows-rotate" title="Use the Right Agent Type">
+    - **StreamAgent** for quick UI generation
+    - **IterativeAgent** for general tasks with tool calls
+    - **ReActAgent** for debugging with explicit reasoning
+    - **TesslateAgent** for full-featured production work
 
-    Agents learn from your feedback
+    Switch agents mid-project as the task demands.
   </Accordion>
 
-  <Accordion icon="book-open" title="Learn as You Go">
-    - Ask agents to explain code
-    - Request comments in complex sections
-    - Understand patterns used
-    - Build your own knowledge
-
-    Use AI as a learning tool
+  <Accordion icon="shield-halved" title="Start in Ask Mode">
+    Begin with Ask Before Edit (the default) until you are comfortable with the agent's behavior. Switch to Allow All when you trust the workflow.
   </Accordion>
 </AccordionGroup>
-
-## Common Patterns
-
-### Building a Landing Page
-
-<Steps>
-  <Step title="Hero Section">
-    "Create a hero section with headline, subheadline, CTA button, and background gradient"
-  </Step>
-
-  <Step title="Features Section">
-    "Add a features section with 3 columns showing icons, titles, and descriptions"
-  </Step>
-
-  <Step title="Social Proof">
-    "Create a testimonials section with customer quotes and avatars"
-  </Step>
-
-  <Step title="CTA Section">
-    "Add a final call-to-action section with email signup form"
-  </Step>
-
-  <Step title="Footer">
-    "Create a footer with links, social icons, and copyright"
-  </Step>
-</Steps>
-
-### Adding Functionality
-
-<Steps>
-  <Step title="State Management">
-    "Set up a context for managing user authentication state"
-  </Step>
-
-  <Step title="API Integration">
-    "Create a service to fetch products from the API at /api/products"
-  </Step>
-
-  <Step title="Error Handling">
-    "Add try-catch blocks and show error messages to users"
-  </Step>
-
-  <Step title="Loading States">
-    "Add loading spinners while data is fetching"
-  </Step>
-
-  <Step title="Success Feedback">
-    "Show a success toast notification when form submits successfully"
-  </Step>
-</Steps>
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="circle-question" title="Agent Doesn't Understand">
-    **Solutions:**
-    - Rephrase your request
-    - Break it into smaller parts
-    - Provide examples or references
-    - Be more specific about requirements
-    - Try a different agent
+  <Accordion icon="circle-question" title="Agent Does Not Understand My Request">
+    - Rephrase with more specific details
+    - Break the request into smaller parts
+    - Provide file paths and technology preferences
+    - Include examples of desired output
+    - Try a different agent type
   </Accordion>
 
   <Accordion icon="code" title="Generated Code Has Errors">
-    **Solutions:**
-    - Point out the specific error
-    - Copy the error message to the agent
-    - Ask it to fix the issue
-    - Provide context about what should happen
-    - Test incrementally to catch errors early
+    - Copy the error message directly to the agent: "I see this error: [paste error]"
+    - Point out the specific file and line if possible
+    - Ask the agent to fix the issue
+    - Switch to ReActAgent for explicit debugging reasoning
   </Accordion>
 
-  <Accordion icon="palette" title="Design Doesn't Match Vision">
-    **Solutions:**
-    - Provide reference images or URLs
-    - Be very specific about colors, spacing, fonts
-    - Use exact pixel values or Tailwind classes
-    - Iterate in small steps
-    - Ask for alternatives
+  <Accordion icon="clock" title="Agent Seems Stuck or Slow">
+    - Some complex tasks require many iterations; this is normal
+    - Check if the agent is waiting for approval (in Ask mode)
+    - If the agent is looping, try rephrasing or breaking the task into smaller steps
+    - Resource limits will stop runaway agents automatically
   </Accordion>
 
-  <Accordion icon="ban" title="Feature Too Complex">
-    **Solutions:**
-    - Break into smaller sub-features
-    - Build foundation first, add details later
-    - Switch to Iterative agent for complex logic
-    - Provide pseudocode or step-by-step plan
-    - Reference similar existing code
+  <Accordion icon="ban" title="Tool Calls Are Blocked">
+    - Check your edit mode. Plan mode blocks all write operations.
+    - In Ask mode, make sure you respond to approval dialogs
+    - Switch to Allow All if you want uninterrupted execution
   </Accordion>
 </AccordionGroup>
 
@@ -402,27 +435,27 @@ Let's start with step 1 - create the Cart context."
     icon="robot"
     href="/guides/agent-types"
   >
-    Learn Stream vs Iterative agents
-  </Card>
-  <Card
-    title="Chat Interface"
-    icon="comments"
-    href="/guides/chat-interface"
-  >
-    Master the chat panel
+    Deep dive into StreamAgent, IterativeAgent, ReActAgent, TesslateAgent
   </Card>
   <Card
     title="Customizing Agents"
     icon="sliders"
     href="/guides/customizing-agents"
   >
-    Create your own agents
+    Create and configure custom agents
   </Card>
   <Card
-    title="Code Editor"
-    icon="code"
-    href="/guides/code-editor"
+    title="Agent Marketplace"
+    icon="store"
+    href="/guides/agent-marketplace"
   >
-    Manual code editing
+    Discover specialized agents
+  </Card>
+  <Card
+    title="AI Agents Overview"
+    icon="book-open"
+    href="/guides/agents"
+  >
+    Core concepts and architecture
   </Card>
 </CardGroup>

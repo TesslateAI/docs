@@ -1,0 +1,349 @@
+---
+title: "System Architecture"
+description: "Understand the multi-tier architecture of Tesslate Studio"
+---
+
+## What is Tesslate Studio?
+
+Tesslate Studio is an AI-powered web application builder that lets users create, edit, deploy, and manage full-stack apps using natural language. Users describe what they want, an AI agent writes the code, and the platform handles containerized deployment. This page provides a complete overview of the system architecture, technology stack, subsystems, security model, and performance design.
+
+## Architecture Diagram
+
+```
++------------------------------------------------------------------+
+|                       Tesslate Studio                            |
+|                    AI-Powered App Builder                        |
++------------------------------------------------------------------+
+|                                                                  |
+|  +--------------------+         +----------------------+         |
+|  |   Frontend (app/)  | <-----> | Orchestrator (API)   |         |
+|  |                    |  HTTP   |                      |         |
+|  | React + TypeScript |  SSE    | FastAPI + Python     |         |
+|  | Monaco Editor      |  WS     | SQLAlchemy + LiteLLM |         |
+|  | Live Preview       |         | Agent System         |         |
+|  +--------------------+         +----------------------+         |
+|           |                              |                       |
+|           |                              v                       |
+|           |                     +------------------+             |
+|           |                     |   PostgreSQL     |             |
+|           |                     |                  |             |
+|           |                     | User data        |             |
+|           |                     | Projects         |             |
+|           |                     | Chat history     |             |
+|           |                     +------------------+             |
+|           |                              |                       |
+|           v                              v                       |
+|  +----------------------------------------------------+         |
+|  |     Container Orchestration Layer                   |         |
+|  |  (Docker Compose OR Kubernetes)                     |         |
+|  +----------------------------------------------------+         |
+|           |                              |                       |
+|           v                              v                       |
+|  +-----------------+           +-----------------+               |
+|  | User Project 1  |           | User Project N  |               |
+|  | (Isolated Env)  |    ...    | (Isolated Env)  |               |
+|  |                 |           |                 |               |
+|  | Frontend + API  |           | Frontend + API  |               |
+|  | + Database      |           | + Database      |               |
+|  +-----------------+           +-----------------+               |
+|                                                                  |
++------------------------------------------------------------------+
+```
+
+## Four Major Subsystems
+
+Tesslate Studio comprises four interconnected subsystems. Each has a distinct responsibility and communicates with the others through well-defined boundaries.
+
+<CardGroup cols={2}>
+  <Card title="App (Frontend)" icon="browser">
+    React 19 single-page application with Monaco Editor, live preview iframes, chat UI, and file browser. Communicates with the backend exclusively via HTTP, SSE, and WebSocket.
+  </Card>
+  <Card title="Orchestrator (Backend)" icon="server">
+    FastAPI Python 3.11 application that serves REST APIs, manages AI agent execution and tool calls, orchestrates containers, handles auth, billing, and all external integrations.
+  </Card>
+  <Card title="Database" icon="database">
+    PostgreSQL 14+ stores all persistent state: user accounts, project metadata, chat history, marketplace data, deployment records, and kanban tasks. Accessed exclusively by the Orchestrator via async SQLAlchemy.
+  </Card>
+  <Card title="Infrastructure (Container Runtime)" icon="docker">
+    Docker Compose (local dev) or Kubernetes (production) manages isolated user project environments. Each project runs in its own network or namespace with dedicated storage.
+  </Card>
+</CardGroup>
+
+## Complete Technology Stack
+
+<Tabs>
+  <Tab title="Frontend">
+    | Component | Technology | Version | Purpose |
+    |-----------|-----------|---------|---------|
+    | Framework | React | 19.x | UI component library |
+    | Language | TypeScript | 5.x | Type-safe JavaScript |
+    | Build Tool | Vite | 5.x | Fast dev server and bundler |
+    | Styling | Tailwind CSS | 3.x | Utility-first CSS framework |
+    | Code Editor | Monaco Editor | Latest | VSCode-based code editing |
+    | State Management | React Context | Built-in | Auth, project, agent state |
+    | Routing | React Router | 6.x | Client-side navigation |
+    | HTTP Client | Axios | Latest | API communication |
+    | Streaming | EventSource | Native | Server-sent events for agent chat |
+  </Tab>
+  <Tab title="Backend (Orchestrator)">
+    | Component | Technology | Version | Purpose |
+    |-----------|-----------|---------|---------|
+    | Framework | FastAPI | Latest | Modern async Python web framework |
+    | Language | Python | 3.11 | Backend programming language |
+    | ORM | SQLAlchemy | 2.x | Database ORM with async support |
+    | Database Driver | asyncpg | Latest | Async PostgreSQL driver |
+    | Authentication | fastapi-users | Latest | User auth and OAuth integration |
+    | AI Gateway | LiteLLM | Latest | Multi-model AI proxy (OpenAI, Anthropic) |
+    | Container Orchestration | kubernetes (Python client) | <32.0.0 | K8s API interaction |
+    | S3 Client | boto3 | Latest | Object storage (AWS S3, MinIO, DO Spaces) |
+    | Process Management | asyncio | Built-in | Async task execution |
+    | Payments | Stripe SDK | Latest | Subscription billing |
+  </Tab>
+  <Tab title="Database">
+    | Component | Technology | Version | Purpose |
+    |-----------|-----------|---------|---------|
+    | Database | PostgreSQL | 14+ | Primary data store |
+    | Connection Pooling | SQLAlchemy pool | Built-in | Async connection management |
+    | Migrations | Alembic | Latest | Schema version control |
+  </Tab>
+  <Tab title="Container Runtime">
+    **Docker Mode (Local Development)**
+
+    | Component | Technology | Purpose |
+    |-----------|-----------|---------|
+    | Container Runtime | Docker Desktop | Run containers on local machine |
+    | Orchestration | Docker Compose | Multi-container project management |
+    | Routing | Traefik | Reverse proxy for `*.localhost` routing |
+    | Storage | Local filesystem | Direct volume mounts |
+
+    **Kubernetes Mode (Production)**
+
+    | Component | Technology | Purpose |
+    |-----------|-----------|---------|
+    | Cluster | Kubernetes | Container orchestration |
+    | Ingress | NGINX Ingress | HTTP routing and SSL termination |
+    | Storage | S3 + PVC | S3 Sandwich pattern (ephemeral + persistent) |
+    | Networking | NetworkPolicy | Zero cross-project communication |
+    | Cert Management | cert-manager | Automatic SSL certificate provisioning |
+    | DNS | Cloudflare | DNS management for wildcard domains |
+  </Tab>
+</Tabs>
+
+## How the Subsystems Interact
+
+<Steps>
+  <Step title="User interacts with the Frontend">
+    The React app renders the UI (editor, chat, file browser, live preview). All user actions translate into HTTP requests, SSE connections, or WebSocket messages sent to the Orchestrator.
+  </Step>
+  <Step title="Orchestrator processes the request">
+    FastAPI validates authentication (JWT or cookie), queries or updates PostgreSQL, then performs the requested operation: file I/O, container management, AI agent execution, deployment, or billing.
+  </Step>
+  <Step title="Container Runtime executes">
+    For container or file operations, the Orchestrator delegates to the container runtime. In Docker mode, it uses Docker Compose and direct filesystem access. In Kubernetes mode, it creates namespaces, deployments, services, and ingress rules.
+  </Step>
+  <Step title="Response returns to user">
+    The Orchestrator returns JSON (for REST calls), streams SSE events (for agent chat), or pushes WebSocket messages (for real-time updates). The Frontend updates the UI accordingly.
+  </Step>
+</Steps>
+
+## Security Architecture
+
+Tesslate Studio implements defense-in-depth security across every layer.
+
+<AccordionGroup>
+  <Accordion title="Authentication and Authorization">
+    **JWT Tokens (Bearer authentication):**
+    - Short-lived access tokens (7 days), refresh tokens (14 days)
+    - Sent via `Authorization: Bearer {token}` header
+
+    **HTTP-Only Cookies (Session authentication):**
+    - Secure, HttpOnly, SameSite=Lax
+    - Domain-scoped for subdomain access
+    - CSRF protection via separate token
+
+    **OAuth 2.0 (Third-party login):**
+    - GitHub and Google providers
+    - Authorization Code Grant flow with state token validation
+
+    **Two-Factor Authentication:**
+    - Email-based 2FA with argon2-hashed verification codes
+    - Configurable per user; codes expire after a set window
+  </Accordion>
+
+  <Accordion title="CSRF Protection">
+    Uses the Double Submit Cookie pattern:
+    - CSRF token stored in a non-HttpOnly cookie (readable by JavaScript)
+    - Client sends the same token in the `X-CSRF-Token` header
+    - Server validates that both values match
+  </Accordion>
+
+  <Accordion title="Encryption">
+    - **GitHub/Git tokens:** Fernet symmetric encryption derived from `SECRET_KEY`
+    - **Deployment credentials:** Fernet encryption using `DEPLOYMENT_ENCRYPTION_KEY`
+    - **Passwords:** bcrypt hashing via fastapi-users
+    - **2FA codes:** argon2 hashing (never stored in plaintext)
+  </Accordion>
+
+  <Accordion title="Container Isolation (Kubernetes)">
+    **Namespace Isolation:**
+    Each project gets a dedicated namespace (`proj-{uuid}`) with resource quotas and RBAC rules preventing cross-namespace access.
+
+    **NetworkPolicy Isolation:**
+    ```yaml
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: project-isolation
+    spec:
+      podSelector: {}
+      policyTypes:
+        - Ingress
+        - Egress
+      ingress:
+        - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: ingress-nginx
+        - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: tesslate
+        - from:
+          - podSelector: {}
+      egress:
+        - to:
+          - namespaceSelector: {}
+          ports:
+            - protocol: UDP
+              port: 53
+        - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+          ports:
+            - protocol: TCP
+              port: 443
+            - protocol: TCP
+              port: 80
+    ```
+
+    This enforces zero cross-project communication while allowing ingress from NGINX and the Tesslate backend, internal namespace traffic, and egress to DNS plus HTTPS.
+
+    **Pod Affinity:** All containers in a multi-container project are scheduled on the same node to share RWO (ReadWriteOnce) block storage.
+  </Accordion>
+
+  <Accordion title="CORS and Content Security Policy">
+    **CORS Policy (Dynamic middleware):**
+    - Allowed origins: `localhost:*`, `*.localhost`, `APP_DOMAIN`, `*.APP_DOMAIN`
+    - Credentials enabled (cookies, auth headers)
+    - All standard methods allowed
+
+    **Content Security Policy:**
+    - `default-src`: Self + allowed hosts
+    - `script-src`: Self + unsafe-inline + unsafe-eval (required for Monaco)
+    - `connect-src`: Self + allowed hosts (WebSocket)
+    - `frame-src`: Self + allowed hosts (live preview)
+  </Accordion>
+
+  <Accordion title="SSL/TLS">
+    **Production (Kubernetes):**
+    - Wildcard certificate (`*.saipriya.org`) provisioned via cert-manager + Let's Encrypt
+    - DNS-01 challenge through Cloudflare API
+    - Automatic renewal
+
+    **Local Development (Docker):**
+    - HTTP only (localhost)
+    - No SSL required for `*.localhost` domains
+  </Accordion>
+</AccordionGroup>
+
+## Performance Considerations
+
+<CardGroup cols={2}>
+  <Card title="Non-Blocking Design" icon="bolt">
+    User requests never block on long operations. Project creation, deployments, and agent chat all use background tasks or streaming responses. File operations use async I/O throughout.
+  </Card>
+  <Card title="Async Everywhere" icon="rotate">
+    All database queries, HTTP calls, file operations, and container interactions use `async/await`. The backend handles thousands of concurrent connections without thread exhaustion.
+  </Card>
+  <Card title="Connection Pooling" icon="layer-group">
+    SQLAlchemy's async connection pool manages PostgreSQL connections efficiently. Indexed foreign keys (`project_id`, `user_id`) and minimal joins keep queries fast.
+  </Card>
+  <Card title="S3 Sandwich Pattern" icon="sandwich">
+    In Kubernetes mode, PVCs provide local disk speed for file I/O during active development. S3 provides durable backup and cost efficiency when projects hibernate. EBS VolumeSnapshots enable near-instant restore (under 10 seconds).
+  </Card>
+</CardGroup>
+
+### Caching Strategy
+
+- **Base Cache Manager (Docker mode):** Pre-caches project templates in memory for fast project creation
+- **Distributed Cache:** Redis + in-memory fallback for model pricing, marketplace data, and base versions
+- **Template Caching:** Git tag versions cached server-side for 10 minutes per slug
+
+### Scalability Design
+
+| Component | Scaling Strategy |
+|-----------|-----------------|
+| Backend (Orchestrator) | Stateless design; horizontal scaling via K8s Deployment replicas |
+| Frontend | Static build; distributable via CDN; multiple replicas supported |
+| Database | Connection pooling handles high concurrency; read replicas planned |
+| User Projects | Namespace-per-project isolation; thousands of concurrent projects supported |
+
+<Warning>
+  Background tasks (shell cleanup, stats flush) currently run in-memory per pod. For critical distributed tasks, a Celery + Redis queue is planned.
+</Warning>
+
+## External Service Integrations
+
+<Tabs>
+  <Tab title="Authentication">
+    | Provider | Purpose | OAuth Flow |
+    |----------|---------|-----------|
+    | GitHub | User login | Authorization Code Grant |
+    | Google | User login | Authorization Code Grant |
+    | GitLab | Repository import | Authorization Code Grant |
+    | Bitbucket | Repository import | Authorization Code Grant |
+  </Tab>
+  <Tab title="AI Models">
+    | Provider | Models | Purpose |
+    |----------|--------|---------|
+    | OpenAI | GPT-4, GPT-3.5 | Code generation, chat |
+    | Anthropic | Claude 3.5 Sonnet, Claude 3 Opus | Code generation, chat |
+    | Custom | Qwen, DeepSeek | Alternative models |
+
+    All models are accessed through LiteLLM, which provides a unified interface, rate limiting, and per-user usage tracking.
+  </Tab>
+  <Tab title="Deployment Providers">
+    | Provider | Purpose | Integration |
+    |----------|---------|-------------|
+    | Vercel | Frontend hosting | OAuth + API (git push auto-deploy) |
+    | Netlify | Frontend hosting | OAuth + API (git push auto-deploy) |
+    | Cloudflare Pages | Frontend hosting | API (direct upload) |
+    | Cloudflare Workers | Serverless backend | API (wrangler CLI) |
+  </Tab>
+  <Tab title="Payments and Storage">
+    **Payments (Stripe):**
+    - Recurring subscriptions (Premium tier)
+    - One-time credit purchases
+    - Creator payouts (Stripe Connect)
+    - Usage-based billing
+
+    **Storage (S3-compatible):**
+    - AWS S3 (production)
+    - DigitalOcean Spaces (production)
+    - MinIO (local/dev)
+  </Tab>
+</Tabs>
+
+## Key Source Files
+
+| File | Purpose |
+|------|---------|
+| `orchestrator/app/main.py` | FastAPI entry point, middleware, router registration |
+| `orchestrator/app/config.py` | All configuration settings (env vars) |
+| `orchestrator/app/models.py` | 39 SQLAlchemy database models |
+| `orchestrator/app/routers/` | 25+ API endpoint modules |
+| `orchestrator/app/services/` | 30+ business logic services |
+| `orchestrator/app/agent/` | AI agent system (stream agent, factory, tools) |
+| `app/src/App.tsx` | Frontend entry point and router |
+| `app/src/lib/api.ts` | API client (1300+ lines) |
+| `k8s/` | Kubernetes manifests (Kustomize) |

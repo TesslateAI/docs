@@ -1,27 +1,30 @@
 ---
 title: 'Library'
-description: 'Manage your installed agents, bases, and tools'
+description: 'Manage your installed agents and bases, customize open-source agents, and publish to the marketplace'
 ---
 
 ## What is the Library?
 
-Your Library is your personal collection of:
-- **AI Agents**: Installed agents ready to use
-- **Project Bases**: Templates for new projects
-- **Tools**: Integrations and utilities
-- **Custom Items**: Your own creations
+Your Library is your personal collection of everything you have installed from the Marketplace. It holds:
+
+- **AI Agents** you have added or purchased
+- **Project Bases** you have installed for creating new projects
+- **Forked Agents** you have customized from open-source originals
+- **Custom Agents** you have built from scratch
+
+When you install an item from the Marketplace, a `UserPurchasedAgent` or `UserPurchasedBase` record is created in the database, linking your user account to that item with details about the purchase type (free, purchased, or subscription) and activation status.
 
 ## Accessing Your Library
 
 <Steps>
   <Step title="Open Library">
-    Click **Library** in the sidebar navigation
+    Click **Library** in the sidebar navigation.
   </Step>
   <Step title="Browse Categories">
-    Switch between Agents, Bases, and Tools tabs
+    Switch between the **Agents** and **Bases** tabs to view your installed items.
   </Step>
   <Step title="Manage Items">
-    Enable/disable, edit, or remove items
+    Enable, disable, edit, fork, or remove items from your collection.
   </Step>
 </Steps>
 
@@ -29,206 +32,247 @@ Your Library is your personal collection of:
 
 ### Enabling and Disabling
 
-Control which agents appear in your project selector:
+Control which agents appear in your project's chat agent selector:
 
-- **Enabled Agents**: Available in all projects
-- **Disabled Agents**: Hidden but not deleted
-- **Toggle**: Click the switch to enable/disable
+- **Enabled agents**: Show up in the agent dropdown within every project
+- **Disabled agents**: Hidden from the selector but not removed from your library
+- **Toggle**: Click the switch on any agent card to enable or disable it
 
 <Info>
-  Disabling an agent doesn't remove it - just hides it from your agent selector.
+  Disabling an agent does not delete it or cancel a subscription. It only hides the agent from the chat selector. You can re-enable it at any time.
 </Info>
 
-### Editing Agents
+### Agent Selection in Projects
 
-For **open source agents only**, you can customize:
+When you open a project and use the chat, you pick an agent from a dropdown. The agent selection is persisted to `localStorage` per project slug, so each project remembers which agent you were using last.
+
+### Editing Open-Source Agents
+
+For agents with `source_type = "open"`, you can customize the following:
 
 <CardGroup cols={2}>
   <Card title="System Prompt" icon="message">
-    Edit the instructions that guide agent behavior
+    Edit the instructions that define the agent's behavior, coding style, and constraints
   </Card>
   <Card title="AI Model" icon="brain">
-    Change the underlying AI model
+    Change which AI model the agent uses (for example, switch from GPT-4o to Claude Sonnet)
   </Card>
-  <Card title="Name & Icon" icon="tag">
-    Customize display name and icon
+  <Card title="Name and Icon" icon="tag">
+    Customize the display name and icon shown in the agent selector
   </Card>
-  <Card title="Description" icon="file-lines">
-    Update the agent description
+  <Card title="Tool Configuration" icon="wrench">
+    Adjust which tools the agent can access and how they are described in the system prompt
   </Card>
 </CardGroup>
 
 ### Forking Agents
 
-Create your own version of any open source agent:
+Forking creates a personal copy of an open-source agent that you can modify without affecting the original.
 
-1. Click **Fork** on the agent card
-2. Choose a new name
-3. Customize prompt and settings
-4. Save to your library
-5. Optionally publish to marketplace
+<Steps>
+  <Step title="Find a Forkable Agent">
+    In your Library or the Marketplace, look for agents marked as open source with the fork option available.
+  </Step>
+  <Step title="Click Fork">
+    A new agent is created in your library with the same system prompt, tools, and configuration as the original.
+  </Step>
+  <Step title="Customize">
+    Edit the system prompt, change the model, rename it, or adjust tool configurations to match your workflow.
+  </Step>
+  <Step title="Save">
+    Your forked agent is now available in the agent selector for all your projects.
+  </Step>
+</Steps>
+
+The forked agent stores a `parent_agent_id` referencing the original, and your `user_id` as the `forked_by_user_id`. Forked agents are private by default (`is_published = false`).
+
+### Model Override
+
+For open-source agents, you can set a `selected_model` override in your `UserPurchasedAgent` record. This lets you use a different AI model than the one the agent creator specified, without forking the entire agent.
 
 ## Managing Bases
 
 ### Installed Bases
 
-View all bases in your library:
-- **Preview**: See base structure and files
-- **Tech Stack**: View technologies used
-- **Usage**: See how many projects created
-- **Remove**: Delete from library
+View all bases you have added to your library:
 
-### Creating Projects
+- **Preview**: See the base's tech stack, category, and feature list
+- **Download count**: How many users have installed this base
+- **Rating**: Average community rating
+- **Remove**: Delete from your library (does not affect projects already created from this base)
 
-Use bases to start new projects:
-1. Go to Dashboard
-2. Click **Create New Project**
-3. Select **Base** as source
-4. Choose from your library
-5. Project initializes with base code
+### Creating Projects from Bases
 
-## Managing Models
+<Steps>
+  <Step title="Go to the Dashboard">
+    Navigate to your main Dashboard page.
+  </Step>
+  <Step title="Click Create New Project">
+    Open the project creation dialog.
+  </Step>
+  <Step title="Select Base as Source">
+    Choose **Base** and pick from your installed bases.
+  </Step>
+  <Step title="Name and Create">
+    Enter a project name and click **Create**. The base repository is cloned into your new project.
+  </Step>
+</Steps>
 
-Configure AI models for your agents:
+## Creating Custom Agents
+
+### Building from Scratch
+
+<Steps>
+  <Step title="Open Create Agent">
+    In your Library, click **Create New Agent**.
+  </Step>
+  <Step title="Choose Agent Type">
+    Select the execution strategy:
+    - **StreamAgent**: Real-time streaming with tool calls (best for UI work and fast iteration)
+    - **IterativeAgent**: Multi-step planning and execution (best for complex logic and multi-file changes)
+  </Step>
+  <Step title="Configure the Agent">
+    Set the name, icon, description, AI model, and system prompt.
+  </Step>
+  <Step title="Define Tools">
+    Select which tools the agent can access: file reading/writing, shell commands, web fetching, and more.
+  </Step>
+  <Step title="Test">
+    Try the agent in a test project. Iterate on the system prompt until the output matches your expectations.
+  </Step>
+</Steps>
+
+### Writing Effective System Prompts
+
+The system prompt is the most important part of a custom agent. It determines how the agent responds, what coding patterns it follows, and what constraints it respects.
+
+<CardGroup cols={2}>
+  <Card title="Be Specific" icon="bullseye">
+    Define exact behavior: "Always use TypeScript. Always add error handling to async functions. Use Tailwind for styling."
+  </Card>
+  <Card title="Include Examples" icon="code">
+    Show the agent what good output looks like. Paste a sample component or function as a reference.
+  </Card>
+  <Card title="Set Constraints" icon="shield">
+    Specify what the agent should avoid: "Never use inline styles. Do not install new dependencies without asking."
+  </Card>
+  <Card title="Define Context" icon="book">
+    Explain the agent's role: "You are a senior React developer building a SaaS dashboard. The project uses React 19, TypeScript, and Tailwind CSS."
+  </Card>
+</CardGroup>
+
+## Publishing to the Marketplace
+
+Share your custom or forked agents with the community:
+
+<Steps>
+  <Step title="Polish the Agent">
+    Make sure the system prompt produces consistent, high-quality output. Write a clear description and add relevant tags.
+  </Step>
+  <Step title="Click Publish">
+    Open the agent settings in your Library and click **Publish to Marketplace**.
+  </Step>
+  <Step title="Set Details">
+    Configure category, tags, and pricing model (free, monthly, API, or one-time). Set a price if applicable.
+  </Step>
+  <Step title="Submit">
+    Your agent becomes available in the marketplace. If you chose a paid pricing model, configure your Stripe Connect account to receive payouts.
+  </Step>
+</Steps>
+
+### Pricing Your Agent
+
+<Tabs>
+  <Tab title="Free">
+    No charge. Good for building reputation and getting feedback. Most community agents start here.
+  </Tab>
+  <Tab title="Monthly">
+    Recurring subscription (for example, $5/month or $20/month). Users lose access if they cancel. Revenue split: 90% to you, 10% to the platform.
+  </Tab>
+  <Tab title="API (Pay-Per-Use)">
+    Charged per token. You set the input and output rates per million tokens. Users are billed based on actual usage tracked through LiteLLM. Revenue split: 90% to you, 10% to the platform.
+  </Tab>
+  <Tab title="One-Time">
+    Single payment for permanent access (for example, $29.99 or $49.99). Revenue split: 90% to you, 10% to the platform.
+  </Tab>
+</Tabs>
+
+<Warning>
+  Published agents are visible to all marketplace users. Only publish agents you are comfortable sharing publicly. You can unpublish at any time by setting `is_published = false`.
+</Warning>
+
+## Managing AI Models
+
+### Model Configuration
+
+Control which AI models your agents use:
 
 <Tabs>
   <Tab title="Default Models">
-    Set default models for agent types:
-    - Stream Agent default
-    - Iterative Agent default
-    - Custom model preferences
+    Set default models for each agent type:
+    - StreamAgent default model
+    - IterativeAgent default model
+    - Per-agent model overrides
   </Tab>
 
   <Tab title="API Keys">
-    Manage API keys for AI providers:
+    Manage your API keys for AI providers. Tesslate supports:
     - OpenAI
     - Anthropic
     - OpenRouter
-    - Custom providers
+    - Custom providers via LiteLLM
   </Tab>
 
-  <Tab title="Model Settings">
-    Configure model parameters:
-    - Temperature
-    - Max tokens
-    - Top P
-    - Frequency penalty
+  <Tab title="Custom Models">
+    Add custom models from OpenRouter with your own pricing configuration. These appear in the model selector alongside built-in options.
   </Tab>
 </Tabs>
+
+### Disabled Models
+
+You can hide specific models from the chat selector using the `disabled_models` preference in your user settings. This keeps the model dropdown clean and focused on the models you actually use.
 
 ## Library Organization
 
 <AccordionGroup>
-  <Accordion icon="filter" title="Filtering Items">
-    - Filter by source type (open/closed)
-    - Filter by enabled/disabled status
+  <Accordion icon="filter" title="Filtering">
+    Filter your library by:
+    - Source type (open-source or closed)
+    - Enabled or disabled status
+    - Agent type (StreamAgent, IterativeAgent)
     - Search by name or description
-    - Sort by recently used or alphabetical
+  </Accordion>
+
+  <Accordion icon="clock" title="Sort Order">
+    Sort by:
+    - Recently used
+    - Alphabetical
+    - Date added
+    - Rating
   </Accordion>
 
   <Accordion icon="star" title="Favorites">
-    - Star frequently used items
-    - Quick access to favorites
-    - Appears at top of lists
-  </Accordion>
-
-  <Accordion icon="folder" title="Collections">
-    - Group related items
-    - Create custom categories
-    - Organize by project type
-    - Share collections
+    Star frequently used agents for quick access. Starred items appear at the top of the agent selector dropdown.
   </Accordion>
 </AccordionGroup>
-
-## Custom Agents
-
-### Creating from Scratch
-
-Build your own agent:
-
-<Steps>
-  <Step title="Click Create Agent">
-    In Library, click **Create New Agent**
-  </Step>
-  <Step title="Choose Type">
-    Select Stream or Iterative agent
-  </Step>
-  <Step title="Configure">
-    Set name, icon, prompt, and model
-  </Step>
-  <Step title="Test">
-    Try the agent in a test project
-  </Step>
-  <Step title="Refine">
-    Iterate on the prompt until it works well
-  </Step>
-</Steps>
-
-### Writing Effective Prompts
-
-<CardGroup cols={2}>
-  <Card title="Be Specific" icon="bullseye">
-    Define exact behavior and output format
-  </Card>
-  <Card title="Include Examples" icon="code">
-    Show examples of desired code style
-  </Card>
-  <Card title="Set Constraints" icon="shield">
-    Specify what NOT to do
-  </Card>
-  <Card title="Define Context" icon="book">
-    Explain the agent's role and purpose
-  </Card>
-</CardGroup>
-
-## Publishing to Marketplace
-
-Share your custom agents with the community:
-
-<Steps>
-  <Step title="Polish Agent">
-    Ensure prompt works well and description is clear
-  </Step>
-  <Step title="Click Publish">
-    Open agent settings and click **Publish**
-  </Step>
-  <Step title="Set Details">
-    Add category, tags, pricing model
-  </Step>
-  <Step title="Submit">
-    Submit for marketplace review
-  </Step>
-  <Step title="Go Live">
-    Once approved, appears in marketplace
-  </Step>
-</Steps>
-
-<Warning>
-  Published agents become publicly available. Only publish agents you want to share with everyone.
-</Warning>
 
 ## Best Practices
 
 <AccordionGroup>
-  <Accordion icon="broom" title="Keep Library Organized">
-    - Disable agents you don't use
-    - Remove unused bases
-    - Update custom agent prompts regularly
-    - Star your favorites
+  <Accordion icon="broom" title="Keep Your Library Organized">
+    Disable agents you are not actively using so the chat selector stays manageable. Remove bases you no longer need.
   </Accordion>
 
-  <Accordion icon="sync" title="Sync Across Devices">
-    - Library syncs automatically
-    - Custom agents available everywhere
-    - API keys stored securely
-    - Settings preserved
+  <Accordion icon="flask" title="Test Custom Agents Thoroughly">
+    Create a dedicated test project for experimenting with new agents and prompt iterations. Compare output quality across different models before settling on a configuration.
   </Accordion>
 
-  <Accordion icon="flask" title="Test Custom Agents">
-    - Create test projects for new agents
-    - Refine prompts based on results
-    - Compare with similar agents
-    - Get feedback before publishing
+  <Accordion icon="arrows-rotate" title="Iterate on System Prompts">
+    The best agents result from many rounds of refinement. Start broad, then add specific constraints and examples based on where the output falls short.
+  </Accordion>
+
+  <Accordion icon="message" title="Get Feedback Before Publishing">
+    Share your agent with a small group first. Use their feedback to improve the prompt and description before making it public on the marketplace.
   </Accordion>
 </AccordionGroup>
 
@@ -236,31 +280,31 @@ Share your custom agents with the community:
 
 <CardGroup cols={2}>
   <Card
-    title="Browse Marketplace"
+    title="Browse the Marketplace"
     icon="store"
     href="/guides/marketplace"
   >
-    Discover more agents and bases
+    Discover new agents and bases to add to your library
   </Card>
   <Card
-    title="Customize Agents"
-    icon="sliders"
-    href="/guides/customizing-agents"
+    title="Chat Interface"
+    icon="comments"
+    href="/guides/chat-interface"
   >
-    Learn to customize agents
+    Learn how to interact with agents in your projects
   </Card>
   <Card
-    title="Model Management"
-    icon="brain"
-    href="/guides/model-management"
+    title="Project Bases"
+    icon="layer-group"
+    href="/guides/bases"
   >
-    Configure AI models
+    Explore templates for your next project
   </Card>
   <Card
-    title="Using Agents"
-    icon="robot"
-    href="/guides/using-agents"
+    title="Creating Projects"
+    icon="plus"
+    href="/guides/creating-projects"
   >
-    Start using your agents
+    Start a new project using items from your library
   </Card>
 </CardGroup>

@@ -16,7 +16,9 @@ description: "Build full-stack applications with AI-powered code generation"
 
 ## What is Tesslate Studio?
 
-Tesslate Studio is an AI-powered development platform that helps you build complete web applications using natural language. Simply describe what you want to build, and our AI agents will generate production-ready React code with live preview.
+Tesslate Studio is an open-source, AI-powered development platform that lets you build complete web applications using natural language. Describe what you want to build, and AI agents generate production-ready code with live preview, all running in isolated containers.
+
+You can use it on our cloud platform at [studio.tesslate.com](https://studio.tesslate.com) or self-host it on your own infrastructure with Docker or Kubernetes.
 
 <CardGroup cols={2}>
   <Card
@@ -25,17 +27,19 @@ Tesslate Studio is an AI-powered development platform that helps you build compl
     href="/guides/agents"
   >
     Generate React components and full applications from natural language
-    descriptions using powerful AI agents
+    using four specialized AI agent types
   </Card>
   <Card title="Live Preview" icon="eye" href="/guides/live-preview">
     See your application running in real-time with instant hot module
-    replacement
+    replacement inside isolated containers
   </Card>
   <Card title="Multi-Agent System" icon="robot" href="/guides/agent-types">
-    Choose from Stream and Iterative agents optimized for different tasks
+    Choose from StreamAgent, IterativeAgent, ReActAgent, and TesslateAgent,
+    each optimized for different tasks
   </Card>
   <Card title="Marketplace" icon="store" href="/guides/marketplace">
-    Discover and install AI agents, templates, and project bases
+    Discover and install AI agents, templates, and project bases from the
+    community
   </Card>
 </CardGroup>
 
@@ -43,67 +47,74 @@ Tesslate Studio is an AI-powered development platform that helps you build compl
 
 <AccordionGroup>
   <Accordion icon="code" title="Full-Stack Code Generation">
-    Generate complete React/TypeScript applications including components, state management, API integrations, and styling with Tailwind CSS. AI agents can read, write, and edit files, execute shell commands, and fetch web content.
+    Generate complete React/TypeScript applications including components, state management, API integrations, and styling with Tailwind CSS. AI agents can read, write, and edit files, execute shell commands, and fetch web content. Multi-container projects let you run frontend, backend, and database services together.
   </Accordion>
 
   <Accordion icon="browser" title="Instant Live Preview">
-    Every change you make or code the AI generates is instantly reflected in a live browser preview with hot module replacement. Each project runs in an isolated container environment.
+    Every change (AI-generated or manual) is instantly reflected in a live browser preview with hot module replacement. Each project runs in an isolated container environment with its own dev server, so projects never interfere with each other.
   </Accordion>
 
   <Accordion icon="comments" title="Interactive Chat Interface">
-    Chat with AI agents using natural language to describe features, request changes, or debug issues. Choose between Stream agents for fast iteration or Iterative agents for complex multi-step tasks.
+    Chat with AI agents using natural language to describe features, request changes, or debug issues. Messages stream in real-time via SSE. Agents request approval before executing potentially risky operations like shell commands, and you can toggle between "Ask" and "Edit" modes.
   </Accordion>
 
-  <Accordion icon="layer-group" title="Project Templates & Bases">
-    Start from scratch, import from GitHub, or use pre-built bases with configured tech stacks and best practices. Support for multi-container monorepo projects.
+  <Accordion icon="layer-group" title="Project Templates and Bases">
+    Start from scratch, import from GitHub, or use pre-built bases with configured tech stacks and best practices. Support for multi-container monorepo projects with frontend, backend, and database containers.
   </Accordion>
 
   <Accordion icon="diagram-project" title="Architecture Visualization">
-    Visualize your project architecture with React Flow-based diagrams showing container dependencies and connections in multi-container projects.
+    Visualize your project architecture with React Flow diagrams showing container dependencies, connections, and live browser previews. Drag and drop containers to build your stack visually.
   </Accordion>
 
-  <Accordion icon="github" title="GitHub Integration">
-    Import repositories, edit code, and commit changes back to GitHub directly from the platform with full OAuth integration.
+  <Accordion icon="github" title="Git Integration">
+    Import repositories from GitHub, GitLab, or Bitbucket. Edit code and commit changes directly from the platform with full OAuth integration. Track sync status and manage branches without leaving the editor.
   </Accordion>
 
   <Accordion icon="cloud" title="Flexible Deployment">
-    Deploy to Vercel, Netlify, or Cloudflare Pages with one click. Self-host with Docker for development or Kubernetes for production.
+    Deploy to Vercel, Netlify, or Cloudflare Pages with a few clicks. Self-host the entire platform with Docker for development or Kubernetes for production. Projects can also run in managed cloud at studio.tesslate.com.
   </Accordion>
 
-  <Accordion icon="credit-card" title="Billing & Marketplace">
-    Purchase AI agents and project bases from the marketplace. Subscription plans with usage-based billing via Stripe.
+  <Accordion icon="credit-card" title="Credits and Marketplace">
+    A multi-source credit system (daily, bundled, signup bonus, and purchased credits) keeps costs predictable. Browse and install agents and bases from the marketplace. Creators earn 90% of revenue from their published agents.
   </Accordion>
 </AccordionGroup>
+
+## Technology Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, Monaco Editor, XYFlow |
+| **Backend** | FastAPI, Python 3.11, SQLAlchemy, Pydantic |
+| **Database** | PostgreSQL (asyncpg) |
+| **AI/LLM** | LiteLLM gateway supporting OpenAI, Anthropic, Google, Ollama, and 100+ models |
+| **Containers** | Docker Compose (development), Kubernetes (production) |
+| **Storage** | AWS S3 / MinIO for project file storage |
+| **Routing** | Traefik (Docker mode), NGINX Ingress (Kubernetes mode) |
+| **Payments** | Stripe subscriptions and credit purchases |
 
 ## How It Works
 
 <Steps>
   <Step title="Create a Project">
-    Start with a blank template, import from GitHub, or use a pre-built base from the marketplace.
+    Start with a blank template, import from GitHub, or use a pre-built base from the marketplace. Your project gets its own isolated container environment.
   </Step>
 
-{" "}
+  <Step title="Chat with AI">
+    Describe what you want to build in plain English. The AI agent generates complete, working code. It can create files, install packages, run commands, and iterate on its own work.
+  </Step>
 
-<Step title="Chat with AI">
-  Describe what you want to build in plain English. The AI agent generates
-  complete, working code.
-</Step>
+  <Step title="See It Live">
+    Your application runs instantly in a live preview with hot module replacement. Changes appear immediately as files are created or modified.
+  </Step>
 
-{" "}
-
-<Step title="See It Live">
-  Your application runs instantly in a live preview with hot module replacement.
-  Changes appear immediately.
-</Step>
-
-  <Step title="Iterate & Deploy">
-    Continue chatting with the AI to add features, fix bugs, and refine your application until it's ready to deploy.
+  <Step title="Iterate and Deploy">
+    Continue chatting with the AI to add features, fix bugs, and refine your application. When you are ready, deploy to Vercel, Netlify, Cloudflare Pages, or commit to GitHub.
   </Step>
 </Steps>
 
 ## What You Can Build
 
-Tesslate Studio is perfect for:
+Tesslate Studio is great for:
 
 - **Landing Pages**: Create beautiful, responsive marketing sites
 - **Web Applications**: Build full-featured SaaS applications with React + Vite
@@ -112,15 +123,16 @@ Tesslate Studio is perfect for:
 - **E-commerce**: Create shopping experiences and product catalogs
 - **Portfolios**: Build personal websites and project showcases
 - **Prototypes**: Rapidly prototype ideas and validate concepts
+- **API Services**: Backend containers with FastAPI, Express, Go, or any framework
 
 ## Deployment Options
 
 <CardGroup cols={2}>
   <Card title="Cloud Hosted" icon="cloud" href="https://studio.tesslate.com">
-    Use our managed cloud platform at studio.tesslate.com. No setup required.
+    Use our managed cloud platform at studio.tesslate.com. No setup required. Sign up and start building.
   </Card>
   <Card title="Self-Hosted" icon="server" href="/self-hosting/quickstart">
-    Deploy on your own infrastructure with Docker or Kubernetes for full control.
+    Deploy on your own infrastructure with Docker or Kubernetes. Full control over your data, AI models, and configuration.
   </Card>
 </CardGroup>
 

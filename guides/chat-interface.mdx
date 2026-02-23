@@ -1,231 +1,231 @@
 ---
 title: 'Chat Interface'
-description: 'Communicate with AI agents to build your application'
+description: 'Communicate with AI agents using real-time streaming, tool calls, and approval flows'
 ---
 
 ## Overview
 
-The chat interface is your primary way to communicate with AI agents. Describe what you want to build, and agents generate the code for you.
+The chat interface is how you interact with AI agents to build, modify, and debug your application. You describe what you want in natural language, and the agent writes code, creates files, runs commands, and updates your project in real time.
 
 <CardGroup cols={2}>
   <Card title="Natural Language" icon="message">
-    Describe features in plain English
+    Describe features, fixes, and changes in plain English
   </Card>
   <Card title="Real-Time Streaming" icon="water">
-    See responses generated live
+    Watch the agent's response generate token by token
   </Card>
-  <Card title="Code Generation" icon="code">
-    Agents write code directly to your project
+  <Card title="Tool Execution" icon="wrench">
+    Agents read files, write code, run shell commands, and fetch web content
   </Card>
-  <Card title="Context-Aware" icon="brain">
-    Agents understand your full project
+  <Card title="Project-Aware" icon="brain">
+    Agents understand your full project structure and existing code
   </Card>
 </CardGroup>
 
 ## Chat Layout
 
-The chat panel appears at the bottom of the workspace:
+The chat panel is part of the project builder workspace. Its position can be customized through user preferences (left, center, or right). A typical layout looks like this:
 
 ```
-┌─────────────────────────────────┐
-│     Code Editor / File Tree     │
-│                                 │
-├─────────────────────────────────┤
-│  Chat History                   │
-│  ┌──────────────────────────┐   │
-│  │ You: Build a login form  │   │
-│  │ Agent: [generating...]   │   │
-│  └──────────────────────────┘   │
-│                                 │
-│  [Agent Selector] [Type here]  │
-└─────────────────────────────────┘
++-----------------------------------+
+|   Code Editor / Preview           |
+|                                   |
++-----------------------------------+
+|   Chat History                    |
+|   +---------------------------+   |
+|   | You: Build a login form   |   |
+|   | Agent: [streaming...]     |   |
+|   +---------------------------+   |
+|                                   |
+|   [Agent Selector] [Message Input]|
++-----------------------------------+
 ```
 
 ## Sending Messages
 
 <Steps>
-  <Step title="Select Agent">
-    Choose which AI agent to use from dropdown
+  <Step title="Select an Agent">
+    Choose which AI agent to use from the dropdown. Each agent has a different system prompt, tool set, and AI model. The selection persists per project (stored in localStorage).
   </Step>
-
-  <Step title="Type Message">
-    Describe what you want to build or change
+  <Step title="Type Your Message">
+    Describe what you want to build, change, or fix. Be specific about the desired behavior, technologies, and visual design.
   </Step>
-
   <Step title="Send">
-    Press Enter or click Send button
+    Press `Enter` to send the message (use `Shift + Enter` for a new line). The agent begins processing immediately.
   </Step>
-
-  <Step title="Agent Responds">
-    Agent generates code and explanation
+  <Step title="Watch the Agent Work">
+    The agent streams its response in real time. You will see text output, tool calls (file reads, writes, shell commands), and the results of each tool execution.
   </Step>
-
-  <Step title="Review Changes">
-    Check generated code in editor
+  <Step title="Review the Results">
+    Check the generated code in the editor and the updated preview. Continue the conversation to refine or extend.
   </Step>
 </Steps>
 
-## Message Types
+## How Streaming Works
 
-### Your Messages
+When you send a message, the frontend establishes a streaming connection to the backend. The agent's response arrives as a series of Server-Sent Events (SSE), each containing a typed payload.
 
-What you can ask for:
+### Message Types
 
-<Tabs>
-  <Tab title="Build Features">
-    **Examples:**
-    - "Create a login form with email and password"
-    - "Add a navigation bar with logo and menu"
-    - "Build a product card component"
-    - "Make a contact form with validation"
-  </Tab>
+| Event Type | Description |
+|------------|-------------|
+| `agent_response` | A chunk of the agent's text response (streamed token by token) |
+| `agent_tool_start` | The agent is calling a tool (for example, `write_file` or `execute_command`) |
+| `agent_tool_result` | The result of a tool call (file content, command output, etc.) |
+| `agent_stream_end` | The agent has finished its response |
+| `agent_error` | An error occurred during processing |
 
-  <Tab title="Modify Code">
-    **Examples:**
-    - "Make the button larger and orange"
-    - "Add dark mode support"
-    - "Center the hero section"
-    - "Fix the responsive layout on mobile"
-  </Tab>
+### Streaming Flow
 
-  <Tab title="Debug Issues">
-    **Examples:**
-    - "The form isn't submitting, can you fix it?"
-    - "There's a TypeScript error in App.tsx"
-    - "Why isn't the API call working?"
-    - "Debug the login flow"
-  </Tab>
+<Steps>
+  <Step title="Message Sent">
+    Your message is sent over the WebSocket connection with the project ID, agent ID, container ID, and view context.
+  </Step>
+  <Step title="Agent Starts Thinking">
+    A typing indicator appears while the agent processes the request.
+  </Step>
+  <Step title="Text Streams In">
+    `agent_response` events arrive with text tokens. These are displayed character by character in the chat panel.
+  </Step>
+  <Step title="Tool Calls Execute">
+    When the agent needs to read a file, write code, or run a command, `agent_tool_start` events appear. The UI shows which tool is running and on which file.
+  </Step>
+  <Step title="Tool Results Return">
+    `agent_tool_result` events contain the outcome (file contents, command output). The agent uses these results to decide its next action.
+  </Step>
+  <Step title="Stream Completes">
+    An `agent_stream_end` event signals that the agent has finished. The chat is ready for your next message.
+  </Step>
+</Steps>
 
-  <Tab title="Ask Questions">
-    **Examples:**
-    - "How does the routing work?"
-    - "Explain the state management"
-    - "What libraries are we using?"
-    - "Can you document this component?"
-  </Tab>
-</Tabs>
-
-### Agent Responses
-
-Agents can respond with:
-
-<CardGroup cols={2}>
-  <Card title="Code Generation" icon="file-code">
-    Creates or modifies files in your project
-  </Card>
-  <Card title="Explanations" icon="comment">
-    Explains what it did and why
-  </Card>
-  <Card title="Suggestions" icon="lightbulb">
-    Recommends improvements or alternatives
-  </Card>
-  <Card title="Questions" icon="circle-question">
-    Asks for clarification when needed
-  </Card>
-</CardGroup>
+<Info>
+  The streaming connection uses native `fetch()` with `getAuthHeaders()` for SSE. An `AbortSignal` is passed for cancellation, so you can stop a response mid-stream by clicking the cancel button.
+</Info>
 
 ## Agent Selection
 
-Choose the right agent for your task:
+### Choosing the Right Agent
+
+Different agents excel at different tasks:
 
 <Tabs>
-  <Tab title="Stream Agent">
-    **Best for:**
-    - UI components
-    - Visual design
-    - Fast iteration
-    - Simple features
+  <Tab title="StreamAgent">
+    **Best for**: UI components, visual design, CSS styling, and fast iteration.
 
-    **Behavior:**
-    - Streams code in real-time
-    - Faster responses
-    - Good for HTML/CSS/React
+    **How it works**: Streams responses in real time with interleaved tool calls. Produces output quickly, making it ideal for small to medium changes.
   </Tab>
 
-  <Tab title="Iterative Agent">
-    **Best for:**
-    - Complex logic
-    - Multi-step features
-    - API integration
-    - Debugging
+  <Tab title="IterativeAgent">
+    **Best for**: Complex logic, multi-file refactoring, API integration, debugging, and tasks that require step-by-step reasoning.
 
-    **Behavior:**
-    - Thinks step-by-step
-    - Uses tools and reasoning
-    - Better for business logic
+    **How it works**: Plans a multi-step approach before executing. Uses a reasoning loop that evaluates results after each tool call and adjusts its plan accordingly.
   </Tab>
 </Tabs>
 
-<Info>
-  You can switch agents mid-conversation. Each agent maintains separate context.
-</Info>
+### Container and View Context
 
-## Streaming Responses
+When you send a message, the chat includes context about which container you are working in and which view mode is active. This allows agents to scope their file operations to the correct container directory and adjust their tool usage based on the current context.
 
-### How Streaming Works
+## Edit Mode
+
+The chat supports two modes for how the agent applies changes:
+
+<Tabs>
+  <Tab title="Ask Mode">
+    The agent generates a response and applies changes directly. This is the default mode and is best for straightforward requests where you trust the agent's output.
+  </Tab>
+  <Tab title="Edit Mode">
+    The agent proposes changes but requires your approval before applying them. This is useful for sensitive code or production-critical files where you want to review every change before it takes effect.
+  </Tab>
+</Tabs>
+
+## Tool Approval Flow
+
+Some tool executions require explicit approval before they run. This is a safety mechanism for potentially destructive operations.
+
+### How Approval Works
 
 <Steps>
-  <Step title="Agent Starts">
-    Agent begins thinking about your request
+  <Step title="Agent Requests a Tool">
+    The agent decides to use a tool that requires approval (for example, deleting a file or running a shell command).
   </Step>
-
-  <Step title="Code Streams">
-    Code appears token-by-token in real-time
+  <Step title="Approval Card Appears">
+    An `ApprovalRequestCard` component renders in the chat, showing the tool name, parameters, and what the operation will do.
   </Step>
-
-  <Step title="Files Update">
-    Files are created/modified as code generates
+  <Step title="You Approve or Reject">
+    Click **Approve** to let the tool execute, or **Reject** to skip it. The agent will adjust its plan based on your decision.
   </Step>
-
-  <Step title="Preview Updates">
-    Live preview shows changes immediately
-  </Step>
-
-  <Step title="Complete">
-    Agent finishes and awaits next instruction
+  <Step title="Execution Continues">
+    If approved, the tool runs and the agent continues with the result. If rejected, the agent acknowledges the rejection and may propose an alternative.
   </Step>
 </Steps>
 
-### Streaming Indicators
+## What You Can Ask For
 
-- **Typing Indicator**: Agent is thinking
-- **Code Blocks**: Syntax-highlighted as it generates
-- **File Tags**: Shows which files are being modified
-- **Progress**: See generation progress
+<Tabs>
+  <Tab title="Build Features">
+    - "Create a login form with email and password fields, validation, and a submit button"
+    - "Add a responsive navigation bar with a logo on the left and menu items on the right"
+    - "Build a product card component with image, title, price, and add-to-cart button"
+    - "Create a dashboard page with a sidebar, header, and content area"
+  </Tab>
+  <Tab title="Modify Code">
+    - "Make the hero section background gradient go from blue to purple"
+    - "Add dark mode support to all components"
+    - "Refactor the API calls to use a custom hook with error handling"
+    - "Make the layout responsive for mobile screens under 640px"
+  </Tab>
+  <Tab title="Debug Issues">
+    - "The form is not submitting. Can you check the onSubmit handler?"
+    - "There is a TypeScript error in UserProfile.tsx on line 42"
+    - "The API call returns a 404. Debug the endpoint URL"
+    - "The page crashes when I click the delete button"
+  </Tab>
+  <Tab title="Ask Questions">
+    - "How does the routing work in this project?"
+    - "Explain the state management pattern used here"
+    - "What dependencies does this project use?"
+    - "Can you document the Header component's props?"
+  </Tab>
+</Tabs>
+
+## Agent Responses
+
+Agents can respond with several types of content:
+
+<CardGroup cols={2}>
+  <Card title="Code Generation" icon="file-code">
+    Creates new files or modifies existing ones. Code blocks show syntax-highlighted output with the target file path.
+  </Card>
+  <Card title="Explanations" icon="comment">
+    Describes what was changed and why. Useful for understanding the agent's reasoning.
+  </Card>
+  <Card title="Shell Commands" icon="terminal">
+    Runs commands like `npm install`, `pip install`, or custom scripts. Output is displayed inline.
+  </Card>
+  <Card title="File Reads" icon="file-lines">
+    Reads existing files to understand context before making changes. The agent often reads several files before writing.
+  </Card>
+</CardGroup>
 
 ## Chat History
 
-### Navigation
+Your conversation is preserved per project:
 
-Your conversation history is preserved:
-
-- **Scroll Up**: See previous messages
-- **Context**: Agents remember conversation
-- **Threads**: Each agent has separate history
-- **Persistence**: History saved with project
+- **Persistence**: Chat history is saved in the database and survives browser refreshes
+- **Context**: Agents maintain conversation context, so they remember what was discussed earlier
+- **Per-agent threads**: Each agent has its own conversation history within a project
+- **Scroll back**: Scroll up to review previous messages and tool calls
 
 ### Managing History
 
 <AccordionGroup>
   <Accordion icon="eraser" title="Clear Chat">
-    - Remove all messages
-    - Start fresh conversation
-    - Agents lose context
-    - Use when switching topics
+    Start a fresh conversation. The agent loses all context from previous messages. Useful when switching to a completely different task.
   </Accordion>
 
-  <Accordion icon="copy" title="Copy Messages">
-    - Click to copy code blocks
-    - Share conversations
-    - Save prompts
-    - Document solutions
-  </Accordion>
-
-  <Accordion icon="bookmark" title="Save Important">
-    Coming soon:
-    - Bookmark useful exchanges
-    - Create snippets
-    - Build prompt library
+  <Accordion icon="copy" title="Copy Code Blocks">
+    Click the copy button on any code block to copy the code to your clipboard. Useful for saving snippets or sharing solutions.
   </Accordion>
 </AccordionGroup>
 
@@ -235,203 +235,137 @@ Your conversation history is preserved:
 
 <CardGroup cols={2}>
   <Card title="Good" icon="check">
-    "Create a blue primary button with rounded corners, white text, and a hover effect that makes it darker"
+    "Create a blue primary button component with rounded corners (8px radius), white text, and a darker blue hover effect. Use Tailwind CSS classes."
   </Card>
-  <Card title="Bad" icon="xmark">
+  <Card title="Too Vague" icon="xmark">
     "Make a button"
   </Card>
 </CardGroup>
 
-### Include Details
+### Include Technical Details
 
 <CardGroup cols={2}>
   <Card title="Good" icon="check">
-    "Add a navigation bar with logo on left, menu items (Home, About, Contact) centered, and a Login button on right. Use Tailwind CSS"
+    "Add a navigation bar with the logo on the left, menu items (Home, About, Pricing, Contact) centered, and a Login button on the right. Use flexbox for layout and Tailwind CSS for styling."
   </Card>
-  <Card title="Bad" icon="xmark">
+  <Card title="Too Vague" icon="xmark">
     "Add navigation"
-  </Card>
-</CardGroup>
-
-### Specify Technology
-
-<CardGroup cols={2}>
-  <Card title="Good" icon="check">
-    "Create a form using React Hook Form with Zod validation for email and password fields"
-  </Card>
-  <Card title="Bad" icon="xmark">
-    "Make a form"
   </Card>
 </CardGroup>
 
 ### Break Down Complex Tasks
 
-Instead of:
-> "Build a complete e-commerce site with products, cart, checkout, and admin panel"
+Instead of asking for an entire e-commerce site in one message, break it into steps:
 
-Try:
-> 1. "First, create a product card component"
-> 2. "Now create a product grid to display multiple cards"
-> 3. "Add filtering and search functionality"
-> 4. "Create a shopping cart component"
-> ...and so on
+1. "Create a ProductCard component with image, title, price, and an Add to Cart button"
+2. "Now create a ProductGrid that renders multiple ProductCards in a responsive grid"
+3. "Add a search bar above the grid that filters products by title"
+4. "Create a ShoppingCart sidebar that shows selected items with quantities"
 
-## Best Practices
+Each step gives the agent a focused task, which produces better results than a single massive request.
 
-<AccordionGroup>
-  <Accordion icon="comments" title="Iterate Gradually">
-    - Start with basic structure
-    - Add features one at a time
-    - Test after each change
-    - Refine through conversation
-  </Accordion>
+## Keyboard Shortcuts
 
-  <Accordion icon="eye" title="Review AI Code">
-    - Always check generated code
-    - Understand what was created
-    - Test functionality
-    - Ask for explanations
-  </Accordion>
-
-  <Accordion icon="sliders" title="Switch Agents">
-    - Use Stream for UI
-    - Use Iterative for logic
-    - Switch based on task
-    - Each maintains context
-  </Accordion>
-
-  <Accordion icon="message-question" title="Ask Follow-Up">
-    - Request improvements
-    - Fix issues immediately
-    - Ask "why" for learning
-    - Clarify unclear responses
-  </Accordion>
-</AccordionGroup>
-
-## Chat Features
-
-### Code Blocks
-
-AI responses include formatted code:
-
-- **Syntax Highlighting**: Color-coded
-- **Copy Button**: One-click copy
-- **File Path**: Shows target file
-- **Language Tag**: Indicates file type
-
-### File Operations
-
-Agents can:
-
-<Tabs>
-  <Tab title="Create Files">
-    - Generate new components
-    - Create utility files
-    - Add config files
-    - Make test files
-  </Tab>
-
-  <Tab title="Modify Files">
-    - Edit existing code
-    - Add new features
-    - Fix bugs
-    - Refactor code
-  </Tab>
-
-  <Tab title="Delete Code">
-    - Remove components
-    - Clean up unused code
-    - Delete files
-    - Simplify structure
-  </Tab>
-</Tabs>
+| Shortcut | Action |
+|----------|--------|
+| `Enter` | Send message |
+| `Shift + Enter` | New line in message |
+| `Ctrl/Cmd + K` | Open command palette |
+| `Esc` | Blur chat input |
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion icon="circle-xmark" title="Agent Not Responding">
-    **Problem:** No response after sending message
+    **Cause**: WebSocket connection lost, API key issue, or the AI model is unavailable.
 
-    **Solutions:**
-    - Check internet connection
-    - Verify API keys are set
-    - Try refreshing the page
-    - Check if model is working in settings
+    **What to try**:
+    - Check your internet connection
+    - Verify your API keys are configured in Settings
+    - Refresh the page to re-establish the WebSocket connection
+    - Try switching to a different AI model
   </Accordion>
 
-  <Accordion icon="ban" title="Code Not Applying">
-    **Problem:** Generated code doesn't appear in files
+  <Accordion icon="ban" title="Code Not Appearing in Files">
+    **Cause**: The agent generated code in its text response but did not use the write_file tool.
 
-    **Solutions:**
-    - Check for syntax errors in response
-    - Look for error messages
-    - Try regenerating response
-    - Manually apply code from chat
+    **What to try**:
+    - Ask the agent specifically: "Write that code to src/components/Button.tsx"
+    - Check if the container is running (agents cannot write files to stopped containers)
+    - Verify the agent has the write_file tool enabled
   </Accordion>
 
-  <Accordion icon="triangle-exclamation" title="Agent Confused">
-    **Problem:** Agent doesn't understand request
+  <Accordion icon="triangle-exclamation" title="Agent Generates Wrong Code">
+    **Cause**: Ambiguous prompt or the agent lacks context about your project.
 
-    **Solutions:**
-    - Be more specific
-    - Provide examples
-    - Break down into smaller tasks
-    - Clear chat and start fresh
+    **What to try**:
+    - Be more specific about what you want
+    - Reference specific files: "In src/App.tsx, change the header color to blue"
+    - Provide examples of the desired output
+    - Try a different agent (IterativeAgent for complex tasks, StreamAgent for UI work)
+    - Clear the chat and start fresh if the context has become confusing
   </Accordion>
 
-  <Accordion icon="rotate" title="Wrong Output">
-    **Problem:** Agent generates wrong code
+  <Accordion icon="rotate" title="Streaming Stuck or Frozen">
+    **Cause**: Network interruption or server-side timeout.
 
-    **Solutions:**
-    - Explain what's wrong
-    - Provide correct example
-    - Ask to fix specific issues
-    - Try different agent
+    **What to try**:
+    - Click the cancel/stop button to abort the current stream
+    - Refresh the page
+    - Send your message again
+    - If the problem persists, check if the backend is responding (try loading the Dashboard)
   </Accordion>
 </AccordionGroup>
 
-## Keyboard Shortcuts
+## Best Practices
 
-<CardGroup cols={2}>
-  <Card title="Send Message" icon="keyboard">
-    **Enter**: Send message
-    **Shift + Enter**: New line
-  </Card>
-  <Card title="Navigation" icon="keyboard">
-    **Ctrl/Cmd + K**: Focus chat input
-    **Esc**: Blur chat input
-  </Card>
-</CardGroup>
+<AccordionGroup>
+  <Accordion icon="comments" title="Iterate Gradually">
+    Start with basic structure, then add complexity one step at a time. Test after each change. This produces much better results than trying to build everything in a single prompt.
+  </Accordion>
+
+  <Accordion icon="eye" title="Review Generated Code">
+    Always read through what the agent produced. Understand the patterns it used, check for edge cases, and verify that the code aligns with your project's conventions.
+  </Accordion>
+
+  <Accordion icon="arrows-rotate" title="Switch Agents by Task">
+    Use StreamAgent for UI work and fast iteration. Switch to IterativeAgent for complex logic, multi-file refactors, and debugging. Each agent maintains its own context within the project.
+  </Accordion>
+
+  <Accordion icon="message-question" title="Ask Follow-Up Questions">
+    If something is unclear or not quite right, ask the agent to explain, fix, or adjust. The conversation context means follow-up requests are often more effective than starting from scratch.
+  </Accordion>
+</AccordionGroup>
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card
-    title="Using Agents"
-    icon="robot"
-    href="/guides/using-agents"
+    title="Manage Your Library"
+    icon="books"
+    href="/guides/library"
   >
-    Learn more about AI agents
+    Customize agents, create your own, and manage AI models
   </Card>
   <Card
     title="Code Editor"
     icon="code"
     href="/guides/code-editor"
   >
-    Manually edit generated code
+    Manually edit and refine AI-generated code
   </Card>
   <Card
     title="Live Preview"
     icon="eye"
     href="/guides/live-preview"
   >
-    See your changes in real-time
+    See changes in real time as the agent builds
   </Card>
   <Card
-    title="Agent Types"
-    icon="robot"
-    href="/guides/agent-types"
+    title="Marketplace"
+    icon="store"
+    href="/guides/marketplace"
   >
-    Understanding agent differences
+    Discover specialized agents for your workflow
   </Card>
 </CardGroup>

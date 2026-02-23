@@ -1,0 +1,387 @@
+---
+title: "Container Orchestration"
+description: "How Docker and Kubernetes manage user project containers"
+---
+
+## Overview
+
+Every user project in Tesslate Studio runs in an isolated containerized environment. Projects can have multiple containers (frontend, backend, database) that communicate over a private network. The orchestration layer manages container lifecycle, file operations, shell execution, resource management, and cleanup.
+
+This page covers both deployment modes (Docker and Kubernetes), the factory pattern that abstracts them, the S3 Sandwich pattern for hibernation, the EBS VolumeSnapshot lifecycle, pod affinity for multi-container projects, and the cleanup CronJob.
+
+## The Factory Pattern
+
+All code accesses the orchestrator through a factory function. The factory reads `config.DEPLOYMENT_MODE` and returns the appropriate implementation.
+
+```python
+from orchestrator.app.services.orchestration import get_orchestrator
+
+orchestrator = get_orchestrator()  # Returns DockerOrchestrator or KubernetesOrchestrator
+await orchestrator.start_project(project, containers, connections, user_id, db)
+```
+
+<Warning>
+  Never instantiate orchestrators directly. Always use `get_orchestrator()` to ensure singleton caching and correct mode selection.
+</Warning>
+
+### BaseOrchestrator Interface
+
+Both implementations conform to the same abstract interface:
+
+```python
+class BaseOrchestrator(ABC):
+    @abstractmethod
+    async def start_project(self, project, containers, connections, user_id, db): ...
+
+    @abstractmethod
+    async def stop_project(self, project_slug, project_id, user_id): ...
+
+    @abstractmethod
+    async def read_file(self, user_id, project_id, container_name, file_path, ...): ...
+
+    @abstractmethod
+    async def write_file(self, user_id, project_id, container_name, file_path, content, ...): ...
+
+    @abstractmethod
+    async def execute_command(self, user_id, project_id, container_name, command, ...): ...
+
+    @abstractmethod
+    async def cleanup_idle_environments(self, idle_timeout_minutes): ...
+```
+
+This ensures feature parity between modes. API endpoints use this interface without caring about the underlying infrastructure.
+
+## Docker Mode (Local Development)
+
+<Accordion title="Architecture and Configuration">
+  **Source file:** `orchestrator/app/services/orchestration/docker.py`
+
+  Docker mode uses Docker Compose to manage user projects. Each project gets:
+  - A dedicated Docker network for isolation
+  - Services defined in a dynamically generated `docker-compose.yml`
+  - Traefik routing for `*.localhost` URLs
+  - Direct filesystem access via shared volume (`/projects`)
+
+  **Key characteristics:**
+  - Fast iteration with no cluster overhead
+  - Simple file operations (orchestrator reads the filesystem directly)
+  - Traefik auto-discovery via container labels
+  - Two-tier cleanup: scale to 0, then delete after longer timeout
+
+  **URL pattern:** `http://{project-slug}-{container-name}.localhost`
+
+  **Configuration:**
+  ```bash
+  DEPLOYMENT_MODE=docker
+  APP_DOMAIN=localhost
+  USE_DOCKER_VOLUMES=true
+  ```
+</Accordion>
+
+### Docker Mode: How It Works
+
+<Steps>
+  <Step title="Generate docker-compose.yml">
+    The orchestrator generates a Compose file from the project's Container models. Each container becomes a service with the correct image, ports, volumes, and Traefik labels.
+  </Step>
+  <Step title="Start with docker-compose up">
+    The generated file is executed with `docker-compose up -d`. Containers start in the background.
+  </Step>
+  <Step title="Traefik routes requests">
+    Traefik discovers containers via labels and routes `*.localhost` URLs to the correct container ports.
+  </Step>
+  <Step title="File operations: direct filesystem">
+    The orchestrator reads and writes files directly on the host filesystem at `users/{user_id}/{project_slug}/`. No pod exec required.
+  </Step>
+  <Step title="Cleanup: two-tier idle handling">
+    Idle projects are first scaled to zero replicas, then deleted after a longer timeout.
+  </Step>
+</Steps>
+
+## Kubernetes Mode (Production)
+
+<Accordion title="Architecture and Configuration">
+  **Source file:** `orchestrator/app/services/orchestration/kubernetes_orchestrator.py`
+
+  Kubernetes mode creates a namespace per project with:
+  - PersistentVolumeClaim (PVC) for file storage
+  - File-manager pod (always running for file operations)
+  - Dev container pods (started on-demand)
+  - NetworkPolicy for project isolation
+  - NGINX Ingress for HTTPS routing
+
+  **Key characteristics:**
+  - Scalable to thousands of concurrent projects
+  - EBS VolumeSnapshot pattern for near-instant hibernation and restore
+  - Pod affinity for shared RWO storage in multi-container projects
+  - S3 credentials never exposed to user pods
+
+  **URL pattern:** `https://{project-slug}-{container-directory}.{domain}`
+
+  **Configuration:**
+  ```bash
+  DEPLOYMENT_MODE=kubernetes
+  K8S_DEVSERVER_IMAGE=tesslate-devserver:latest
+  K8S_STORAGE_CLASS=tesslate-block-storage
+  K8S_PVC_SIZE=10Gi
+  K8S_PVC_ACCESS_MODE=ReadWriteOnce
+  K8S_SNAPSHOT_CLASS=tesslate-ebs-snapshots
+  K8S_ENABLE_POD_AFFINITY=true
+  K8S_ENABLE_NETWORK_POLICIES=true
+  K8S_WILDCARD_TLS_SECRET=tesslate-wildcard-tls
+  K8S_HIBERNATION_IDLE_MINUTES=30
+  ```
+</Accordion>
+
+### Three Separate Lifecycles
+
+A critical design principle in Kubernetes mode is the separation of three distinct lifecycles:
+
+<CardGroup cols={3}>
+  <Card title="File Lifecycle" icon="file">
+    1. User opens project; namespace + PVC + file-manager pod created.
+    2. User adds container to graph; file-manager runs `git clone` to `/app/{subdir}/`.
+    3. Files persist on PVC.
+  </Card>
+  <Card title="Container Lifecycle" icon="play">
+    1. User clicks "Start"; Deployment + Service + Ingress created.
+    2. Dev container mounts existing PVC (files already present; no init containers).
+    3. User clicks "Stop"; Deployment deleted, files remain on PVC.
+  </Card>
+  <Card title="Snapshot Lifecycle" icon="clock-rotate-left">
+    1. User leaves or idle timeout; VolumeSnapshot created from PVC (under 5 seconds).
+    2. Namespace deleted (including PVC).
+    3. User returns; PVC created from snapshot, EBS lazy-loads data (near-instant restore).
+  </Card>
+</CardGroup>
+
+### File-Manager Pod
+
+The file-manager pod is always running while a project is open.
+
+| Property | Value |
+|----------|-------|
+| Image | `tesslate-devserver:latest` |
+| Command | `tail -f /dev/null` (keep alive) |
+| Volume | PVC mounted at `/app` |
+| Resources | 256Mi to 1536Mi RAM |
+
+**Responsibilities:**
+- Handle file read/write when dev containers are not running
+- Execute `git clone` when containers are added to the architecture graph
+- Keep PVC mounted to prevent unbound state
+- Provide consistent file access regardless of dev container state
+
+### Dev Container Pods
+
+Dev containers are created on-demand when the user clicks "Start."
+
+<Steps>
+  <Step title="Read TESSLATE.md configuration">
+    The orchestrator reads `TESSLATE.md` from the file-manager pod to determine port, startup command, and framework.
+  </Step>
+  <Step title="Create Deployment">
+    Image: `tesslate-devserver:latest`. Volume: existing PVC at `/app`. Working directory: `/app/{container_directory}`. Command: startup command runs in a tmux session.
+  </Step>
+  <Step title="Create Service and Ingress">
+    ClusterIP service with selector by container-id. NGINX Ingress with TLS using the wildcard certificate.
+  </Step>
+  <Step title="URL becomes accessible">
+    `https://{slug}-{container}.saipriya.org`
+  </Step>
+</Steps>
+
+## EBS VolumeSnapshot Lifecycle
+
+The EBS VolumeSnapshot pattern hibernates idle projects to save compute resources while preserving the full filesystem state (including `node_modules`).
+
+```
++-----------------------------------------------------------+
+|                     ACTIVE STATE                          |
+|  Namespace: proj-{uuid}                                   |
+|  +-- PVC (10Gi EBS)                                       |
+|  +-- File-manager pod                                     |
+|  +-- Dev container pods (if started)                      |
++-----------------------------------------------------------+
+                        |
+                        | Idle 30+ minutes
+                        v
+           +-----------------------------+
+           | HIBERNATION (< 5 seconds)   |
+           |                             |
+           | 1. Create VolumeSnapshot    |
+           | 2. Wait for readyToUse      |
+           | 3. Delete namespace          |
+           +-----------------------------+
+                        |
+                        v
++-----------------------------------------------------------+
+|                   HIBERNATED STATE                         |
+|  VolumeSnapshot: snap-{project_id}-{timestamp}            |
+|  Database: environment_status = 'hibernated'              |
+|  Database: ProjectSnapshot record (status = 'ready')      |
++-----------------------------------------------------------+
+                        |
+                        | User returns
+                        v
+           +-----------------------------+
+           | RESTORATION (< 10 seconds)  |
+           |                             |
+           | 1. Create PVC from snapshot |
+           | 2. Create namespace + pods  |
+           | 3. EBS lazy-loads on access |
+           +-----------------------------+
+                        |
+                        v
++-----------------------------------------------------------+
+|                     ACTIVE STATE                          |
+|  node_modules preserved; no npm install needed            |
++-----------------------------------------------------------+
+```
+
+### Snapshot Operations
+
+| Operation | What Happens |
+|-----------|-------------|
+| **Create** | VolumeSnapshot created from PVC. Non-blocking; poll until `readyToUse: true`. ProjectSnapshot database record created. |
+| **Restore** | PVC created with `dataSource` pointing to VolumeSnapshot. EBS provisioner creates new volume from snapshot with lazy-loading. |
+| **Soft-delete** | When a project is permanently deleted, snapshots are marked for 30-day retention. |
+| **Permanent delete** | Daily cleanup CronJob deletes expired snapshots after 30 days. |
+
+### Timeline UI
+
+Users can create up to 5 manual snapshots per project for version history, accessible through the Timeline UI. Each snapshot preserves the entire filesystem state and can be restored at any time.
+
+## S3 Sandwich Pattern (Legacy / Fallback)
+
+For environments without VolumeSnapshot support (e.g., Minikube), the S3 Sandwich pattern provides an alternative:
+
+<Steps>
+  <Step title="Hydration (project start)">
+    Init process downloads the project archive from S3 to the PVC. Fast local I/O resumes.
+  </Step>
+  <Step title="Runtime">
+    All file operations happen on the local PVC with disk-speed performance.
+  </Step>
+  <Step title="Dehydration (project stop)">
+    PreStop hook archives the project from PVC back to S3 before pod termination.
+  </Step>
+</Steps>
+
+**Benefits:** Fast I/O during runtime, durability via S3 backup, cost efficiency with ephemeral PVCs.
+
+**Trade-offs:** Hydration time on first access, dehydration time on shutdown, S3 storage costs.
+
+## Pod Affinity for Multi-Container Projects
+
+When a project has multiple containers (e.g., frontend + backend), all pods must run on the same Kubernetes node because PVCs use `ReadWriteOnce` (RWO) access mode.
+
+```python
+affinity = client.V1Affinity(
+    pod_affinity=client.V1PodAffinity(
+        required_during_scheduling_ignored_during_execution=[
+            client.V1PodAffinityTerm(
+                label_selector=client.V1LabelSelector(
+                    match_labels={"tesslate.io/project-id": str(project_id)}
+                ),
+                topology_key="kubernetes.io/hostname"
+            )
+        ]
+    )
+)
+```
+
+This ensures all pods with the same `project-id` label land on the same node, enabling shared RWO volume access and improving inter-container communication performance.
+
+## NetworkPolicy Isolation
+
+Each project namespace receives a NetworkPolicy that enforces:
+
+- **Allowed ingress:** From NGINX Ingress controller, from Tesslate backend (file operations), within the namespace (inter-container)
+- **Allowed egress:** DNS (UDP 53), HTTPS (TCP 443), HTTP (TCP 80)
+- **Denied:** All cross-project communication, access to internal cluster services not explicitly allowed
+
+## Cleanup CronJob
+
+Two Kubernetes CronJobs manage automatic cleanup:
+
+<Tabs>
+  <Tab title="Hibernation CronJob">
+    **Schedule:** Every 2 minutes (`*/2 * * * *`)
+
+    Queries the database for projects where `environment_status = 'active'` and `last_activity` is older than the idle timeout (default: 30 minutes). For each idle project:
+    1. Creates a VolumeSnapshot
+    2. Deletes the namespace
+    3. Updates the database status to "hibernated"
+    4. Sends a WebSocket notification to redirect the user
+  </Tab>
+  <Tab title="Snapshot Cleanup CronJob">
+    **Schedule:** Daily at 3 AM UTC (`0 3 * * *`)
+
+    Queries for soft-deleted ProjectSnapshot records older than 30 days and permanently deletes the associated VolumeSnapshots from the cluster.
+  </Tab>
+</Tabs>
+
+## Debugging Commands
+
+<Tabs>
+  <Tab title="Docker Mode">
+    ```bash
+    # View generated compose file
+    cat docker-compose-projects/my-project-abc123.yml
+
+    # Check container logs
+    docker logs my-project-abc123-frontend
+
+    # List networks
+    docker network ls | grep tesslate
+
+    # List project files
+    ls /projects/my-project-abc123/
+    ```
+  </Tab>
+  <Tab title="Kubernetes Mode">
+    ```bash
+    PROJECT_ID=<uuid>
+    NAMESPACE=proj-$PROJECT_ID
+
+    # Check all resources in project namespace
+    kubectl get all -n $NAMESPACE
+
+    # File-manager logs
+    kubectl logs -n $NAMESPACE deployment/file-manager -c file-manager
+
+    # Dev container logs
+    kubectl logs -n $NAMESPACE deployment/dev-frontend -c dev-server
+
+    # Exec into file-manager
+    kubectl exec -n $NAMESPACE deployment/file-manager -c file-manager -- ls -la /app
+
+    # Check ingress
+    kubectl get ingress -n $NAMESPACE
+
+    # Check PVC status
+    kubectl get pvc -n $NAMESPACE
+
+    # Check NetworkPolicy
+    kubectl describe networkpolicy project-isolation -n $NAMESPACE
+
+    # Check VolumeSnapshot status
+    kubectl get volumesnapshot -n $NAMESPACE
+    ```
+  </Tab>
+</Tabs>
+
+## Key Source Files
+
+| File | Purpose |
+|------|---------|
+| `orchestrator/app/services/orchestration/base.py` | Abstract orchestrator interface |
+| `orchestrator/app/services/orchestration/factory.py` | Factory pattern and mode detection |
+| `orchestrator/app/services/orchestration/docker.py` | Docker Compose orchestrator |
+| `orchestrator/app/services/orchestration/kubernetes_orchestrator.py` | Kubernetes orchestrator |
+| `orchestrator/app/services/orchestration/kubernetes/client.py` | K8s API wrapper |
+| `orchestrator/app/services/orchestration/kubernetes/helpers.py` | Manifest generation functions |
+| `orchestrator/app/services/snapshot_manager.py` | EBS VolumeSnapshot operations |
+| `orchestrator/app/services/s3_manager.py` | S3 hydration/dehydration |
+| `orchestrator/app/services/activity_tracker.py` | Database-based activity tracking |

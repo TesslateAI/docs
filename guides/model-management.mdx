@@ -1,490 +1,448 @@
 ---
 title: 'Model Management'
-description: 'Configure and manage AI models for your agents'
+description: 'Configure AI models, understand the LiteLLM gateway, manage per-token pricing, and control costs'
 ---
 
 ## Overview
 
-Model Management allows you to configure which AI models power your agents, adjust model parameters, and control costs.
+Tesslate Studio routes all AI requests through a **LiteLLM proxy gateway** that provides unified access to multiple AI providers. This means you can use OpenAI, Anthropic, Google, and other models through a single interface, with automatic budget tracking, usage monitoring, and dynamic pricing.
 
 <CardGroup cols={2}>
-  <Card title="Choose Models" icon="brain">
-    Select GPT-4, Claude, Qwen, or custom models
+  <Card title="LiteLLM Gateway" icon="route">
+    Unified proxy routing requests to OpenAI, Anthropic, Google, and more
   </Card>
-  <Card title="Control Costs" icon="dollar-sign">
-    See pricing and manage API usage
+  <Card title="Dynamic Pricing" icon="dollar-sign">
+    Per-token cost calculated in real time from provider rates
   </Card>
-  <Card title="Tune Parameters" icon="sliders">
-    Adjust temperature, tokens, and more
+  <Card title="Budget Controls" icon="shield">
+    Per-user budget limits and team-based access tiers
   </Card>
-  <Card title="Per-Agent" icon="robot">
-    Different models for different agents
+  <Card title="BYOK Support" icon="key">
+    Bring Your Own Key to bypass platform credits entirely
   </Card>
 </CardGroup>
 
-## Available Models
+## How the LiteLLM Gateway Works
+
+LiteLLM acts as a reverse proxy between Tesslate and AI providers. When you send a message to an agent, the request flows through this pipeline:
+
+<Steps>
+  <Step title="User Sends Message">
+    Your message is sent from the chat UI to the FastAPI backend.
+  </Step>
+
+  <Step title="Credit Check">
+    The `check_credits(user, model_name)` function verifies you have sufficient credits (or a BYOK key) before proceeding.
+  </Step>
+
+  <Step title="LiteLLM Routing">
+    The request is forwarded to the LiteLLM proxy (running on port 4000), which routes it to the correct AI provider based on the model name.
+  </Step>
+
+  <Step title="Provider Response">
+    The AI provider processes the request and streams the response back through LiteLLM to the Tesslate backend.
+  </Step>
+
+  <Step title="Cost Calculation">
+    After the response, `calculate_cost_cents(model, tokens_in, tokens_out)` computes the cost using the current pricing data.
+  </Step>
+
+  <Step title="Credit Deduction">
+    The `deduct_credits()` function subtracts the cost from your credit pools in priority order: daily, then bundled, then signup bonus, then purchased.
+  </Step>
+</Steps>
+
+## Supported Models and Providers
 
 <Tabs>
   <Tab title="OpenAI">
     **GPT-4 Family**
 
-    - **GPT-4 Turbo**: Best reasoning, most capable
-      - Cost: $$$ (Highest)
-      - Speed: Moderate
-      - Best for: Complex logic, architecture
+    | Model | Strengths | Speed | Cost |
+    |-------|-----------|-------|------|
+    | GPT-4 Turbo | Best reasoning, most capable | Moderate | High |
+    | GPT-4 | Strong general purpose | Slower | High |
+    | GPT-3.5 Turbo | Fast, affordable | Very fast | Low |
 
-    - **GPT-4**: Slightly less capable than Turbo
-      - Cost: $$$
-      - Speed: Slower
-      - Best for: General development
-
-    - **GPT-3.5 Turbo**: Fast and affordable
-      - Cost: $ (Low)
-      - Speed: Very fast
-      - Best for: Simple UI, quick iterations
-
-    **Requires:** OpenAI API key
+    **Requires:** OpenAI API key (BYOK) or platform credits
   </Tab>
 
   <Tab title="Anthropic">
     **Claude Family**
 
-    - **Claude 3 Opus**: Most capable Claude
-      - Cost: $$$ (Highest)
-      - Speed: Moderate
-      - Best for: Complex features, documentation
+    | Model | Strengths | Speed | Cost |
+    |-------|-----------|-------|------|
+    | Claude 3 Opus | Most capable, deep reasoning | Moderate | High |
+    | Claude 3 Sonnet | Balanced performance and cost | Fast | Medium |
+    | Claude 3 Haiku | Fastest, lightweight tasks | Very fast | Low |
 
-    - **Claude 3 Sonnet**: Balanced performance
-      - Cost: $$ (Medium)
-      - Speed: Fast
-      - Best for: General development
-
-    - **Claude 3 Haiku**: Fastest Claude
-      - Cost: $ (Low)
-      - Speed: Very fast
-      - Best for: Simple tasks, UI
-
-    **Requires:** Anthropic API key
+    **Requires:** Anthropic API key (BYOK) or platform credits
   </Tab>
 
-  <Tab title="Qwen">
-    **Qwen Coder Models**
+  <Tab title="Google">
+    **Gemini Family**
 
-    - **Qwen 2.5 Coder 32B**: Large coding model
-      - Cost: $ (Low)
-      - Speed: Fast
-      - Best for: Code generation, refactoring
+    | Model | Strengths | Speed | Cost |
+    |-------|-----------|-------|------|
+    | Gemini Pro | Multimodal, strong reasoning | Fast | Medium |
 
-    - **Qwen 2.5 Coder 7B**: Smaller, faster
-      - Cost: $ (Very low)
-      - Speed: Very fast
-      - Best for: UI, simple components
-
-    **Requires:** OpenRouter API key (Qwen via OpenRouter)
+    **Requires:** Google API key (BYOK) or platform credits
   </Tab>
 
   <Tab title="OpenRouter">
     **100+ Models**
 
-    Access to:
+    Access to all major providers through a single API key:
     - All OpenAI models
     - All Anthropic models
     - Qwen, DeepSeek, Mistral
     - Gemini, Command R
-    - Open-source models
-    - Latest releases
+    - Open-source models (Llama, Mixtral, etc.)
 
     **Requires:** OpenRouter API key
-    **Benefits:** Unified billing, model fallbacks
+    **Benefits:** Unified billing, automatic model fallbacks, access to the latest releases
+  </Tab>
+</Tabs>
+
+## Model Pricing System
+
+Tesslate uses dynamic pricing fetched directly from LiteLLM's `/model/info` endpoint. Prices are cached for 5 minutes and calculated with Decimal arithmetic to avoid floating-point errors.
+
+### How Pricing Works
+
+| Step | Description |
+|------|-------------|
+| **Fetch** | Calls LiteLLM `/model/info` to get per-token costs for all configured models |
+| **Cache** | Stores the pricing map in distributed cache (Redis or in-memory) for 5 minutes |
+| **Lookup** | On each AI request, looks up the model's pricing (exact match, then partial match, then fallback) |
+| **Calculate** | Converts token counts to cost in cents using Decimal arithmetic |
+
+### Cost Calculation Formula
+
+```
+cost_input  = ceil((tokens_in / 1,000,000) * price_per_1M_input * 100)
+cost_output = ceil((tokens_out / 1,000,000) * price_per_1M_output * 100)
+cost_total  = cost_input + cost_output
+```
+
+**Key details:**
+- Prices are in **USD per 1 million tokens**
+- Costs are calculated in **cents** (1 credit = $0.01)
+- Ceiling rounding ensures any non-zero usage costs at least 1 cent
+- All arithmetic uses Python's `decimal.Decimal` for financial precision
+
+### Fallback Pricing
+
+If a model is not found in LiteLLM's pricing data, default rates apply:
+
+| Token Type | Fallback Rate |
+|-----------|---------------|
+| Input | $1.00 per 1M tokens |
+| Output | $3.00 per 1M tokens |
+
+A warning is logged when fallback pricing is used, so administrators can add proper pricing data.
+
+<Info>
+  Exact pricing varies by provider and changes over time. The dynamic pricing system ensures you always pay current rates without manual configuration updates.
+</Info>
+
+## Model Access Tiers
+
+LiteLLM organizes users into teams with different model access levels:
+
+| Team Tier | Available Models | Max Budget |
+|-----------|-----------------|------------|
+| **Free** | GPT-3.5 Turbo, Claude 3 Haiku | $5.00 |
+| **Internal** (Basic) | GPT-4, Claude 3 Sonnet, GPT-3.5 Turbo | $100.00 |
+| **Premium** (Pro/Ultra) | GPT-4, Claude 3 Opus, Claude 3 Sonnet | $1,000.00 |
+
+When you subscribe to a tier, your LiteLLM team assignment updates automatically to grant access to the appropriate models.
+
+## BYOK (Bring Your Own Key)
+
+BYOK lets you use your own API keys instead of platform credits. Available on **Pro** and **Ultra** tiers.
+
+<Tabs>
+  <Tab title="How It Works">
+    When a model is identified as BYOK (you have provided your own API key for that provider):
+
+    1. The cost is **$0** in platform credits
+    2. No credits are deducted from any pool
+    3. A `UsageLog` entry is still created with `is_byok=True` and `billed_status="exempt"` for your analytics
+    4. You pay the provider directly through your own API key billing
+  </Tab>
+
+  <Tab title="Passthrough Mode">
+    LiteLLM supports passthrough mode where your own keys are used instead of platform keys:
+
+    ```
+    Enable passthrough with your keys for:
+    - OpenAI (your sk-... key)
+    - Anthropic (your sk-ant-... key)
+    - Any supported provider
+    ```
+
+    LiteLLM routes the request to the provider using your key while still tracking usage for your analytics dashboard.
   </Tab>
 </Tabs>
 
 ## Model Configuration
 
-### Global Default Models
-
-Set default models for all new agents:
+### Setting Default Models
 
 <Steps>
   <Step title="Open Settings">
-    Profile → **Settings** → **Model Management**
+    Navigate to **Settings > Preferences**
   </Step>
 
-  <Step title="Stream Agent Default">
-    Choose default model for Stream agents
+  <Step title="Choose Diagram Model">
+    Set the model used for architecture diagram generation via the `diagram_model` preference
   </Step>
 
-  <Step title="Iterative Agent Default">
-    Choose default model for Iterative agents
+  <Step title="Configure Agent Models">
+    Each agent can use a different model. When creating or editing an agent, select the model from the dropdown.
   </Step>
 
-  <Step title="Save">
-    New agents will use these defaults
+  <Step title="Disable Models">
+    Use the `disabled_models` preference to hide specific models from the chat model selector. This is stored as a JSON array in your user profile.
   </Step>
 </Steps>
 
-<Info>
-  Existing custom agents keep their configured models. Only affects newly created agents.
-</Info>
-
-### Per-Agent Models
-
-Customize models for individual agents:
+### Per-Agent Model Selection
 
 <Steps>
   <Step title="Open Library">
-    Go to **Library** → **Agents**
+    Go to **Library > Agents**
   </Step>
 
   <Step title="Edit Agent">
-    Click **Edit** on an open-source agent
+    Click **Edit** on an open-source agent you own
   </Step>
 
   <Step title="Select Model">
-    Choose from available models
+    Choose from the available models based on your tier
   </Step>
 
-  <Step title="Save">
-    Agent now uses the new model
-  </Step>
-
-  <Step title="Test">
-    Try the agent with new model
+  <Step title="Save and Test">
+    Save changes. The agent immediately uses the new model for all future requests.
   </Step>
 </Steps>
 
 <Warning>
-  You can only change models for open-source agents you own. Closed-source agents have fixed models.
+  You can only change models for open-source agents you own. Marketplace agents with closed-source configurations have fixed models set by the creator.
 </Warning>
 
 ## Model Parameters
 
 ### Temperature
 
-Controls randomness and creativity:
+Controls randomness and creativity in AI responses:
 
 <Tabs>
-  <Tab title="Low (0.0 - 0.3)">
+  <Tab title="Low (0.0 to 0.3)">
     **Deterministic and focused**
-
     - More predictable output
     - Consistent code style
-    - Less creative
     - Repeatable results
 
-    **Best for:**
-    - Production code
-    - Bug fixes
-    - Refactoring
-    - Documentation
-
-    **Example:** 0.2
+    **Best for:** Production code, bug fixes, refactoring, documentation
   </Tab>
 
-  <Tab title="Medium (0.4 - 0.7)">
+  <Tab title="Medium (0.4 to 0.7)">
     **Balanced**
-
-    - Good creativity
-    - Still consistent
-    - Varied approaches
+    - Good creativity with consistency
+    - Varied approaches to problems
     - Reliable quality
 
-    **Best for:**
-    - General development
-    - New features
-    - UI components
-    - Most use cases
-
-    **Example:** 0.5 (default)
+    **Best for:** General development, new features, UI components (default: 0.5)
   </Tab>
 
-  <Tab title="High (0.8 - 1.0)">
+  <Tab title="High (0.8 to 1.0)">
     **Creative and varied**
+    - Highly creative solutions
+    - Diverse coding approaches
+    - Less predictable output
 
-    - Very creative solutions
-    - Diverse approaches
-    - Less predictable
-    - Experimental
-
-    **Best for:**
-    - Brainstorming
-    - Design exploration
-    - Multiple alternatives
-    - Creative solutions
-
-    **Example:** 0.9
+    **Best for:** Brainstorming, design exploration, generating multiple alternatives
   </Tab>
 </Tabs>
 
 ### Max Tokens
 
-Limits response length:
-
-- **Stream Agents**: 4000-8000 tokens typical
-- **Iterative Agents**: 2000-4000 per step
-- **Higher**: More complete responses, higher cost
-- **Lower**: Faster, cheaper, may truncate
+Limits the length of AI responses:
+- **Stream Agents**: Typically 4,000 to 8,000 tokens
+- **Iterative Agents**: Typically 2,000 to 4,000 tokens per step
+- Higher values produce more complete responses at higher cost
+- Lower values are faster and cheaper but may truncate output
 
 <Info>
-  1 token ≈ 4 characters. A component with 100 lines ≈ 400-800 tokens.
+  1 token is approximately 4 characters. A React component with 100 lines is roughly 400 to 800 tokens.
 </Info>
 
 ### Other Parameters
 
 <AccordionGroup>
   <Accordion icon="percentage" title="Top P (Nucleus Sampling)">
-    Alternative to temperature:
-    - **0.1**: Very focused
+    Alternative to temperature for controlling randomness:
+    - **0.1**: Very focused, narrow range of tokens considered
     - **0.5**: Balanced
     - **0.9**: Diverse
-    - **1.0**: All possibilities
-
-    Default: 1.0
+    - **1.0**: All token possibilities considered (default)
   </Accordion>
 
   <Accordion icon="ban" title="Frequency Penalty">
-    Reduces repetition:
+    Reduces repetition in generated code:
     - **0.0**: No penalty (default)
-    - **0.5**: Some reduction
+    - **0.5**: Moderate reduction in repeated patterns
     - **2.0**: Maximum reduction
-
-    Higher = less repetitive code
   </Accordion>
 
   <Accordion icon="hashtag" title="Presence Penalty">
-    Encourages new topics:
+    Encourages exploration of new topics:
     - **0.0**: No penalty (default)
-    - **0.5**: Moderate encouragement
+    - **0.5**: Moderate encouragement for new topics
     - **2.0**: Maximum encouragement
-
-    Higher = more topic diversity
   </Accordion>
 </AccordionGroup>
 
 ## Cost Management
 
-### Understanding Pricing
+### Understanding Your Costs
 
-AI model costs are based on tokens:
+AI costs are based on two factors: the model you choose and the number of tokens processed.
 
 <Tabs>
   <Tab title="Input Tokens">
-    **What you send**
-    - Your prompts
-    - System messages
-    - Context/history
-    - Code being edited
+    **What you send to the model**
+    - Your prompts and messages
+    - System prompts and agent instructions
+    - Chat history and context
+    - Code being analyzed or edited
 
-    Usually cheaper than output
+    Input tokens are typically cheaper than output tokens.
   </Tab>
 
   <Tab title="Output Tokens">
-    **What AI generates**
+    **What the model generates**
     - Generated code
-    - Explanations
-    - Responses
+    - Explanations and responses
+    - Tool call arguments
 
-    Usually more expensive
+    Output tokens are typically 2x to 5x more expensive than input tokens.
   </Tab>
 </Tabs>
-
-### Model Cost Comparison
-
-| Model | Input | Output | Relative Cost |
-|-------|-------|--------|---------------|
-| GPT-4 Turbo | $$$ | $$$ | High |
-| Claude Opus | $$$ | $$$ | High |
-| GPT-3.5 | $ | $ | Low |
-| Claude Haiku | $ | $ | Low |
-| Qwen 32B | $ | $ | Very Low |
-
-<Info>
-  Exact pricing varies - check provider websites for current rates. Tesslate doesn't mark up model costs.
-</Info>
 
 ### Reducing Costs
 
 <AccordionGroup>
-  <Accordion icon="robot" title="Use Appropriate Models">
-    - GPT-3.5/Haiku for UI
-    - GPT-4/Opus for complex logic
-    - Match model to task complexity
-    - Don't use premium for simple tasks
+  <Accordion icon="robot" title="Match Model to Task Complexity">
+    - Use GPT-3.5 or Claude Haiku for simple UI work and quick iterations
+    - Use GPT-4 or Claude Opus for complex logic, architecture decisions, and debugging
+    - Do not use premium models for tasks that smaller models handle well
   </Accordion>
 
-  <Accordion icon="comments" title="Optimize Prompts">
-    - Be specific and concise
-    - Avoid unnecessary context
-    - Clear, direct requests
-    - Reduce back-and-forth
+  <Accordion icon="comments" title="Optimize Your Prompts">
+    - Be specific and concise in your requests
+    - Avoid sending unnecessary context
+    - Clear chat history when changing topics to reduce input tokens
   </Accordion>
 
-  <Accordion icon="history" title="Clear Context">
-    - Clear chat history when changing topics
-    - Don't carry unnecessary context
-    - Start fresh for new features
-    - Reduce token usage
+  <Accordion icon="key" title="Use BYOK for Heavy Usage">
+    If you use AI models heavily, adding your own API key (BYOK) can be more cost-effective than purchasing platform credits, since you pay provider rates directly.
   </Accordion>
 
-  <Accordion icon="sliders" title="Adjust Parameters">
-    - Lower max_tokens when appropriate
-    - Use temperature 0.3 for predictable tasks
-    - Disable verbose explanations
-    - Request concise responses
+  <Accordion icon="sliders" title="Adjust Agent Parameters">
+    - Lower `max_tokens` when you need shorter responses
+    - Use temperature 0.2 to 0.3 for predictable, focused output
+    - Set per-run cost limits to prevent runaway agent loops (default limit: $5 per run)
   </Accordion>
 </AccordionGroup>
 
 ## Usage Monitoring
 
-### Tracking API Usage
+### In Tesslate Studio
+
+Track your AI usage directly from the billing dashboard:
 
 <Steps>
-  <Step title="Check Provider Dashboard">
-    - OpenAI: platform.openai.com/usage
-    - Anthropic: console.anthropic.com/settings/billing
-    - OpenRouter: openrouter.ai/activity
+  <Step title="Open Billing">
+    Navigate to **Settings > Billing**
   </Step>
 
-  <Step title="Monitor in Tesslate">
-    Coming soon: Built-in usage dashboard
+  <Step title="View Usage Summary">
+    The usage section shows total cost, token counts, and request counts for the current billing period, broken down by model and by agent.
   </Step>
 
-  <Step title="Set Budgets">
-    Configure spending limits in provider dashboards
+  <Step title="View Detailed Logs">
+    Click into usage logs to see individual requests with model, tokens, cost, and timestamp.
   </Step>
 
-  <Step title="Review Regularly">
-    Check usage weekly or monthly
+  <Step title="Check Credit Status">
+    The credit status indicator warns you when your balance drops below 20% of your monthly allowance.
   </Step>
 </Steps>
 
-### Usage Alerts
+### Usage API Endpoints
 
-Set up alerts in provider dashboards:
-- Email when hitting thresholds
-- Warnings at 50%, 75%, 90%
-- Hard limits to prevent overspending
-- Monthly budget caps
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/billing/usage` | Usage summary for a date range, broken down by model and agent |
+| `GET /api/billing/usage/logs` | Detailed per-request usage logs with pagination |
+| `POST /api/billing/usage/sync` | Manually trigger usage sync from LiteLLM |
 
 ## Model Selection Strategy
 
-### By Task Type
-
 <CardGroup cols={2}>
-  <Card title="Simple UI" icon="browser">
+  <Card title="Simple UI Work" icon="browser">
     **Use:** GPT-3.5, Claude Haiku, Qwen
-    - Fast and cheap
-    - Good for visual components
-    - Tailwind CSS
+    Fast, affordable, great for visual components and Tailwind CSS
   </Card>
 
   <Card title="Complex Logic" icon="gears">
     **Use:** GPT-4, Claude Opus
-    - Better reasoning
-    - Handles complexity
-    - Fewer errors
+    Better reasoning, handles complexity, fewer errors in business logic
   </Card>
 
   <Card title="API Integration" icon="plug">
     **Use:** GPT-4 Turbo, Claude Sonnet
-    - Understands APIs
-    - Good error handling
-    - Async patterns
+    Strong understanding of APIs, good error handling, async patterns
   </Card>
 
   <Card title="Debugging" icon="bug">
     **Use:** GPT-4, Claude Opus
-    - Analyzes code deeply
-    - Finds root causes
-    - Suggests fixes
+    Deep code analysis, root cause identification, comprehensive fixes
   </Card>
 </CardGroup>
 
-### By Project Stage
-
-<Tabs>
-  <Tab title="Prototyping">
-    **Fast and cheap**
-    - GPT-3.5 Turbo
-    - Claude Haiku
-    - Qwen models
-    - Quick iterations
-  </Tab>
-
-  <Tab title="Development">
-    **Balanced**
-    - GPT-4 Turbo
-    - Claude Sonnet
-    - Good quality + speed
-    - Most use cases
-  </Tab>
-
-  <Tab title="Production">
-    **Best quality**
-    - GPT-4 Turbo
-    - Claude Opus
-    - Fewer bugs
-    - Better architecture
-  </Tab>
-</Tabs>
-
-## Switching Models
-
-You can switch models anytime:
-
-<Steps>
-  <Step title="Library → Agents">
-    Find the agent to update
-  </Step>
-
-  <Step title="Edit Agent">
-    Click Edit (open-source only)
-  </Step>
-
-  <Step title="Change Model">
-    Select new model from dropdown
-  </Step>
-
-  <Step title="Save">
-    Changes apply immediately
-  </Step>
-
-  <Step title="Test">
-    Try agent with new model
-  </Step>
-</Steps>
-
-<Info>
-  Each agent can use a different model. Mix and match based on needs.
-</Info>
-
-## Best Practices
+## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="target" title="Match Model to Task">
-    Don't use GPT-4 for simple UI - waste of money
-    Don't use GPT-3.5 for complex logic - poor results
-    Choose appropriately for each task
+  <Accordion icon="circle-xmark" title="Invalid API Key Error">
+    **Solutions:**
+    - Verify `LITELLM_MASTER_KEY` is set correctly in the environment
+    - Confirm the LiteLLM proxy is running (test: `curl http://localhost:4000/health`)
+    - Check that your BYOK key is valid and has sufficient credits with the provider
   </Accordion>
 
-  <Accordion icon="vial" title="Test Different Models">
-    Same prompt, different models, different results
-    Test to find best model for your use case
-    Balance cost vs quality
+  <Accordion icon="ban" title="Model Not Available">
+    **Solutions:**
+    - Your subscription tier may not include that model; check the access tier table above
+    - Verify the model is configured in the LiteLLM config
+    - Use `GET /api/billing/config` to see which models are available for your tier
   </Accordion>
 
-  <Accordion icon="chart-line" title="Monitor Costs">
-    Check usage regularly
-    Set budget alerts
-    Optimize expensive operations
-    Review monthly spending
+  <Accordion icon="dollar-sign" title="Budget Exceeded">
+    **Solutions:**
+    - Purchase additional credits from **Settings > Billing**
+    - Upgrade your subscription tier for more bundled credits
+    - Add your own API key (BYOK) to bypass platform credit costs
   </Accordion>
 
-  <Accordion icon="rotate" title="Update Models">
-    New models released regularly
-    Better performance over time
-    Lower costs as prices drop
-    Stay current with updates
+  <Accordion icon="clock" title="Slow Model Responses">
+    **Solutions:**
+    - Switch to a faster model (e.g., Claude Haiku or GPT-3.5 Turbo)
+    - Reduce the `max_tokens` parameter
+    - Clear chat history to reduce input context size
   </Accordion>
 </AccordionGroup>
 
@@ -496,27 +454,27 @@ You can switch models anytime:
     icon="key"
     href="/guides/api-keys"
   >
-    Set up your API keys
+    Set up your AI provider keys for BYOK
   </Card>
   <Card
-    title="Customizing Agents"
-    icon="sliders"
-    href="/guides/customizing-agents"
+    title="Billing"
+    icon="credit-card"
+    href="/guides/billing"
   >
-    Create custom agents with specific models
+    Understand credits, tiers, and cost management
   </Card>
   <Card
     title="Using Agents"
     icon="robot"
     href="/guides/using-agents"
   >
-    Get the most from your agents
+    Get the most from your AI agents
   </Card>
   <Card
-    title="Library"
-    icon="books"
-    href="/guides/library"
+    title="Customizing Agents"
+    icon="sliders"
+    href="/guides/customizing-agents"
   >
-    Manage your agent library
+    Create custom agents with specific models and parameters
   </Card>
 </CardGroup>

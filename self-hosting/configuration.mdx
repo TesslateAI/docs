@@ -1,528 +1,700 @@
 ---
 title: 'Configuration'
-description: 'Complete reference for all Tesslate Studio environment variables and configuration options'
+description: 'Complete reference for all Tesslate Studio environment variables, grouped by category with examples'
 ---
 
-## Configuration File
+## Overview
 
-All configuration is done through the `.env` file in the root directory. Start by copying the example:
+All configuration for Tesslate Studio is managed through environment variables, typically stored in a `.env` file in the project root. This page documents every available variable, organized by category, with clear labels for which are **required** and which are **optional**.
+
+To get started, copy the example file:
 
 ```bash
 cp .env.example .env
 ```
 
+Then edit `.env` with your preferred text editor.
+
+<Info>
+  After changing any environment variable, restart the affected service for the change to take effect:
+  ```bash
+  docker compose restart orchestrator
+  ```
+</Info>
+
 ## Required Variables
 
-These variables must be set for Tesslate Studio to function.
+These variables **must** be set for Tesslate Studio to start. Without them, the orchestrator will fail on boot.
 
-### SECRET_KEY
+### Application Secrets
 
 <ParamField path="SECRET_KEY" type="string" required>
-  Secret key for JWT token signing and session encryption.
+  Used for JWT token signing, session encryption, and Fernet encryption of stored credentials (GitHub tokens, deployment OAuth tokens). Must be a long, random string. Never reuse this across environments.
 </ParamField>
 
-**Generate:**
+**Generate a secure key:**
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 **Example:**
 ```env
-SECRET_KEY=your-generated-secret-key-here
+SECRET_KEY=dGhpcyBpcyBhIHNlY3JldCBrZXkgZm9yIGRlbW8gcHVycG9zZXM
 ```
 
-### LITELLM_MASTER_KEY
+<Warning>
+  If you change `SECRET_KEY` on a running instance, all existing JWT tokens and encrypted credentials will become invalid. Users will need to log in again, and OAuth connections will need to be re-authorized.
+</Warning>
+
+### AI / LLM Configuration
+
+<ParamField path="LITELLM_API_BASE" type="string" required>
+  The base URL of your LiteLLM proxy or compatible API endpoint. This is where the orchestrator sends all LLM requests.
+</ParamField>
 
 <ParamField path="LITELLM_MASTER_KEY" type="string" required>
-  Master key for LiteLLM proxy authentication.
+  Authentication key for the LiteLLM proxy. Used by the backend to authorize requests.
 </ParamField>
 
-**Generate:**
-```bash
-python -c "import secrets; print('sk-' + secrets.token_urlsafe(32))"
-```
-
-**Example:**
 ```env
+LITELLM_API_BASE=https://your-litellm-proxy.com/v1
 LITELLM_MASTER_KEY=sk-your-litellm-master-key
 ```
 
-### AI Provider API Keys
+<Accordion title="Using direct provider API keys instead of a LiteLLM proxy?">
+  If you are running a LiteLLM proxy that routes to provider APIs, configure the provider keys on the proxy itself. Tesslate Studio communicates only with the LiteLLM endpoint; it does not send keys directly to OpenAI or Anthropic.
 
-<Info>
-  At least one AI provider API key is required for Tesslate Studio to generate code.
-</Info>
+  If you run the built-in LiteLLM instance (included in some deployment configurations), you can set provider keys as environment variables on that service:
+
+  ```env
+  OPENAI_API_KEY=sk-your-openai-key
+  ANTHROPIC_API_KEY=sk-your-anthropic-key
+  ```
+</Accordion>
+
+## Database Configuration
+
+<ParamField path="DATABASE_URL" type="string" default="postgresql+asyncpg://tesslate:tesslate@postgres:5432/tesslate">
+  PostgreSQL connection string using the `asyncpg` driver. For Docker Compose, the default value connects to the bundled PostgreSQL container. For production, point this at a managed database (Amazon RDS, Supabase, etc.).
+</ParamField>
+
+<ParamField path="POSTGRES_PASSWORD" type="string" default="dev_password_change_me">
+  Password for the PostgreSQL container (Docker Compose only). This value is used both to initialize the database and in the `DATABASE_URL`.
+</ParamField>
+
+<ParamField path="POSTGRES_USER" type="string" default="tesslate">
+  PostgreSQL username (Docker Compose only).
+</ParamField>
+
+<ParamField path="POSTGRES_DB" type="string" default="tesslate">
+  PostgreSQL database name (Docker Compose only).
+</ParamField>
 
 <Tabs>
-  <Tab title="OpenAI">
+  <Tab title="Docker Compose (local)">
     ```env
-    OPENAI_API_KEY=sk-your-openai-key
+    # The default works out of the box.
+    DATABASE_URL=postgresql+asyncpg://tesslate:tesslate@postgres:5432/tesslate
+    POSTGRES_PASSWORD=dev_password_change_me
     ```
-    Supports GPT-5, GPT-4, and GPT-3.5 models.
   </Tab>
 
-  <Tab title="Anthropic">
+  <Tab title="External / Managed Database">
     ```env
-    ANTHROPIC_API_KEY=sk-your-anthropic-key
+    DATABASE_URL=postgresql+asyncpg://admin:StrongPassword123@db.example.com:5432/tesslate
+    # POSTGRES_PASSWORD is not needed when using an external database.
     ```
-    Supports Claude 3.5 and Claude 3 models.
   </Tab>
 
-  <Tab title="Google">
+  <Tab title="AWS RDS">
     ```env
-    GOOGLE_API_KEY=your-google-api-key
-    ```
-    Supports Gemini Pro and Gemini Flash models.
-  </Tab>
-
-  <Tab title="Azure OpenAI">
-    ```env
-    AZURE_API_KEY=your-azure-key
-    AZURE_API_BASE=https://your-resource.openai.azure.com
-    AZURE_API_VERSION=2024-02-15-preview
+    DATABASE_URL=postgresql+asyncpg://tesslate:STRONG_PASSWORD@tesslate-db.xxxx.us-east-1.rds.amazonaws.com:5432/tesslate
     ```
   </Tab>
 </Tabs>
 
-## Optional Variables
-
-### Application Settings
-
-<ParamField path="APP_DOMAIN" type="string" default="studio.localhost">
-  Domain where Tesslate Studio is hosted.
-</ParamField>
-
-```env
-# Local development
-APP_DOMAIN=studio.localhost
-
-# Production
-APP_DOMAIN=studio.yourcompany.com
-```
-
-<ParamField path="APP_PROTOCOL" type="string" default="http">
-  Protocol for accessing the application. Options: `http`, `https`
-</ParamField>
-
-```env
-# Local
-APP_PROTOCOL=http
-
-# Production with SSL
-APP_PROTOCOL=https
-```
-
-<ParamField path="FRONTEND_URL" type="string" default="http://studio.localhost">
-  Full URL where the frontend is accessible.
-</ParamField>
-
-```env
-FRONTEND_URL=https://studio.yourcompany.com
-```
-
-### Database Configuration
-
-<ParamField path="DATABASE_URL" type="string" default="postgresql+asyncpg://tesslate:tesslate_password@postgres:5432/tesslate_db">
-  PostgreSQL connection string in asyncpg format.
-</ParamField>
-
-```env
-# Docker default (no change needed)
-DATABASE_URL=postgresql+asyncpg://tesslate:tesslate_password@postgres:5432/tesslate_db
-
-# External managed database
-DATABASE_URL=postgresql+asyncpg://admin:secure_pass@db.yourcompany.com:5432/tesslate
-```
-
-<ParamField path="POSTGRES_USER" type="string" default="tesslate">
-  PostgreSQL username (Docker only).
-</ParamField>
-
-<ParamField path="POSTGRES_PASSWORD" type="string" default="tesslate_password">
-  PostgreSQL password (Docker only).
-</ParamField>
-
 <Warning>
-  Change the default password in production environments!
+  Always change the default password in production. The Docker Compose default is for local development only.
 </Warning>
 
-<ParamField path="POSTGRES_DB" type="string" default="tesslate_db">
-  PostgreSQL database name (Docker only).
-</ParamField>
-
-### LiteLLM Configuration
-
-<ParamField path="LITELLM_DEFAULT_MODELS" type="string" default="gpt-5o-mini,claude-3-haiku,gemini-pro">
-  Comma-separated list of default AI models.
-</ParamField>
-
-```env
-# Use only GPT-5 models
-LITELLM_DEFAULT_MODELS=gpt-5o,gpt-5o-mini
-
-# Mix of providers
-LITELLM_DEFAULT_MODELS=gpt-5o-mini,claude-3-haiku,gemini-flash
-```
-
-<ParamField path="LITELLM_INITIAL_BUDGET" type="number" default="10.0">
-  Initial API budget per user in USD.
-</ParamField>
-
-```env
-# $50 initial budget
-LITELLM_INITIAL_BUDGET=50.0
-```
-
-<ParamField path="LITELLM_PROXY_URL" type="string" default="http://litellm:4000">
-  LiteLLM proxy endpoint URL.
-</ParamField>
-
-```env
-# External LiteLLM instance
-LITELLM_PROXY_URL=http://litellm.yourcompany.com:4000
-```
-
-### Deployment Mode
-
-<ParamField path="DEPLOYMENT_MODE" type="string" default="docker">
-  Container orchestration system to use. Options: `docker`, `kubernetes`
-</ParamField>
-
-```env
-# Local development with Docker + Traefik
-DEPLOYMENT_MODE=docker
-
-# Production with Kubernetes
-DEPLOYMENT_MODE=kubernetes
-```
-
-<Info>
-  Docker mode uses Docker Compose with Traefik for subdomain routing. Kubernetes mode uses K8s with NGINX Ingress and supports auto-scaling.
-</Info>
-
-### Application Domain
+## Authentication & Security
 
 <ParamField path="APP_DOMAIN" type="string" default="localhost">
-  Domain where Tesslate Studio is hosted (without protocol).
+  The domain where Tesslate Studio is hosted, without protocol. Used for CORS configuration, cookie scoping, and generating project URLs.
 </ParamField>
 
-<ParamField path="APP_BASE_URL" type="string">
-  Full URL with protocol for OAuth redirects.
+<ParamField path="COOKIE_DOMAIN" type="string" default="">
+  Domain for setting authentication cookies. Leave empty for localhost. For production, prefix with a dot to cover subdomains (e.g., `.studio.yourcompany.com`).
+</ParamField>
+
+<ParamField path="COOKIE_SECURE" type="boolean" default="false">
+  Set to `true` when using HTTPS in production. This ensures cookies are only sent over secure connections.
+</ParamField>
+
+<ParamField path="CORS_ORIGINS" type="string" default="">
+  Comma-separated list of allowed origins for CORS. The orchestrator also dynamically allows `APP_DOMAIN` and its subdomains.
 </ParamField>
 
 ```env
 # Local development
 APP_DOMAIN=localhost
-APP_BASE_URL=http://localhost
+COOKIE_DOMAIN=
+COOKIE_SECURE=false
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 
 # Production
 APP_DOMAIN=studio.yourcompany.com
-APP_BASE_URL=https://studio.yourcompany.com
+COOKIE_DOMAIN=.studio.yourcompany.com
+COOKIE_SECURE=true
+CORS_ORIGINS=https://studio.yourcompany.com
 ```
 
-### Auto-Seeding
+### CSRF Protection
 
-<ParamField path="AUTO_SEED_DATABASE" type="boolean" default="true">
-  Automatically seed database with agents and templates on startup.
+Tesslate Studio uses a double-submit cookie pattern for CSRF protection. This is handled automatically; no configuration is needed. The CSRF token is set in a JavaScript-readable cookie, and the frontend sends it back in the `X-CSRF-Token` header.
+
+### Encryption
+
+<ParamField path="DEPLOYMENT_ENCRYPTION_KEY" type="string">
+  Optional Fernet key for encrypting deployment provider credentials (Vercel, Netlify, Cloudflare OAuth tokens). If not set, derived from `SECRET_KEY`.
 </ParamField>
 
-```env
-# Enable auto-seeding (recommended)
-AUTO_SEED_DATABASE=true
+## OAuth Providers (Social Login)
 
-# Disable for manual control
-AUTO_SEED_DATABASE=false
-```
-
-**What gets seeded:**
-- 4 marketplace agents (Stream Builder, Full Stack Agent, etc.)
-- 3 project templates (Next.js, Vite+React+FastAPI, Vite+React+Go)
-- 6 open-source customizable agents
-
-### OAuth Configuration
-
-Configure OAuth providers for social login and integrations.
+Configure OAuth for GitHub and Google login. Without these, only email/password authentication is available.
 
 <Tabs>
   <Tab title="GitHub">
     <ParamField path="GITHUB_CLIENT_ID" type="string">
-      GitHub OAuth app client ID.
+      GitHub OAuth application client ID.
     </ParamField>
 
     <ParamField path="GITHUB_CLIENT_SECRET" type="string">
-      GitHub OAuth app client secret.
+      GitHub OAuth application client secret.
     </ParamField>
 
     <ParamField path="GITHUB_OAUTH_REDIRECT_URI" type="string">
-      Callback URL for GitHub OAuth.
+      Callback URL registered in your GitHub OAuth app settings.
     </ParamField>
 
     ```env
     GITHUB_CLIENT_ID=your-github-client-id
     GITHUB_CLIENT_SECRET=your-github-client-secret
-    GITHUB_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/auth/github/callback
+
+    # Local development
+    GITHUB_OAUTH_REDIRECT_URI=http://localhost/api/auth/github/callback
+
+    # Production
+    GITHUB_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/api/auth/github/callback
     ```
 
     <Info>
-      Create OAuth app at https://github.com/settings/developers
+      Create a GitHub OAuth app at [github.com/settings/developers](https://github.com/settings/developers). Set the Authorization callback URL to match `GITHUB_OAUTH_REDIRECT_URI`.
     </Info>
   </Tab>
 
   <Tab title="Google">
     <ParamField path="GOOGLE_CLIENT_ID" type="string">
-      Google OAuth client ID.
+      Google OAuth 2.0 client ID.
     </ParamField>
 
     <ParamField path="GOOGLE_CLIENT_SECRET" type="string">
-      Google OAuth client secret.
+      Google OAuth 2.0 client secret.
     </ParamField>
 
     <ParamField path="GOOGLE_OAUTH_REDIRECT_URI" type="string">
-      Callback URL for Google OAuth.
+      Callback URL registered in your Google Cloud Console.
     </ParamField>
 
     ```env
-    GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+    GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
     GOOGLE_CLIENT_SECRET=your-google-client-secret
-    GOOGLE_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/auth/google/callback
+
+    # Local development
+    GOOGLE_OAUTH_REDIRECT_URI=http://localhost/api/auth/google/callback
+
+    # Production
+    GOOGLE_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/api/auth/google/callback
     ```
 
     <Info>
-      Create OAuth credentials at https://console.cloud.google.com/apis/credentials
+      Create OAuth credentials at [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials).
     </Info>
   </Tab>
 </Tabs>
 
-### Stripe Billing (Optional)
+## AI / LLM Settings
 
-Configure Stripe for subscription billing and marketplace payments.
-
-<ParamField path="STRIPE_SECRET_KEY" type="string">
-  Stripe API secret key.
-</ParamField>
-
-<ParamField path="STRIPE_PUBLISHABLE_KEY" type="string">
-  Stripe publishable key for frontend.
-</ParamField>
-
-<ParamField path="STRIPE_WEBHOOK_SECRET" type="string">
-  Webhook signing secret for Stripe events.
+<ParamField path="LITELLM_DEFAULT_MODELS" type="string" default="">
+  Comma-separated list of model identifiers to offer users in the model selector. These must match models configured on your LiteLLM proxy.
 </ParamField>
 
 ```env
-STRIPE_SECRET_KEY=sk_live_your-stripe-secret-key
-STRIPE_PUBLISHABLE_KEY=pk_live_your-stripe-publishable-key
-STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
-STRIPE_PREMIUM_PRICE_ID=price_your-premium-plan-id
+# Single provider
+LITELLM_DEFAULT_MODELS=claude-3-5-sonnet-20241022
+
+# Multiple providers
+LITELLM_DEFAULT_MODELS=gpt-4o-mini,claude-3-5-sonnet-20241022,qwen-3-235b-a22b-thinking-2507
 ```
 
-### S3 Storage (Kubernetes Only)
+**Supported model providers** (via LiteLLM):
 
-Required for Kubernetes deployments using the S3 Sandwich pattern.
+| Provider | Example Models |
+|----------|---------------|
+| OpenAI | `gpt-4`, `gpt-3.5-turbo`, `gpt-4o-mini` |
+| Anthropic | `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229` |
+| Custom / Self-hosted | `qwen-3-235b-a22b-thinking-2507` |
 
-<ParamField path="S3_ACCESS_KEY_ID" type="string">
-  S3 access key ID.
+## Deployment Mode
+
+<ParamField path="DEPLOYMENT_MODE" type="string" default="docker">
+  Controls which container orchestration backend the orchestrator uses. Options: `docker` or `kubernetes`.
 </ParamField>
 
-<ParamField path="S3_SECRET_ACCESS_KEY" type="string">
-  S3 secret access key.
+```env
+# Local development (Docker Compose + Traefik)
+DEPLOYMENT_MODE=docker
+
+# Production or Minikube testing (Kubernetes + NGINX Ingress)
+DEPLOYMENT_MODE=kubernetes
+```
+
+<Info>
+  The orchestrator automatically adapts its behavior based on this value. No code changes are needed to switch between modes. See the [Deployment Guide](/self-hosting/deployment) for details.
+</Info>
+
+## Container Runtime (Docker Mode)
+
+These settings apply when `DEPLOYMENT_MODE=docker`.
+
+<ParamField path="DEV_SERVER_BASE_URL" type="string" default="http://localhost">
+  Base URL used for routing to user project containers in Docker mode.
 </ParamField>
+
+<ParamField path="APP_PORT" type="number" default="80">
+  Host port for Traefik (HTTP).
+</ParamField>
+
+<ParamField path="BACKEND_PORT" type="number" default="8000">
+  Host port for the backend API.
+</ParamField>
+
+<ParamField path="FRONTEND_PORT" type="number" default="5173">
+  Host port for the Vite dev server.
+</ParamField>
+
+```env
+DEPLOYMENT_MODE=docker
+DEV_SERVER_BASE_URL=http://localhost
+APP_PORT=80
+BACKEND_PORT=8000
+FRONTEND_PORT=5173
+```
+
+## Container Runtime (Kubernetes Mode)
+
+These settings apply when `DEPLOYMENT_MODE=kubernetes`.
+
+### Core Kubernetes Settings
+
+<ParamField path="K8S_DEVSERVER_IMAGE" type="string" required>
+  Docker image used for user project containers. For Minikube, use a local image name. For AWS EKS, use a full ECR URL.
+</ParamField>
+
+<ParamField path="K8S_IMAGE_PULL_SECRET" type="string" default="">
+  Name of the Kubernetes image pull secret for private registries. Leave empty for local images (Minikube with `imagePullPolicy: Never`).
+</ParamField>
+
+<ParamField path="K8S_STORAGE_CLASS" type="string" default="tesslate-block-storage">
+  Kubernetes StorageClass for user project PVCs.
+</ParamField>
+
+<ParamField path="K8S_PVC_SIZE" type="string" default="10Gi">
+  Size of the PersistentVolumeClaim created for each user project.
+</ParamField>
+
+<Tabs>
+  <Tab title="Minikube (local testing)">
+    ```env
+    DEPLOYMENT_MODE=kubernetes
+    K8S_DEVSERVER_IMAGE=tesslate-devserver:latest
+    K8S_IMAGE_PULL_SECRET=
+    K8S_STORAGE_CLASS=standard
+    ```
+  </Tab>
+
+  <Tab title="AWS EKS (production)">
+    ```env
+    DEPLOYMENT_MODE=kubernetes
+    K8S_DEVSERVER_IMAGE=859561299901.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
+    K8S_IMAGE_PULL_SECRET=ecr-credentials
+    K8S_STORAGE_CLASS=tesslate-block-storage
+    ```
+  </Tab>
+</Tabs>
+
+### Snapshot / Hibernation Settings
+
+These control the EBS VolumeSnapshot-based persistence system used in Kubernetes mode for hibernating and restoring user projects.
+
+<ParamField path="K8S_SNAPSHOT_CLASS" type="string" default="tesslate-ebs-snapshots">
+  VolumeSnapshotClass name for creating EBS snapshots.
+</ParamField>
+
+<ParamField path="K8S_SNAPSHOT_RETENTION_DAYS" type="number" default="30">
+  Number of days to retain soft-deleted snapshots before permanent deletion.
+</ParamField>
+
+<ParamField path="K8S_MAX_SNAPSHOTS_PER_PROJECT" type="number" default="5">
+  Maximum number of snapshots kept per project (for the Timeline UI).
+</ParamField>
+
+<ParamField path="K8S_SNAPSHOT_READY_TIMEOUT_SECONDS" type="number" default="90">
+  Maximum time (in seconds) to wait for a VolumeSnapshot to become ready.
+</ParamField>
+
+<ParamField path="K8S_HIBERNATION_IDLE_MINUTES" type="number" default="10">
+  Minutes of inactivity before a project is automatically hibernated (snapshot taken, namespace deleted).
+</ParamField>
+
+```env
+K8S_SNAPSHOT_CLASS=tesslate-ebs-snapshots
+K8S_SNAPSHOT_RETENTION_DAYS=30
+K8S_MAX_SNAPSHOTS_PER_PROJECT=5
+K8S_HIBERNATION_IDLE_MINUTES=10
+```
+
+### Networking and Ingress
+
+<ParamField path="K8S_INGRESS_CLASS" type="string" default="nginx">
+  Ingress class for user project Ingress resources.
+</ParamField>
+
+<ParamField path="K8S_WILDCARD_TLS_SECRET" type="string" default="">
+  Name of the Kubernetes TLS secret containing the wildcard certificate. Leave empty for HTTP-only (Minikube).
+</ParamField>
+
+<ParamField path="K8S_ENABLE_POD_AFFINITY" type="boolean" default="true">
+  When enabled, all containers in a multi-container project are scheduled on the same node. Required for sharing ReadWriteOnce PVCs.
+</ParamField>
+
+<ParamField path="K8S_ENABLE_NETWORK_POLICIES" type="boolean" default="true">
+  When enabled, creates NetworkPolicy resources that enforce zero cross-project communication.
+</ParamField>
+
+```env
+K8S_INGRESS_CLASS=nginx
+K8S_WILDCARD_TLS_SECRET=tesslate-wildcard-tls
+K8S_ENABLE_POD_AFFINITY=true
+K8S_ENABLE_NETWORK_POLICIES=true
+```
+
+## S3 / Object Storage
+
+Used in Kubernetes mode for legacy project storage. The current primary persistence mechanism uses EBS VolumeSnapshots, but S3 configuration is still relevant for asset storage.
 
 <ParamField path="S3_BUCKET_NAME" type="string" default="tesslate-projects">
   S3 bucket name for project storage.
 </ParamField>
 
-<ParamField path="S3_ENDPOINT_URL" type="string">
-  S3 endpoint URL. Leave empty for AWS S3, set for MinIO or DigitalOcean Spaces.
+<ParamField path="S3_ENDPOINT_URL" type="string" default="">
+  S3 endpoint URL. Leave empty for native AWS S3. Set to a MinIO URL for local development or a DigitalOcean Spaces URL for DO deployments.
 </ParamField>
 
 <ParamField path="S3_REGION" type="string" default="us-east-1">
-  S3 region for signature calculation.
+  AWS region for S3 signature calculation.
+</ParamField>
+
+<ParamField path="S3_ACCESS_KEY_ID" type="string">
+  S3 access key. Not needed on AWS EKS when using IRSA (IAM Roles for Service Accounts).
+</ParamField>
+
+<ParamField path="S3_SECRET_ACCESS_KEY" type="string">
+  S3 secret key. Not needed on AWS EKS when using IRSA.
+</ParamField>
+
+<Tabs>
+  <Tab title="AWS S3 (with IRSA)">
+    ```env
+    S3_BUCKET_NAME=tesslate-projects-production-7761157a
+    S3_REGION=us-east-1
+    # No access keys needed; IRSA handles authentication.
+    ```
+  </Tab>
+
+  <Tab title="MinIO (Minikube local)">
+    ```env
+    S3_ENDPOINT_URL=http://minio.minio-system.svc.cluster.local:9000
+    S3_BUCKET_NAME=tesslate-projects
+    S3_ACCESS_KEY_ID=minioadmin
+    S3_SECRET_ACCESS_KEY=minioadmin
+    ```
+  </Tab>
+
+  <Tab title="DigitalOcean Spaces">
+    ```env
+    S3_ENDPOINT_URL=https://nyc3.digitaloceanspaces.com
+    S3_BUCKET_NAME=your-space-name
+    S3_REGION=nyc3
+    S3_ACCESS_KEY_ID=your-access-key
+    S3_SECRET_ACCESS_KEY=your-secret-key
+    ```
+  </Tab>
+</Tabs>
+
+## Billing (Stripe)
+
+Optional. Configure Stripe for subscription billing, credit purchases, and marketplace creator payouts.
+
+<ParamField path="STRIPE_SECRET_KEY" type="string">
+  Stripe API secret key (starts with `sk_test_` or `sk_live_`).
+</ParamField>
+
+<ParamField path="STRIPE_PUBLISHABLE_KEY" type="string">
+  Stripe publishable key for the frontend (starts with `pk_test_` or `pk_live_`).
+</ParamField>
+
+<ParamField path="STRIPE_WEBHOOK_SECRET" type="string">
+  Webhook signing secret for validating Stripe event payloads (starts with `whsec_`).
 </ParamField>
 
 ```env
-# AWS S3
-S3_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-S3_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-S3_BUCKET_NAME=tesslate-projects
-S3_REGION=us-east-1
+# Test mode
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key
+STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-publishable-key
+STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
 
-# DigitalOcean Spaces
-S3_ENDPOINT_URL=https://nyc3.digitaloceanspaces.com
-S3_BUCKET_NAME=your-space-name
-S3_REGION=nyc3
-
-# MinIO (local development)
-S3_ENDPOINT_URL=http://minio:9000
-S3_BUCKET_NAME=tesslate-projects
+# For local webhook testing, use the Stripe CLI:
+# stripe listen --forward-to localhost:8000/api/webhooks/stripe
 ```
 
-### Kubernetes Settings
+## Email / SMTP
 
-Configuration for Kubernetes deployments.
+Optional. Configure SMTP for email-based two-factor authentication and password reset flows.
 
-<ParamField path="K8S_DEVSERVER_IMAGE" type="string">
-  Docker image for user project containers.
+<ParamField path="SMTP_HOST" type="string">
+  SMTP server hostname.
 </ParamField>
 
-<ParamField path="K8S_IMAGE_PULL_SECRET" type="string">
-  Kubernetes secret name for private registry authentication.
+<ParamField path="SMTP_PORT" type="number" default="587">
+  SMTP server port.
 </ParamField>
 
-<ParamField path="K8S_STORAGE_CLASS" type="string" default="tesslate-block-storage">
-  Kubernetes storage class for PVCs.
+<ParamField path="SMTP_USERNAME" type="string">
+  SMTP authentication username.
 </ParamField>
 
-<ParamField path="K8S_USE_S3_STORAGE" type="boolean" default="true">
-  Enable S3 Sandwich pattern for project storage.
+<ParamField path="SMTP_PASSWORD" type="string">
+  SMTP authentication password.
+</ParamField>
+
+<ParamField path="SMTP_SENDER_EMAIL" type="string">
+  The "From" address for outgoing emails.
+</ParamField>
+
+<ParamField path="TWO_FA_ENABLED" type="boolean" default="false">
+  Enable email-based two-factor authentication for user logins.
 </ParamField>
 
 ```env
-# Production (DigitalOcean)
-K8S_DEVSERVER_IMAGE=registry.digitalocean.com/your-registry/tesslate-devserver:latest
-K8S_IMAGE_PULL_SECRET=your-registry-secret
-K8S_STORAGE_CLASS=do-block-storage
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_SENDER_EMAIL=noreply@yourcompany.com
+TWO_FA_ENABLED=true
+```
 
-# AWS EKS
-K8S_DEVSERVER_IMAGE=123456789.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
-K8S_IMAGE_PULL_SECRET=ecr-credentials
-K8S_STORAGE_CLASS=gp3
+## Analytics
 
-# Minikube (local)
+<ParamField path="VITE_PUBLIC_POSTHOG_KEY" type="string">
+  PostHog project API key for frontend analytics.
+</ParamField>
+
+<ParamField path="VITE_PUBLIC_POSTHOG_HOST" type="string" default="https://us.i.posthog.com">
+  PostHog instance URL.
+</ParamField>
+
+```env
+VITE_PUBLIC_POSTHOG_KEY=phc_your_posthog_key
+VITE_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
+
+## Logging
+
+<ParamField path="LOG_LEVEL" type="string" default="INFO">
+  Application logging level. Options: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+</ParamField>
+
+```env
+# Development (verbose output)
+LOG_LEVEL=DEBUG
+
+# Production (normal output)
+LOG_LEVEL=INFO
+```
+
+Log format: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
+
+Key loggers include `app.main`, `app.services.orchestration.kubernetes_orchestrator`, `app.agent.stream_agent`, and `app.routers.*`.
+
+## Configuration Profiles
+
+Here are complete example configurations for common scenarios:
+
+<CodeGroup>
+```env Docker (Local Development)
+# Deployment
+DEPLOYMENT_MODE=docker
+DEV_SERVER_BASE_URL=http://localhost
+
+# Database (uses bundled PostgreSQL)
+DATABASE_URL=postgresql+asyncpg://tesslate:tesslate@postgres:5432/tesslate
+POSTGRES_PASSWORD=dev_password_change_me
+
+# Auth
+SECRET_KEY=your-dev-secret-key
+
+# AI
+LITELLM_API_BASE=https://your-litellm.com/v1
+LITELLM_MASTER_KEY=sk-your-master-key
+LITELLM_DEFAULT_MODELS=gpt-4o-mini,claude-3-5-sonnet-20241022
+
+# Domain
+APP_DOMAIN=localhost
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+# Logging
+LOG_LEVEL=DEBUG
+```
+
+```env Kubernetes (Minikube)
+# Deployment
+DEPLOYMENT_MODE=kubernetes
+
+# Database (in-cluster)
+DATABASE_URL=postgresql+asyncpg://tesslate:tesslate@postgres:5432/tesslate
+
+# Auth
+SECRET_KEY=your-dev-secret-key
+
+# AI
+LITELLM_API_BASE=https://your-litellm.com/v1
+LITELLM_MASTER_KEY=sk-your-master-key
+
+# Kubernetes
 K8S_DEVSERVER_IMAGE=tesslate-devserver:latest
 K8S_IMAGE_PULL_SECRET=
 K8S_STORAGE_CLASS=standard
+
+# Domain
+APP_DOMAIN=localhost
+COOKIE_DOMAIN=
+CORS_ORIGINS=http://localhost:5000
 ```
 
-### Logging
+```env Kubernetes (AWS EKS Production)
+# Deployment
+DEPLOYMENT_MODE=kubernetes
 
-<ParamField path="LOG_LEVEL" type="string" default="INFO">
-  Application logging level. Options: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
-</ParamField>
+# Database (RDS)
+DATABASE_URL=postgresql+asyncpg://tesslate:STRONG_PASSWORD@tesslate-db.xxxx.us-east-1.rds.amazonaws.com:5432/tesslate
 
-```env
-# Development
-LOG_LEVEL=DEBUG
+# Auth
+SECRET_KEY=STRONG_RANDOM_SECRET_KEY_PRODUCTION
+COOKIE_DOMAIN=.studio.yourcompany.com
+COOKIE_SECURE=true
 
-# Production
-LOG_LEVEL=INFO
-```
+# AI
+LITELLM_API_BASE=https://your-litellm.com/v1
+LITELLM_MASTER_KEY=sk-production-master-key
 
-## Production Configuration
-
-Recommended settings for production deployments:
-
-```env
-# Security
-SECRET_KEY=<strong-random-key>
-LITELLM_MASTER_KEY=sk-<strong-random-key>
+# Kubernetes
+K8S_DEVSERVER_IMAGE=859561299901.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
+K8S_IMAGE_PULL_SECRET=ecr-credentials
+K8S_STORAGE_CLASS=tesslate-block-storage
+K8S_SNAPSHOT_CLASS=tesslate-ebs-snapshots
+K8S_WILDCARD_TLS_SECRET=tesslate-wildcard-tls
 
 # Domain
 APP_DOMAIN=studio.yourcompany.com
-APP_PROTOCOL=https
-FRONTEND_URL=https://studio.yourcompany.com
+CORS_ORIGINS=https://studio.yourcompany.com
 
-# Database (use managed service)
-DATABASE_URL=postgresql+asyncpg://user:pass@managed-db.provider.com:5432/tesslate
+# OAuth (production credentials)
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/api/auth/github/callback
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=https://studio.yourcompany.com/api/auth/google/callback
+
+# Stripe
+STRIPE_SECRET_KEY=sk_live_your-key
+STRIPE_PUBLISHABLE_KEY=pk_live_your-key
+STRIPE_WEBHOOK_SECRET=whsec_your-secret
 
 # Logging
 LOG_LEVEL=INFO
-
-# Auto-seed (optional in production)
-AUTO_SEED_DATABASE=false
-```
-
-## Local AI Models (Ollama)
-
-To use local AI models with Ollama:
-
-<Steps>
-  <Step title="Install Ollama">
-    Download from [ollama.ai/download](https://ollama.ai/download)
-  </Step>
-
-  <Step title="Pull a model">
-    ```bash
-    ollama pull llama2
-    ```
-  </Step>
-
-  <Step title="Configure LiteLLM">
-    ```env
-    LITELLM_DEFAULT_MODELS=ollama/llama2
-    ```
-  </Step>
-</Steps>
-
-## Configuration Examples
-
-<CodeGroup>
-```env Minimal Setup (Free)
-SECRET_KEY=<generated>
-LITELLM_MASTER_KEY=sk-<generated>
-# No paid API keys - use local models
-LITELLM_DEFAULT_MODELS=ollama/llama2
-```
-
-```env Development
-SECRET_KEY=dev-secret-key-not-for-production
-LITELLM_MASTER_KEY=sk-dev-master-key
-OPENAI_API_KEY=sk-your-dev-key
-LOG_LEVEL=DEBUG
-AUTO_SEED_DATABASE=true
-```
-
-```env Production
-SECRET_KEY=<strong-random-key>
-LITELLM_MASTER_KEY=sk-<strong-random-key>
-APP_DOMAIN=studio.company.com
-APP_PROTOCOL=https
-OPENAI_API_KEY=sk-your-prod-key
-ANTHROPIC_API_KEY=sk-your-prod-key
-DATABASE_URL=postgresql+asyncpg://user:pass@managed-db:5432/tesslate
-LOG_LEVEL=INFO
-AUTO_SEED_DATABASE=false
 ```
 </CodeGroup>
+
+## Environment Comparison Table
+
+| Setting | Docker (Local) | Kubernetes (Minikube) | Kubernetes (AWS EKS) |
+|---------|---------------|----------------------|---------------------|
+| `DEPLOYMENT_MODE` | `docker` | `kubernetes` | `kubernetes` |
+| `K8S_DEVSERVER_IMAGE` | N/A | `tesslate-devserver:latest` | `<ECR_URL>/tesslate-devserver:latest` |
+| `K8S_IMAGE_PULL_SECRET` | N/A | (empty) | `ecr-credentials` |
+| `K8S_STORAGE_CLASS` | N/A | `standard` | `tesslate-block-storage` |
+| `K8S_WILDCARD_TLS_SECRET` | N/A | (empty, HTTP only) | `tesslate-wildcard-tls` |
+| `APP_DOMAIN` | `localhost` | `localhost` | `studio.yourcompany.com` |
+| `COOKIE_DOMAIN` | (empty) | (empty) | `.studio.yourcompany.com` |
+| `COOKIE_SECURE` | `false` | `false` | `true` |
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="Invalid SECRET_KEY">
-    **Problem:** SECRET_KEY is missing or invalid.
+  <Accordion title="Invalid or missing SECRET_KEY">
+    **Symptom:** The orchestrator crashes on startup with a key-related error.
 
-    **Solution:** Generate a new key and update `.env`:
+    **Fix:** Generate a new key and update `.env`:
     ```bash
-    python -c "import secrets; print(secrets.token_urlsafe(32))"
+    python3 -c "import secrets; print(secrets.token_urlsafe(32))"
     ```
+    Then restart: `docker compose restart orchestrator`
   </Accordion>
 
   <Accordion title="Database connection failed">
-    **Problem:** PostgreSQL is not accessible.
+    **Symptom:** Errors about PostgreSQL not being accessible.
 
-    **Solution:**
+    **Fix:**
     ```bash
     # Check if postgres container is running
     docker compose ps postgres
 
-    # Restart database
-    docker compose restart postgres
-
-    # Check logs
+    # Check logs for details
     docker compose logs postgres
+
+    # Restart the database
+    docker compose restart postgres
     ```
+    Verify that `DATABASE_URL` in `.env` matches the actual database credentials.
   </Accordion>
 
-  <Accordion title="API key not found">
-    **Problem:** Missing or invalid AI provider API key.
+  <Accordion title="AI models not appearing or returning errors">
+    **Symptom:** The model selector is empty, or chat returns "API key not found."
 
-    **Solution:**
-    1. Verify key in `.env` has no extra spaces
-    2. Test key with provider directly
-    3. Restart orchestrator:
-    ```bash
-    docker compose restart orchestrator
-    ```
+    **Fix:**
+    1. Verify `LITELLM_API_BASE` points to a running LiteLLM instance.
+    2. Verify `LITELLM_MASTER_KEY` is correct.
+    3. Check that `LITELLM_DEFAULT_MODELS` lists valid model names.
+    4. Restart the orchestrator: `docker compose restart orchestrator`
+  </Accordion>
+
+  <Accordion title="OAuth redirect errors">
+    **Symptom:** After clicking "Login with GitHub/Google," you see a redirect error.
+
+    **Fix:** Ensure the callback URL registered with the OAuth provider matches `GITHUB_OAUTH_REDIRECT_URI` or `GOOGLE_OAUTH_REDIRECT_URI` exactly, including the protocol (`http` vs `https`) and path.
   </Accordion>
 </AccordionGroup>
 
@@ -530,18 +702,18 @@ AUTO_SEED_DATABASE=false
 
 <CardGroup cols={2}>
   <Card title="Deployment Guide" icon="server" href="/self-hosting/deployment">
-    Learn how to deploy Tesslate Studio to production
+    Deploy to production with Docker Compose, Kubernetes, or AWS EKS
   </Card>
 
-  <Card title="Security Best Practices" icon="shield" href="/self-hosting/security">
-    Harden your installation for production use
+  <Card title="Architecture Overview" icon="diagram-project" href="/self-hosting/architecture">
+    Understand how the components fit together
   </Card>
 
-  <Card title="Development Guide" icon="code" href="/development/guide">
-    Set up your development environment
+  <Card title="Quickstart" icon="rocket" href="/self-hosting/quickstart">
+    Get up and running locally in minutes
   </Card>
 
   <Card title="API Documentation" icon="book" href="/api-reference/introduction">
-    Explore the API reference
+    Explore the REST API reference
   </Card>
 </CardGroup>

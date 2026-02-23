@@ -1,238 +1,249 @@
 ---
 title: 'AI Agents'
-description: 'Understanding AI agents in Tesslate Studio'
+description: 'Core concepts, architecture, and capabilities of AI agents in Tesslate Studio'
 ---
 
-## What are AI Agents?
+## What Are AI Agents?
 
-AI agents are specialized AI assistants that generate and modify code based on your natural language instructions. Each agent has unique capabilities optimized for specific tasks.
+AI agents in Tesslate Studio are autonomous coding assistants powered by large language models. They do more than generate text; they can read your files, write code, execute shell commands, manage containers, and plan multi-step tasks. Each agent has a system prompt that defines its behavior, a set of tools it can call, and a model that powers its reasoning.
 
-## Agent Types
-
-Tesslate Studio has two core agent types:
+Think of agents as programmers you can chat with. Describe what you want in natural language, and the agent figures out which tools to use, which files to modify, and how to get it done.
 
 <CardGroup cols={2}>
-  <Card title="Stream Agent" icon="water">
-    **Best for:** UI building, fast iteration
-
-    - Real-time streaming responses
-    - Generates code continuously
-    - Perfect for visual components
-    - Faster for simple tasks
+  <Card title="Natural Language Input" icon="message">
+    Describe features, fixes, or changes in plain English
   </Card>
-
-  <Card title="Iterative Agent" icon="rotate">
-    **Best for:** Complex logic, multi-step tasks
-
-    - Step-by-step reasoning with tool calling
-    - Reads, writes, and edits files
-    - Executes shell commands
-    - Better for complex features
+  <Card title="Tool Calling" icon="wrench">
+    Agents read files, write code, run commands, and more
+  </Card>
+  <Card title="Multiple Agent Types" icon="robot">
+    Four architectures optimized for different tasks
+  </Card>
+  <Card title="Marketplace Ecosystem" icon="store">
+    Discover, install, and publish specialized agents
   </Card>
 </CardGroup>
 
+## The Four Agent Types
+
+Tesslate Studio provides four agent architectures. Each inherits from a shared `AbstractAgent` base class and can be created through the factory pattern.
+
+<CardGroup cols={2}>
+  <Card title="StreamAgent" icon="water">
+    **Single LLM call, fast streaming output**
+
+    - No tool calling; extracts code blocks from the response
+    - Ideal for quick code generation and prototyping
+    - Lowest token usage and cost
+  </Card>
+
+  <Card title="IterativeAgent" icon="rotate">
+    **Multi-step loop with full tool support**
+
+    - Think, Act, Observe loop with JSON-based tool calls
+    - Automatic error recovery and retry
+    - Great for file operations, shell commands, and multi-file changes
+  </Card>
+
+  <Card title="ReActAgent" icon="brain">
+    **Explicit Reasoning + Acting pattern**
+
+    - Mandatory THOUGHT section before every action
+    - Structured observations after each tool execution
+    - Best for debugging, architecture decisions, and auditable reasoning
+  </Card>
+
+  <Card title="TesslateAgent" icon="rocket">
+    **Full-featured production agent**
+
+    - Native LLM function calling (no JSON-in-text parsing)
+    - Subagent spawning for focused subtasks
+    - Trajectory recording for debugging and analytics
+    - Context compaction for long conversations
+    - Planning mode for structured plans before execution
+  </Card>
+</CardGroup>
+
+<Info>
+  Most users start with **TesslateAgent** (the default) or **IterativeAgent** for general development. See [Agent Types](/guides/agent-types) for a deep comparison.
+</Info>
+
+## How Agents Work
+
+### Agent Lifecycle
+
+Every agent follows this high-level lifecycle:
+
+<Steps>
+  <Step title="Initialization">
+    The agent factory loads the agent configuration from the marketplace database, creates a scoped tool registry, substitutes system prompt markers (like `{project_name}` and `{mode_instructions}`), and instantiates the correct agent class.
+  </Step>
+
+  <Step title="Context Building">
+    Before the first LLM call, the system assembles context: environment info, file listings, git status, chat history, and your message. This context helps the agent understand your project.
+  </Step>
+
+  <Step title="Execution Loop">
+    The agent sends messages to the LLM and receives a response. If the response contains tool calls, the agent executes them (respecting edit mode permissions), collects results, and feeds them back for the next iteration. This loop continues until the task is complete.
+  </Step>
+
+  <Step title="Completion">
+    The agent signals completion when it detects a `TASK_COMPLETE` marker, runs out of tool calls, or reaches resource limits. Final results stream back to the chat interface.
+  </Step>
+</Steps>
+
+### Architecture Overview
+
+```
+Agent System
+  AbstractAgent (base class)
+    |
+    |-- StreamAgent        (single-pass, code block extraction)
+    |-- IterativeAgent     (multi-step, JSON tool calls)
+    |-- ReActAgent         (explicit reasoning, structured observations)
+    |-- TesslateAgent      (native function calling, subagents, trajectory)
+    |
+    +-- ToolRegistry       (central tool registration and execution)
+          |
+          |-- File Ops     (read_file, write_file, patch_file, multi_edit)
+          |-- Shell Ops    (bash_exec, shell_open, shell_exec, shell_close)
+          |-- Project Ops  (get_project_info)
+          |-- Planning Ops (todo_read, todo_write)
+          |-- Web Ops      (web_fetch)
+          |-- Graph Ops    (9 container management tools)
+```
+
 ## Agent Tools
 
-Agents have access to powerful tools for interacting with your project:
+Tools are the actions agents can perform. Each tool has a name, description, parameter schema, and an async executor function. The ToolRegistry manages registration, lookup, and execution with edit mode control.
 
 <Tabs>
   <Tab title="File Operations">
     | Tool | Description |
     |------|-------------|
-    | `read_file` | Read contents of any file in the project |
-    | `write_file` | Create or overwrite files |
-    | `edit_file` | Make targeted edits to specific sections |
-    | `list_files` | Browse project directory structure |
+    | `read_file` | Read the contents of any file in the project |
+    | `write_file` | Create a new file or overwrite an existing one |
+    | `patch_file` | Surgical search/replace edit with fuzzy matching |
+    | `multi_edit` | Apply multiple patches to a single file atomically |
   </Tab>
 
   <Tab title="Shell Operations">
     | Tool | Description |
     |------|-------------|
-    | `bash` | Execute shell commands (npm, git, etc.) |
-    | `session` | Persistent shell sessions for complex workflows |
+    | `bash_exec` | Execute a one-off shell command with automatic session management |
+    | `shell_open` | Open a persistent shell session in the dev container |
+    | `shell_exec` | Execute a command in an existing shell session |
+    | `shell_close` | Close a shell session to free resources |
   </Tab>
 
-  <Tab title="Web Operations">
+  <Tab title="Project & Planning">
     | Tool | Description |
     |------|-------------|
-    | `fetch` | Make HTTP requests to external APIs |
-    | `search` | Search the web for documentation or solutions |
+    | `get_project_info` | Get project metadata and structure |
+    | `todo_read` | Read the current task/plan list |
+    | `todo_write` | Update the task list with progress |
+    | `web_fetch` | Fetch content from an external URL |
   </Tab>
 
-  <Tab title="Planning">
+  <Tab title="Graph Operations">
+    Available only in the architecture/graph view:
+
     | Tool | Description |
     |------|-------------|
-    | `todos` | Create and manage task lists |
-    | `metadata` | Query project information |
+    | `graph_start_container` | Start a specific container |
+    | `graph_stop_container` | Stop a specific container |
+    | `graph_start_all` | Start all containers in the project |
+    | `graph_stop_all` | Stop all containers |
+    | `graph_container_status` | Get status of all containers |
+    | `graph_add_container` | Add a container node to the grid |
+    | `graph_add_browser_preview` | Add a browser preview node |
+    | `graph_add_connection` | Create a connection between containers |
+    | `graph_remove_item` | Remove a container, connection, or preview |
   </Tab>
 </Tabs>
 
-<Info>
-  Tool usage requires approval. The agent will ask for confirmation before executing commands that modify files or run shell commands.
-</Info>
+## Edit Modes
 
-## Agent Characteristics
-
-Every agent has:
-
-- **Icon & Name**: Visual identification
-- **System Prompt**: Instructions that guide behavior
-- **Model**: The AI model powering the agent (GPT-4, Claude, etc.)
-- **Mode**: Stream or Iterative processing
-- **Source Type**: Open source or closed source
-
-## Agent Lifecycle
-
-<Steps>
-  <Step title="Discover">
-    Browse agents in the [Marketplace](/guides/marketplace)
-  </Step>
-
-  <Step title="Install">
-    Add agents to your [Library](/guides/library)
-  </Step>
-
-  <Step title="Enable">
-    Toggle agents on/off in your library
-  </Step>
-
-  <Step title="Use">
-    Select agents in project chat to generate code
-  </Step>
-
-  <Step title="Customize">
-    Edit prompts and models for custom agents
-  </Step>
-</Steps>
-
-## Using Agents in Projects
-
-### Selecting an Agent
-
-In any project, you can choose which agent to use:
-
-1. Open the chat interface
-2. Click the agent selector dropdown
-3. Choose from your enabled agents
-4. Start chatting!
-
-### When to Use Each Type
+Edit modes control how much autonomy an agent has when executing tools. You can switch modes at any time using the mode button in the chat input.
 
 <Tabs>
-  <Tab title="Stream Agent">
-    Use Stream Agent when:
-    - Building UI components
-    - Creating landing pages
-    - Making quick visual changes
-    - Iterating rapidly on design
-    - Need fast responses
+  <Tab title="Ask Before Edit (Default)">
+    Dangerous tools (file writes, shell commands) require your approval before executing. Read operations proceed without interruption.
+
+    When a tool needs approval, you see three options:
+    - **Allow Once**: Approve this single operation
+    - **Allow All**: Approve this tool type for the rest of the session
+    - **Stop**: Cancel the operation
   </Tab>
 
-  <Tab title="Iterative Agent">
-    Use Iterative Agent when:
-    - Implementing complex business logic
-    - Working with APIs and data
-    - Building multi-step features
-    - Need careful reasoning
-    - Debugging complex issues
+  <Tab title="Allow All Edits">
+    Full access. All tools execute immediately without approval. Use this when you trust the agent and want maximum speed.
+  </Tab>
+
+  <Tab title="Plan Mode">
+    Read-only. The agent can read files and gather information, but all write operations are blocked. Instead of making changes, the agent creates a detailed markdown plan explaining what it would do.
+
+    You can activate plan mode with the mode button or the `/plan` slash command.
   </Tab>
 </Tabs>
+
+<Warning>
+  In **Allow All Edits** mode, the agent can modify files and run commands without asking. Use this mode only when you are comfortable with fully autonomous operation.
+</Warning>
+
+## Quick Comparison
+
+| Feature | StreamAgent | IterativeAgent | ReActAgent | TesslateAgent |
+|---------|-------------|----------------|------------|---------------|
+| Tool Support | No (code blocks only) | Yes (full registry) | Yes (full registry) | Yes (native function calling) |
+| Execution Loop | Single LLM call | Think, Act, Observe loop | Thought, Action, Observation | Native tool loop with trajectory |
+| Error Recovery | None | Automatic retry | Automatic retry | Retry + context compaction |
+| Reasoning Style | Implicit | Optional | Mandatory (explicit) | Flexible |
+| Planning Mode | No | No | No | Yes |
+| Subagents | No | No | No | Yes |
+| Speed | Fastest | Moderate | Moderate | Moderate |
+| Token Usage | Low | Medium | High | Medium |
+| Best For | Quick UI generation | General development tasks | Debugging, architecture | Full-featured production work |
 
 ## Agent Marketplace
 
-The Marketplace offers:
+The [Marketplace](/guides/agent-marketplace) is where you discover, install, and publish agents:
 
-- **Official Agents**: Built and maintained by Tesslate
-- **Community Agents**: Created and shared by users
-- **Specialized Agents**: Focused on specific frameworks or tasks
+- **Official Agents**: Built and maintained by Tesslate (Stream Builder, Tesslate Agent, React Component Builder, and more)
+- **Community Agents**: Created by users (Code Analyzer, Doc Writer, Refactoring Assistant, Test Generator, and more)
+- **Specialized Agents**: Focused on specific frameworks, languages, or tasks
 
-### Categories
-
-- **Builder**: General-purpose building agents
-- **Frontend**: UI-focused agents
-- **Full-stack**: End-to-end development
-- **Data & AI**: Data processing and ML
-
-## Custom Agents
-
-You can create custom agents by:
-
-1. Forking an existing open-source agent
-2. Creating from scratch in your library
-3. Customizing the system prompt
-4. Selecting the AI model
-5. Publishing to the community (optional)
-
-<Info>
-  Custom agents let you specialize behavior for your specific needs, like using particular libraries or coding styles.
-</Info>
-
-## Agent Models
-
-Agents can use different AI models:
-
-- **GPT-4**: OpenAI's most capable model
-- **Claude**: Anthropic's advanced model
-- **Qwen**: Fast, efficient coding model
-- **Custom Models**: Via OpenRouter integration
-
-<Note>
-  For closed-source agents, the model is fixed. For open-source agents, you can change the model in your library.
-</Note>
-
-## Best Practices
-
-<AccordionGroup>
-  <Accordion icon="robot" title="Choose the Right Agent">
-    - Use Stream for UI, Iterative for logic
-    - Switch agents mid-project as needed
-    - Try different agents to find what works
-  </Accordion>
-
-  <Accordion icon="message" title="Be Specific in Prompts">
-    - Describe exactly what you want
-    - Include technology preferences
-    - Mention styling requirements
-    - Specify behavior details
-  </Accordion>
-
-  <Accordion icon="arrows-rotate" title="Iterate Gradually">
-    - Build features one at a time
-    - Test after each change
-    - Refine through conversation
-    - Don't try to do everything at once
-  </Accordion>
-</AccordionGroup>
+Agents can be free or paid, open-source or closed-source. Open-source agents can be forked and customized.
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card
+    title="Agent Types"
+    icon="robot"
+    href="/guides/agent-types"
+  >
+    Deep dive into each agent architecture
+  </Card>
+  <Card
     title="Using Agents"
     icon="comments"
     href="/guides/using-agents"
   >
-    Learn how to chat with agents
+    Practical guide to chatting with agents
   </Card>
   <Card
     title="Customizing Agents"
     icon="sliders"
     href="/guides/customizing-agents"
   >
-    Create and customize agents
+    Create and configure custom agents
   </Card>
   <Card
-    title="Browse Marketplace"
+    title="Agent Marketplace"
     icon="store"
-    href="/guides/marketplace"
+    href="/guides/agent-marketplace"
   >
-    Discover available agents
-  </Card>
-  <Card
-    title="Manage Library"
-    icon="books"
-    href="/guides/library"
-  >
-    Organize your agent library
+    Browse and install specialized agents
   </Card>
 </CardGroup>

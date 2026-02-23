@@ -1,209 +1,324 @@
 ---
 title: 'Understanding Projects'
-description: 'Learn how projects work in Tesslate Studio'
+description: 'Learn how projects work in Tesslate Studio, from single containers to full-stack multi-service architectures'
 ---
 
 ## What is a Project?
 
-A project in Tesslate Studio is a complete web application with its own codebase, development server, and AI chat history. Each project contains:
+A project in Tesslate Studio is a complete, containerized application environment. Each project gets its own isolated infrastructure, including source code, running containers, a live preview, AI chat history, and optional version control.
 
-- **Source Code**: React/TypeScript files, components, and assets
-- **Development Server**: Live preview environment
-- **Chat History**: Conversations with AI agents
-- **Configuration**: Project settings and preferences
-- **Git Integration**: Optional GitHub connection
+Under the hood, every project is stored as a database record with a unique `slug` (auto-generated from the name, for example `my-app-k3x8n2`), an `owner_id`, and an `environment_status` that tracks whether its containers are running or paused.
+
+<CardGroup cols={2}>
+  <Card title="Source Code" icon="code">
+    All your files, components, and assets live inside the project
+  </Card>
+  <Card title="Containers" icon="cube">
+    One or more isolated services (frontend, backend, database) managed by Tesslate
+  </Card>
+  <Card title="Chat History" icon="messages">
+    Conversations with AI agents are saved per project
+  </Card>
+  <Card title="Git Integration" icon="code-branch">
+    Optional connection to GitHub, GitLab, or Bitbucket
+  </Card>
+</CardGroup>
 
 ## Project Structure
 
-Every project follows a standard structure:
+Projects in Tesslate Studio are not limited to a single framework or file layout. When you create a project from the default template, you get a React + Vite starter:
 
 ```
 my-project/
 ├── src/
-│   ├── App.tsx          # Main application component
-│   ├── main.tsx         # Entry point
-│   ├── components/      # React components
-│   ├── styles/          # CSS and styling
-│   └── assets/          # Images and static files
-├── public/              # Public assets
-├── package.json         # Dependencies
-├── vite.config.ts       # Vite configuration
-└── tsconfig.json        # TypeScript configuration
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── components/
+│   ├── styles/
+│   └── assets/
+├── public/
+├── package.json
+├── vite.config.ts
+└── tsconfig.json
 ```
 
-## Project Types
+However, when you use a marketplace base or import from a repository, the structure matches that base's framework (Next.js, FastAPI, Django, Go, and so on).
+
+## How Projects Are Created
+
+There are three ways to start a new project:
 
 <CardGroup cols={3}>
   <Card title="Template" icon="file-code">
-    Blank React + Vite starter template
+    Blank React + Vite starter, ready to customize
   </Card>
-  <Card title="GitHub Import" icon="github">
-    Import existing GitHub repository
+  <Card title="Git Import" icon="code-branch">
+    Import from GitHub, GitLab, or Bitbucket
   </Card>
   <Card title="Base" icon="layer-group">
-    Pre-built template with features
+    Pre-built template from the Marketplace with a defined tech stack
   </Card>
 </CardGroup>
+
+When you create a project, Tesslate runs a background task that sets up the project directory, copies or clones files, generates container configuration, and returns the project slug so you can navigate to the builder.
+
+<Info>
+  For a detailed walkthrough of each creation method, see [Creating Projects](/guides/creating-projects).
+</Info>
 
 ## Multi-Container Projects
 
-Tesslate Studio supports monorepo-style projects with multiple containers:
+Tesslate Studio supports monorepo-style projects with multiple containers. Each container represents an isolated service that runs inside Docker or Kubernetes.
 
 <CardGroup cols={2}>
-  <Card title="Frontend Container" icon="window">
-    React/Vite application serving the UI
+  <Card title="Base Containers" icon="window">
+    User application code created from marketplace bases. Examples: React frontend, FastAPI backend, Next.js app.
   </Card>
-  <Card title="Backend Container" icon="server">
-    FastAPI, Express, or Go API server
-  </Card>
-  <Card title="Database Container" icon="database">
-    PostgreSQL, MongoDB, or Redis
-  </Card>
-  <Card title="Custom Services" icon="cube">
-    Worker processes, cron jobs, etc.
+  <Card title="Service Containers" icon="database">
+    Infrastructure services like PostgreSQL, Redis, or RabbitMQ. Identified by a `service_slug` such as `postgres` or `redis`.
   </Card>
 </CardGroup>
 
-### Container Dependencies
+### Container Types and Deployment Modes
 
-Define how containers connect to each other:
+Each container has two key properties that determine how it runs:
+
+<Tabs>
+  <Tab title="Container Type">
+    **Base** (`container_type = "base"`): Application code. Created from a marketplace base template. Runs your frontend, backend, or API server.
+
+    **Service** (`container_type = "service"`): Infrastructure. Pre-configured database, cache, or message queue. Uses a known `service_slug` (for example, `postgres`, `redis`, `rabbitmq`).
+  </Tab>
+
+  <Tab title="Deployment Mode">
+    **Container** (`deployment_mode = "container"`): Runs inside Docker or Kubernetes, managed entirely by Tesslate. Containers communicate over an internal network.
+
+    **External** (`deployment_mode = "external"`): Hosted outside of Tesslate (for example, a Supabase database or a third-party API). Represented on the architecture graph but accessed via its `external_endpoint` URL.
+  </Tab>
+</Tabs>
+
+### Container Connections
+
+Connections define how containers communicate. They appear as edges on the architecture graph (powered by React Flow) and are used to generate Docker Compose files or Kubernetes manifests.
+
+<AccordionGroup>
+  <Accordion icon="plug" title="Connection Types (connector_type)">
+    - **env_injection**: Inject environment variables from one container to another (for example, passing `DATABASE_URL` from a Postgres service to a backend)
+    - **http_api**: HTTP-based API connection between services
+    - **database**: Direct database connection with credentials
+    - **message_queue**: Message broker connection (RabbitMQ, Kafka)
+    - **websocket**: WebSocket connection between services
+    - **cache**: Cache connection (Redis, Memcached)
+    - **depends_on**: Generic startup dependency (container B must start after container A)
+  </Accordion>
+</AccordionGroup>
 
 ```
-Frontend (React) ──→ Backend (FastAPI) ──→ Database (PostgreSQL)
+Frontend (React) ──env_injection──▶ Backend (FastAPI) ──database──▶ PostgreSQL
 ```
-
-The architecture visualization shows these connections in a React Flow diagram.
-
-### Adding Containers
-
-1. Open the **Architecture** panel in your project
-2. Click **Add Container**
-3. Choose container type (frontend, backend, database)
-4. Configure the container settings
-5. Define connections to other containers
 
 <Info>
-  Multi-container projects share a common network, allowing containers to communicate via service names (e.g., `http://backend:8000`).
+  All containers in a project share a common network. In Docker mode, this is a Docker network named `tesslate-{slug}`. In Kubernetes mode, all pods run in the same namespace (`proj-{uuid}`) and communicate via service names.
 </Info>
 
-## Project Lifecycle
+### Adding Containers to a Project
 
 <Steps>
-  <Step title="Creation">
-    Create project from template, GitHub, or base
+  <Step title="Open the Architecture Panel">
+    In your project workspace, switch to the architecture view to see the React Flow graph canvas.
   </Step>
-  <Step title="Development">
-    Build features using AI agents and code editor
+  <Step title="Add a Container">
+    Click **Add Container** and choose a base from the marketplace or a service type (PostgreSQL, Redis, etc.).
   </Step>
-  <Step title="Iteration">
-    Refine and improve through AI chat
+  <Step title="Position and Connect">
+    Drag the new container node into position. Draw edges to other containers to define connections.
   </Step>
-  <Step title="Deployment">
-    Export code or deploy to production
+  <Step title="Configure">
+    Set environment variables, ports, and connection details. For external services, provide the endpoint URL and credentials.
+  </Step>
+  <Step title="Start">
+    Start the container individually or start all containers at once.
   </Step>
 </Steps>
 
+## Project Lifecycle
+
+Every project has an `environment_status` that tracks the state of its container infrastructure.
+
+<Steps>
+  <Step title="Creation">
+    Background task sets up the project directory, clones files, and registers containers in the database. Status begins as **starting**.
+  </Step>
+  <Step title="Active">
+    Containers are running and the project is fully accessible. The live preview is available, and AI agents can read and write files.
+  </Step>
+  <Step title="Stopping">
+    When a project goes idle or you manually stop it, containers begin shutting down. In Kubernetes mode, files may be archived to storage.
+  </Step>
+  <Step title="Hibernated">
+    Containers are stopped and project files are preserved. In Kubernetes, an EBS VolumeSnapshot or S3 archive stores the project state. Restarting restores from the snapshot.
+  </Step>
+</Steps>
+
+```
+active ──▶ stopping ──▶ hibernated
+hibernated ──▶ starting ──▶ active
+```
+
+<Info>
+  Hibernation happens automatically after a configurable idle timeout (default: 30 minutes). This saves resources without losing any of your work. When you return, the project restores and picks up where you left off.
+</Info>
+
+## Container Orchestration
+
+Tesslate Studio supports two deployment modes for running project containers. The platform uses a factory pattern so that all code interacts with the same abstract interface, regardless of which mode is active.
+
+<Tabs>
+  <Tab title="Docker Mode (Local Development)">
+    **How it works**: Tesslate generates a `docker-compose.yml` for each project and runs `docker-compose up`. Containers communicate over a shared Docker network.
+
+    **Routing**: Traefik reverse proxy routes traffic to containers. Preview URLs follow the pattern:
+    ```
+    {project-slug}-{container-name}.localhost
+    ```
+
+    **File access**: Direct filesystem access through a shared volume mounted at `/projects/{slug}`.
+
+    **Volume isolation**: Uses Docker Compose v2.23.0+ `volume.subpath` to isolate each project's files within a shared volume.
+
+    **Best for**: Local development and testing.
+  </Tab>
+
+  <Tab title="Kubernetes Mode (Production)">
+    **How it works**: Each project gets its own Kubernetes namespace (`proj-{uuid}`). A file-manager pod runs persistently to handle file operations, while dev container pods are created on demand.
+
+    **Routing**: NGINX Ingress Controller with TLS wildcard certificates. Preview URLs follow the pattern:
+    ```
+    {container-name}.{project-slug}.{domain}
+    ```
+
+    **Storage**: Persistent EBS volumes (gp3) survive pod restarts. EBS VolumeSnapshots enable near-instant hibernation and restore (under 5 seconds to create, under 10 seconds to restore).
+
+    **Pod affinity**: Multi-container projects use pod affinity rules to ensure all pods land on the same node, which is required for ReadWriteOnce (RWO) persistent volumes.
+
+    **Network isolation**: NetworkPolicy restricts traffic to within the project namespace.
+
+    **Best for**: Production hosting and multi-user environments.
+  </Tab>
+</Tabs>
+
+### Port Resolution
+
+Every container has an `effective_port` property that determines which port the dev server listens on. The resolution order is:
+
+1. `internal_port` (set from TESSLATE.md or framework detection during project creation)
+2. `port` (the exposed/mapped port)
+3. `3000` (last-resort default)
+
+<Warning>
+  Always rely on `effective_port` rather than hardcoding port values. At startup, the orchestrator also checks for a TESSLATE.md file in the project root, which can override the port at runtime.
+</Warning>
+
 ## Project Management
 
-### Viewing Projects
+### Dashboard
 
-All your projects appear on the Dashboard:
-- **Grid View**: Visual cards with previews
-- **Project Status**: Idea, Build, or Launch phase
-- **Quick Actions**: Open, delete, or fork
+All your projects appear on the Dashboard page with status indicators and quick actions:
+
+- **Grid view** with project cards showing name, status, and last activity
+- **Status phases**: Idea, Build, or Launch (user-defined organizational labels)
+- **Quick actions**: Open, delete, or fork a project
 
 ### Opening a Project
 
-Click any project card to enter the workspace with:
-- Code editor
-- Live preview
-- Chat interface
-- File browser
-- Settings panel
+Click any project card to enter the builder workspace, which includes:
+
+- Code editor (Monaco)
+- Live preview (iframe)
+- Chat interface (AI agents)
+- Architecture graph (React Flow canvas)
+- File browser, terminal, kanban board, and asset manager
 
 ### Deleting Projects
 
 <Warning>
-  Deleting a project is permanent and cannot be undone. All code, chat history, and settings will be lost.
+  Deleting a project is permanent. All code, containers, chat history, and assets will be removed. In Kubernetes mode, the entire project namespace is deleted, including persistent volumes.
 </Warning>
 
-To delete a project:
-1. Hover over the project card
-2. Click the trash icon
-3. Confirm deletion
-
-## Project Settings
-
-Access project settings by clicking the gear icon in the project workspace:
-
-<AccordionGroup>
-  <Accordion icon="browser" title="Preview Mode">
-    - **Normal**: Single browser view
-    - **Browser Tabs**: Multiple tab support
-  </Accordion>
-
-  <Accordion icon="server" title="Development Server">
-    - View server status
-    - Restart dev container
-    - Check server URL
-  </Accordion>
-
-  <Accordion icon="sliders" title="General Settings">
-    - Project name and description
-    - Status (Idea/Build/Launch)
-    - Project icon
-  </Accordion>
-</AccordionGroup>
-
-## Development Server
-
-Each project has its own development server:
-
-- **Auto-Start**: Starts when you open the project
-- **Hot Reload**: Instant updates when files change
-- **Unique URL**: `{project-slug}.studio.localhost`
-- **Health Monitoring**: Automatic reconnection
-
-<Info>
-  The development server typically takes 10-30 seconds to start initially.
-</Info>
+<Steps>
+  <Step title="Hover over the project card on the Dashboard" />
+  <Step title="Click the trash icon" />
+  <Step title="Confirm deletion in the dialog" />
+</Steps>
 
 ## Working with Files
 
 ### File Operations
 
-- **Create**: AI agents auto-create files
-- **Edit**: Use Monaco code editor
-- **Save**: Auto-save or manual save
-- **Delete**: Remove unused files
+- **Create**: AI agents auto-create files, or create them manually in the file tree
+- **Edit**: Use the Monaco code editor with full IntelliSense
+- **Save**: Files save to the container filesystem. The API call is `projectsApi.saveFile(slug, filePath, content)`.
+- **Delete**: Remove files through the file tree or via `projectsApi.deleteFile(slug, filePath)`
 
-### File Types Supported
+### Assets
 
-- **React Components**: `.tsx`, `.jsx`
-- **TypeScript**: `.ts`
-- **Styles**: `.css`, `.scss`
-- **Config**: `.json`, `.js`
-- **Assets**: Images, fonts, etc.
+Binary files (images, fonts, videos, documents) are managed separately through the Assets panel. Each asset is tracked in the database with metadata including filename, MIME type, dimensions (for images), and file size.
+
+<Tabs>
+  <Tab title="Supported File Types">
+    - **Code**: `.tsx`, `.jsx`, `.ts`, `.js`, `.css`, `.scss`, `.json`
+    - **Images**: PNG, JPG, SVG, GIF, WebP
+    - **Fonts**: TTF, WOFF, WOFF2, OTF
+    - **Documents**: PDF, TXT, Markdown
+  </Tab>
+  <Tab title="Asset Management">
+    - Upload assets through the Assets panel
+    - Organize into directories
+    - Get direct URLs for use in your code
+    - View image dimensions and file sizes
+  </Tab>
+</Tabs>
+
+## Project Settings
+
+Access settings through the gear icon in the project workspace:
+
+<AccordionGroup>
+  <Accordion icon="browser" title="Preview Mode">
+    - **Normal**: Single browser view in the preview panel
+    - **Browser Tabs**: Multiple tab support for testing multi-page navigation
+  </Accordion>
+
+  <Accordion icon="server" title="Development Server">
+    - View container status (running, stopped, failed)
+    - Restart individual containers or all containers at once
+    - Check the assigned preview URL
+  </Accordion>
+
+  <Accordion icon="sliders" title="General Settings">
+    - Project name and description
+    - Status phase (Idea, Build, Launch)
+    - Architecture diagram settings
+  </Accordion>
+</AccordionGroup>
 
 ## Best Practices
 
 <AccordionGroup>
-  <Accordion icon="lightbulb" title="Organize Your Files">
-    - Group related components in folders
-    - Use clear, descriptive file names
-    - Keep components focused and small
+  <Accordion icon="cubes" title="Plan Your Architecture">
+    Before adding containers, decide which services your project needs. A typical full-stack project might include a frontend (React), a backend (FastAPI or Express), and a database (PostgreSQL). Define your connections up front to avoid reconfiguring later.
   </Accordion>
 
-  <Accordion icon="floppy-disk" title="Save Regularly">
-    - Commit to GitHub periodically
-    - Download backups of important versions
-    - Test before major changes
+  <Accordion icon="floppy-disk" title="Save and Version Your Work">
+    Connect your project to GitHub, GitLab, or Bitbucket early. Commit regularly so you have a history to roll back to if needed. Tesslate also supports project hibernation, which preserves your state automatically.
   </Accordion>
 
-  <Accordion icon="messages" title="Use Descriptive Names">
-    - Name projects clearly
-    - Use meaningful component names
-    - Document complex logic
+  <Accordion icon="lightbulb" title="Use Descriptive Names">
+    Name your containers clearly (for example, `frontend`, `api`, `database`) so the architecture graph is easy to understand. Use meaningful project names that describe the application.
+  </Accordion>
+
+  <Accordion icon="bolt" title="Leverage Agent-Assisted Startup">
+    If a container fails to start automatically (common with community bases that do not include a TESSLATE.md file), use the "Ask Agent to start it" button. The AI agent will inspect the project files and run the correct startup command.
   </Accordion>
 </AccordionGroup>
 
@@ -215,27 +330,27 @@ Each project has its own development server:
     icon="plus"
     href="/guides/creating-projects"
   >
-    Step-by-step project creation guide
+    Step-by-step guide to creating a project from template, Git, or base
   </Card>
   <Card
-    title="Code Editor Guide"
+    title="Code Editor"
     icon="code"
     href="/guides/code-editor"
   >
-    Learn to use the code editor
+    Learn how to use the Monaco-powered code editor
   </Card>
   <Card
     title="Live Preview"
     icon="eye"
     href="/guides/live-preview"
   >
-    Understanding the live preview
+    Understand how container-based live preview works
   </Card>
   <Card
-    title="GitHub Integration"
-    icon="github"
+    title="Git Integration"
+    icon="code-branch"
     href="/guides/github-integration"
   >
-    Connect and commit to GitHub
+    Connect to GitHub, GitLab, or Bitbucket
   </Card>
 </CardGroup>

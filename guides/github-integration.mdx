@@ -1,426 +1,376 @@
 ---
-title: 'GitHub Integration'
-description: 'Connect GitHub, import repositories, and commit your code'
+title: 'Git Integration'
+description: 'Connect to GitHub, GitLab, or Bitbucket for version control, branching, and collaboration'
 ---
 
 ## Overview
 
-Tesslate Studio integrates with GitHub to help you:
+Tesslate Studio includes built-in Git integration that supports three providers through a unified API. You can import existing repositories, commit changes, push to remotes, pull updates, and manage branches, all from within the project workspace.
 
 <CardGroup cols={2}>
-  <Card title="Import Repos" icon="download">
-    Bring existing projects into Tesslate
+  <Card title="Import Repositories" icon="download">
+    Clone existing repos from GitHub, GitLab, or Bitbucket into Tesslate projects
   </Card>
   <Card title="Commit Changes" icon="code-commit">
-    Save your work to GitHub
+    Stage and commit files with descriptive messages
   </Card>
-  <Card title="Push Code" icon="upload">
-    Sync changes to remote repository
+  <Card title="Push and Pull" icon="arrows-rotate">
+    Sync your local changes with the remote repository
   </Card>
-  <Card title="Version Control" icon="code-branch">
-    Track project history and changes
+  <Card title="Branch Management" icon="code-branch">
+    Create, switch, and manage branches within the workspace
   </Card>
 </CardGroup>
 
-## Connecting GitHub
+## Multi-Provider Support
+
+Tesslate supports three Git hosting providers. The backend automatically detects the provider from the repository URL and handles authentication accordingly.
+
+| Provider | URL Format | OAuth Flow |
+|----------|-----------|------------|
+| GitHub | `https://github.com/user/repo` | GitHub OAuth App |
+| GitLab | `https://gitlab.com/user/repo` | GitLab OAuth App |
+| Bitbucket | `https://bitbucket.org/user/repo` | Bitbucket OAuth App |
+
+All three providers share the same Git operations API. The frontend uses a unified `git-providers-api.ts` module, and the backend stores credentials in a `GitProviderCredential` record per provider.
+
+## Connecting a Provider
 
 <Steps>
   <Step title="Open Settings">
-    Click your profile → **Settings**
+    Navigate to **Settings** from the sidebar or user dropdown menu.
   </Step>
-
-  <Step title="GitHub Section">
-    Navigate to **GitHub Integration**
+  <Step title="Go to Git Providers">
+    Select the **Deployment** or **Git** section in the settings sidebar.
   </Step>
-
-  <Step title="Connect">
-    Click **Connect GitHub Account**
+  <Step title="Connect Your Provider">
+    Click **Connect GitHub**, **Connect GitLab**, or **Connect Bitbucket**.
   </Step>
-
   <Step title="Authorize">
-    Log in to GitHub and authorize Tesslate Studio
+    You will be redirected to the provider's OAuth page. Log in and authorize Tesslate Studio to access your repositories.
   </Step>
-
   <Step title="Confirm">
-    You'll be redirected back, connection confirmed
+    After authorization, you are redirected back to Tesslate. The connection is confirmed and your repositories become available for import.
   </Step>
 </Steps>
 
-<Info>
-  GitHub connection is **optional**. You can use Tesslate Studio without it, but you won't be able to import repos or commit code.
-</Info>
+### Permissions
 
-## Permissions Requested
+Tesslate requests the following access:
 
-Tesslate Studio requests access to:
-
-- **Read repositories**: Import your projects
+- **Read repositories**: List and clone your repos
 - **Write repositories**: Commit and push changes
-- **User email**: Associate commits with you
-- **Repository webhooks**: Coming soon for sync
+- **User identity**: Associate commits with your account
 
 <Warning>
-  Tesslate Studio only accesses repositories you explicitly import. We never access other repos without permission.
+  Tesslate only accesses repositories that you explicitly import or connect. The platform never reads or modifies repositories you have not selected.
 </Warning>
+
+<Info>
+  Git provider connections are optional. You can use Tesslate Studio without connecting any provider. You just will not be able to import repos or push changes to a remote.
+</Info>
 
 ## Importing Repositories
 
-### Import During Project Creation
+### During Project Creation
+
+The most common way to import a repository is during project creation:
 
 <Steps>
-  <Step title="Create Project">
-    Click **Create New Project** from dashboard
+  <Step title="Create New Project">
+    From the Dashboard, click **Create New Project**.
   </Step>
-
-  <Step title="Select GitHub">
-    Choose **GitHub** as project source
+  <Step title="Select Your Provider">
+    Choose **GitHub**, **GitLab**, or **Bitbucket** as the project source.
   </Step>
-
-  <Step title="Choose Repo">
-    Browse your repositories or search by name
+  <Step title="Browse Repositories">
+    Search or browse your repositories. Filter by organization if needed.
   </Step>
-
   <Step title="Configure">
-    Set project name and status
+    Set the project name and phase. Tesslate auto-detects the default branch.
   </Step>
-
   <Step title="Import">
-    Click **Import** - repo clones into Tesslate
+    Click **Import**. The server clones the repository into a new project container and starts the dev server.
   </Step>
 </Steps>
 
-### Supported Repository Types
+### Connecting Git to an Existing Project
 
-<Tabs>
-  <Tab title="React">
-    ✅ Create React App
-    ✅ Vite + React
-    ✅ Next.js (static export)
-    ✅ React + TypeScript
-  </Tab>
+You can also connect a Git repository to a project that was created from a template or base:
 
-  <Tab title="Vue">
-    ✅ Vue 3 + Vite
-    ✅ Nuxt (static mode)
-    ✅ Vue + TypeScript
-  </Tab>
+<Steps>
+  <Step title="Open the Git Panel">
+    In the project workspace, click the **Git** icon in the toolbar (or open the GitHub floating panel).
+  </Step>
+  <Step title="Initialize or Connect">
+    - **Initialize**: Creates a new local Git repository in the project (`gitApi.init(projectId)`)
+    - **Connect**: Links to an existing remote repository by providing the URL (`gitApi.clone(projectId, repoUrl)`)
+  </Step>
+  <Step title="Verify">
+    The Git panel shows the repository status, current branch, and any existing commits.
+  </Step>
+</Steps>
 
-  <Tab title="Static">
-    ✅ HTML/CSS/JS
-    ✅ TypeScript
-    ✅ Static site generators
-  </Tab>
+## Checking Status
 
-  <Tab title="Unsupported">
-    ❌ Backend-only projects
-    ❌ Mobile apps (React Native)
-    ❌ Desktop apps (Electron)
-    ❌ Projects without package.json
-  </Tab>
-</Tabs>
+The Git panel shows the current state of your repository in real time.
+
+### Status Information
+
+The `gitApi.getStatus(projectId)` call returns:
+
+| Field | Description |
+|-------|-------------|
+| `staged` | Files that are staged for the next commit |
+| `modified` | Files that have been changed but not staged |
+| `untracked` | New files that are not yet tracked by Git |
+| `deleted` | Files that have been removed |
+| `current_branch` | The name of the active branch |
+| `ahead` | Number of local commits not yet pushed to the remote |
+| `behind` | Number of remote commits not yet pulled locally |
+
+### Viewing Diffs
+
+Click any changed file to see exactly what was modified. The `gitApi.getDiff(projectId, filePath)` call returns a per-file diff showing:
+
+- **Added lines**: New content (highlighted in green)
+- **Modified lines**: Changed content
+- **Deleted lines**: Removed content (highlighted in red)
 
 ## Committing Changes
 
-### Manual Commits
-
-Commit your changes to GitHub:
-
 <Steps>
   <Step title="Make Changes">
-    Edit code manually or via AI agents
+    Edit files in the code editor or let AI agents generate code.
   </Step>
-
-  <Step title="Open Git Panel">
-    Click **Git** icon in project toolbar
+  <Step title="Open the Git Panel">
+    Click the **Git** icon in the project toolbar.
   </Step>
-
   <Step title="Review Changes">
-    See modified, added, and deleted files
+    See the list of modified, added, and deleted files. Click individual files to view diffs.
   </Step>
-
-  <Step title="Write Message">
-    Enter a descriptive commit message
+  <Step title="Write a Commit Message">
+    Enter a descriptive commit message that explains what changed and why.
   </Step>
-
   <Step title="Commit">
-    Click **Commit** to save changes
-  </Step>
-
-  <Step title="Push">
-    Click **Push** to upload to GitHub
+    Click **Commit**. This calls `gitApi.commit(projectId, message, files)`. You can optionally specify which files to include; omitting the files array commits all staged changes.
   </Step>
 </Steps>
+
+### Commit Response
+
+A successful commit returns:
+
+```typescript
+{
+  commit_hash: "a1b2c3d",
+  message: "Add user authentication flow",
+  author: "Jane Doe",
+  timestamp: "2026-02-23T10:30:00Z"
+}
+```
 
 ### Commit Best Practices
 
 <AccordionGroup>
-  <Accordion icon="message" title="Write Good Messages">
-    **Good:**
-    - "Add user authentication with email/password"
-    - "Fix responsive layout on mobile devices"
-    - "Update hero section styling and copy"
+  <Accordion icon="message" title="Write Clear Messages">
+    **Good examples:**
+    - "Add user authentication with email and password validation"
+    - "Fix responsive layout breaking on screens under 640px"
+    - "Refactor API client to use typed response interfaces"
 
-    **Bad:**
+    **Avoid:**
     - "Update"
     - "Changes"
-    - "Fix bug"
+    - "Fix stuff"
   </Accordion>
 
   <Accordion icon="clock" title="Commit Regularly">
-    - After completing a feature
-    - Before major changes
-    - At natural stopping points
-    - End of work session
+    Commit after completing each feature or fix. This creates a clear history and makes it easy to revert specific changes if needed.
   </Accordion>
 
-  <Accordion icon="list-check" title="Commit Related Changes">
-    - Group related changes together
-    - Don't mix unrelated features
-    - Keep commits focused
-    - Makes history clearer
+  <Accordion icon="list-check" title="Keep Commits Focused">
+    Each commit should represent a single logical change. Do not mix unrelated modifications in the same commit.
   </Accordion>
 </AccordionGroup>
 
-## Git Panel
+## Pushing and Pulling
 
-### Changed Files
+### Push to Remote
 
-See what's been modified:
+After committing locally, push your changes to the remote repository:
+
+```typescript
+const result = await gitApi.push(projectId, branch, remote, force);
+// result: { success: true, message: "...", commits_pushed: 3 }
+```
+
+The `push` method supports:
+- `branch`: Which branch to push (defaults to the current branch)
+- `remote`: Which remote to push to (defaults to `origin`)
+- `force`: Force push (use with caution)
+
+### Pull from Remote
+
+Pull the latest changes from the remote repository:
+
+```typescript
+const result = await gitApi.pull(projectId, branch, remote);
+// result: { success: true, message: "...", commits_pulled: 2, conflicts: [] }
+```
+
+If there are merge conflicts, the `conflicts` array lists the affected files. You can resolve conflicts in the editor and commit the resolution.
+
+## Branch Management
+
+### Listing Branches
+
+View all local and remote branches:
+
+```typescript
+const branches = await gitApi.getBranches(projectId);
+// branches: {
+//   current: "main",
+//   branches: [
+//     { name: "main", is_remote: false, last_commit: "a1b2c3d" },
+//     { name: "feature/login", is_remote: false, last_commit: "e4f5g6h" },
+//     { name: "origin/main", is_remote: true, last_commit: "a1b2c3d" }
+//   ]
+// }
+```
+
+### Creating Branches
+
+Create a new branch, optionally checking it out immediately:
+
+```typescript
+await gitApi.createBranch(projectId, "feature/new-feature", true);
+// checkout: true means switch to the new branch after creating it
+```
+
+### Switching Branches
+
+Switch to an existing branch:
+
+```typescript
+await gitApi.switchBranch(projectId, "develop");
+```
+
+<Warning>
+  Switching branches changes the files in your project container. Make sure to commit or stash your changes before switching to avoid losing work.
+</Warning>
+
+## Commit History
+
+View the history of commits for the current branch:
+
+```typescript
+const history = await gitApi.getCommitHistory(projectId, 50);
+// history.commits: [
+//   {
+//     hash: "a1b2c3d",
+//     message: "Add login page",
+//     author: "Jane Doe",
+//     timestamp: "2026-02-23T10:30:00Z",
+//     files_changed: 3
+//   },
+//   ...
+// ]
+```
+
+The history includes the commit hash, message, author, timestamp, and number of files changed. Use the `limit` parameter to control how many commits to retrieve.
+
+## Disconnecting a Repository
+
+To remove the Git connection from a project:
+
+```typescript
+await gitApi.disconnect(projectId);
+```
+
+This removes the remote link but does not delete the project or its files. You can reconnect later or connect to a different repository.
+
+## Git Panel in the Workspace
+
+The Git panel provides a visual interface for all Git operations:
 
 <CardGroup cols={2}>
-  <Card title="Modified" icon="pen">
-    Files that were changed
+  <Card title="Changed Files" icon="file-pen">
+    See modified, added, deleted, and untracked files at a glance
   </Card>
-  <Card title="Added" icon="plus">
-    New files created
+  <Card title="Diff View" icon="code-compare">
+    Click any file to see a line-by-line diff of changes
   </Card>
-  <Card title="Deleted" icon="trash">
-    Files removed
+  <Card title="Branch Selector" icon="code-branch">
+    View the current branch and switch between branches
   </Card>
-  <Card title="Renamed" icon="arrow-right">
-    Files moved or renamed
+  <Card title="Commit Interface" icon="code-commit">
+    Write commit messages and commit with one click
   </Card>
 </CardGroup>
 
-### File Actions
-
-For each changed file:
-- **View Diff**: See exactly what changed
-- **Discard**: Undo changes to this file
-- **Stage**: Select for commit (coming soon)
-
-## Branching
-
-### Current Branch
-
-View and manage branches:
-
-<Tabs>
-  <Tab title="View Branch">
-    - See current branch name
-    - Default is usually `main` or `master`
-    - Shows in git panel
-  </Tab>
-
-  <Tab title="Switch Branch">
-    Coming soon:
-    - Create new branches
-    - Switch between branches
-    - Merge branches
-    - Delete branches
-  </Tab>
-
-  <Tab title="Pull Requests">
-    Coming soon:
-    - Create PRs from Tesslate
-    - Review PR status
-    - Merge approved PRs
-  </Tab>
-</Tabs>
-
-## Syncing Changes
-
-### Push to GitHub
-
-Upload your local commits:
-
-1. Click **Push** in git panel
-2. Changes upload to GitHub
-3. View on GitHub.com
-4. Share with team
-
-### Pull from GitHub
-
-Coming soon:
-- Pull latest changes from GitHub
-- Sync with team members
-- Resolve merge conflicts
-- Update local code
-
-<Warning>
-  Currently, pulling from GitHub requires re-importing the project. Two-way sync coming soon.
-</Warning>
-
-## Viewing on GitHub
-
-After pushing changes:
-
-<Steps>
-  <Step title="Go to GitHub">
-    Click **View on GitHub** in git panel
-  </Step>
-
-  <Step title="See Repository">
-    Opens your repo on GitHub.com
-  </Step>
-
-  <Step title="View Commits">
-    See commit history and changes
-  </Step>
-
-  <Step title="Share">
-    Share repo URL with others
-  </Step>
-</Steps>
-
-## Disconnecting GitHub
-
-To disconnect your GitHub account:
-
-1. Go to **Settings** → **GitHub Integration**
-2. Click **Disconnect GitHub**
-3. Confirm disconnection
-4. Existing imported projects remain
-5. Can't commit new changes until reconnected
+The panel also shows the `ahead` and `behind` counts so you know at a glance whether you need to push or pull.
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="circle-xmark" title="Can't Connect GitHub">
-    **Problem:** Authorization fails
+  <Accordion icon="circle-xmark" title="Cannot Connect Provider">
+    **Cause**: OAuth authorization failed or was cancelled.
 
-    **Solutions:**
-    - Clear browser cache and cookies
-    - Try different browser
-    - Check GitHub.com is accessible
-    - Disable browser extensions
-    - Contact support
+    **What to try**:
+    - Clear browser cache and cookies for the provider's domain
+    - Try a different browser
+    - Verify the provider's website is accessible
+    - Revoke Tesslate's access on the provider's settings page and re-authorize
   </Accordion>
 
   <Accordion icon="ban" title="Import Failed">
-    **Problem:** Repository won't import
+    **Cause**: Repository is inaccessible, or the clone failed.
 
-    **Solutions:**
-    - Ensure repo has package.json
-    - Check repo is not private (or you have access)
-    - Verify project type is supported
-    - Try smaller repository first
-    - Check repo isn't too large (>500MB)
+    **What to try**:
+    - Verify you have access to the repository (check that it is public or that you are a collaborator)
+    - Confirm the repository URL is correct
+    - Re-authorize your provider connection (tokens may have expired)
+    - For very large repositories, try importing a lighter branch
   </Accordion>
 
   <Accordion icon="upload" title="Push Failed">
-    **Problem:** Can't push to GitHub
+    **Cause**: No remote configured, authentication expired, or the remote has changes you have not pulled.
 
-    **Solutions:**
-    - Ensure you're connected to GitHub
-    - Check you have write access to repo
-    - Verify internet connection
-    - Try pull before push
-    - Check GitHub status
+    **What to try**:
+    - Verify your provider connection is active
+    - Pull the latest changes before pushing
+    - Check that you have write access to the repository
+    - If force push is needed, use the force option (be cautious as this rewrites remote history)
   </Accordion>
 
-  <Accordion icon="exclamation-triangle" title="Merge Conflicts">
-    **Problem:** Conflicts when pushing
+  <Accordion icon="triangle-exclamation" title="Merge Conflicts">
+    **Cause**: The remote has changes that conflict with your local changes.
 
-    **Solutions:**
-    - Currently: Re-import project with latest code
-    - Coming soon: In-app conflict resolution
-    - Alternative: Clone repo locally and resolve
+    **What to try**:
+    - The pull response lists conflicting files in the `conflicts` array
+    - Open each conflicting file in the editor and resolve the conflict markers
+    - After resolving all conflicts, commit the resolution
+    - Ask an AI agent for help: "Resolve the merge conflict in src/App.tsx"
   </Accordion>
 </AccordionGroup>
-
-## GitHub Features Roadmap
-
-### Coming Soon
-
-<CardGroup cols={3}>
-  <Card title="Pull Requests" icon="code-pull-request">
-    Create and manage PRs in Tesslate
-  </Card>
-  <Card title="Branches" icon="code-branch">
-    Full branch management
-  </Card>
-  <Card title="Pull Changes" icon="download">
-    Two-way sync with GitHub
-  </Card>
-  <Card title="Conflict Resolution" icon="code-merge">
-    Resolve merge conflicts
-  </Card>
-  <Card title="Webhooks" icon="webhook">
-    Auto-sync on GitHub changes
-  </Card>
-  <Card title="CI/CD" icon="gears">
-    GitHub Actions integration
-  </Card>
-</CardGroup>
 
 ## Best Practices
 
 <CardGroup cols={2}>
-  <Card title="Regular Commits" icon="calendar">
-    - Commit after each feature
-    - Push at least daily
-    - Don't lose work
-    - Track progress
+  <Card title="Commit After Each Feature" icon="calendar">
+    Regular, focused commits create a clear history that is easy to navigate and revert if something goes wrong.
   </Card>
-
-  <Card title="Descriptive Messages" icon="message">
-    - Explain what and why
-    - Use present tense
-    - Be specific
-    - Reference issues if applicable
+  <Card title="Write Descriptive Messages" icon="message">
+    Explain the "what" and "why" of each change. Good commit messages make the history useful for you and your team.
   </Card>
-
-  <Card title="Review Before Push" icon="eye">
-    - Check changed files
-    - Review diffs
-    - Test functionality
-    - Ensure no secrets
+  <Card title="Review Before Pushing" icon="eye">
+    Use the diff view to review all changes before pushing to the remote. Verify no secrets, debug logs, or temporary code are included.
   </Card>
-
-  <Card title="Keep in Sync" icon="arrows-rotate">
-    - Pull before starting work
-    - Push when done
-    - Coordinate with team
-    - Resolve conflicts quickly
+  <Card title="Pull Before Starting Work" icon="download">
+    If you are collaborating with others, pull the latest changes before starting a new feature to minimize merge conflicts.
   </Card>
 </CardGroup>
-
-## Alternative: Download Code
-
-If you don't want to use GitHub:
-
-<Steps>
-  <Step title="Export Project">
-    Click **Export** in project settings
-  </Step>
-
-  <Step title="Download ZIP">
-    Downloads complete project as .zip
-  </Step>
-
-  <Step title="Extract">
-    Unzip files locally
-  </Step>
-
-  <Step title="Use Locally">
-    Open in VS Code or your editor
-  </Step>
-
-  <Step title="Manual Git">
-    Initialize your own git repo if desired
-  </Step>
-</Steps>
 
 ## Next Steps
 
@@ -430,27 +380,27 @@ If you don't want to use GitHub:
     icon="plus"
     href="/guides/creating-projects"
   >
-    Import repos or start new projects
+    Import a repository to start a new project
   </Card>
   <Card
     title="Code Editor"
     icon="code"
     href="/guides/code-editor"
   >
-    Edit your code
+    Edit your code with full IntelliSense
   </Card>
   <Card
-    title="Using Agents"
-    icon="robot"
-    href="/guides/using-agents"
+    title="Chat Interface"
+    icon="comments"
+    href="/guides/chat-interface"
   >
-    Generate code with AI
+    Use AI agents to generate and modify code
   </Card>
   <Card
-    title="Settings"
-    icon="gear"
-    href="/guides/settings"
+    title="Understanding Projects"
+    icon="folder"
+    href="/guides/projects"
   >
-    Manage account settings
+    Learn about project architecture and container management
   </Card>
 </CardGroup>

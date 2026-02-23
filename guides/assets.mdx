@@ -1,24 +1,24 @@
 ---
 title: 'Assets & Media'
-description: 'Manage images, fonts, and other assets in your projects'
+description: 'Manage images, fonts, media files, and understand S3 storage in your projects'
 ---
 
 ## Overview
 
-Assets are static files like images, fonts, videos, and icons used in your projects. Tesslate Studio provides easy asset management and optimization.
+Assets are static files such as images, fonts, videos, and icons used in your Tesslate Studio projects. The platform provides upload, organization, and storage capabilities backed by S3-compatible object storage, with metadata tracked in the `ProjectAsset` database model.
 
 <CardGroup cols={2}>
-  <Card title="Upload Files" icon="upload">
-    Drag-and-drop or browse to upload
+  <Card title="Drag-and-Drop Upload" icon="upload">
+    Upload files by dragging them into the assets panel or clicking the upload button
   </Card>
-  <Card title="Auto-Optimize" icon="gauge">
-    Automatic image optimization
+  <Card title="S3 Storage" icon="cloud">
+    Assets stored in S3-compatible storage with the "S3 Sandwich" pattern
   </Card>
-  <Card title="CDN Delivery" icon="bolt">
-    Fast global asset delivery
+  <Card title="Metadata Tracking" icon="database">
+    File type, dimensions, MIME type, and directory tracked in the database
   </Card>
-  <Card title="Organized" icon="folder-tree">
-    Folder-based organization
+  <Card title="Organized by Directory" icon="folder-tree">
+    Folder-based organization within your project structure
   </Card>
 </CardGroup>
 
@@ -27,83 +27,119 @@ Assets are static files like images, fonts, videos, and icons used in your proje
 <Tabs>
   <Tab title="Images">
     **Photos and graphics**
+
+    Supported formats:
     - PNG, JPG, JPEG
     - WebP, SVG
-    - GIF
-    - AVIF
+    - GIF, AVIF
 
-    **Auto-optimization:**
-    - Resize for web
-    - Compress automatically
-    - Generate responsive sizes
-    - Convert to modern formats
+    The `ProjectAsset` model stores `width` and `height` for image files, making it easy to reference dimensions in your code.
   </Tab>
 
   <Tab title="Fonts">
     **Custom typography**
+
+    Supported formats:
+    - WOFF2 (recommended for web)
+    - WOFF
     - TTF, OTF
-    - WOFF, WOFF2
     - Variable fonts
 
-    **Auto-optimization:**
-    - Subset to used characters
-    - Generate font-face CSS
-    - Preload hints
+    Upload font files and reference them in your CSS with `@font-face` declarations.
   </Tab>
 
   <Tab title="Icons">
-    **Icon sets**
-    - SVG icons
+    **Icon sets and SVGs**
+
+    - SVG icons (recommended for scalability)
     - Icon fonts
     - PNG sprites
 
-    **Integration:**
-    - Lucide React (built-in)
-    - Custom SVG imports
-    - Icon components
+    Tesslate projects include Lucide React icons by default, but you can add custom SVG icons to your assets.
   </Tab>
 
   <Tab title="Media">
     **Video and audio**
-    - MP4, WebM
-    - MP3, WAV
-    - Streaming support
 
-    **Best practices:**
-    - Use external hosting for large files
-    - YouTube/Vimeo embed for videos
-    - Compress before upload
+    Supported formats:
+    - MP4, WebM (video)
+    - MP3, WAV (audio)
+
+    For large video files, consider using external hosting (YouTube, Vimeo) and embedding them instead of uploading directly.
   </Tab>
 </Tabs>
 
 ## Uploading Assets
 
 <Steps>
-  <Step title="Open Assets Panel">
-    Click **Assets** in project sidebar
+  <Step title="Open the Assets Panel">
+    Click **Assets** in the project sidebar to open the assets management panel.
   </Step>
 
   <Step title="Choose Upload Method">
-    - Drag-and-drop files
-    - Click **Upload** button
-    - Paste from clipboard
+    Three ways to add assets:
+    - **Drag and drop**: Drag files directly onto the assets panel
+    - **Upload button**: Click **Upload** and browse your file system
+    - **Clipboard paste**: Paste an image from your clipboard
   </Step>
 
   <Step title="Select Files">
-    Choose one or multiple files
+    Choose one or multiple files. Supported formats are validated before upload.
   </Step>
 
-  <Step title="Auto-Process">
-    Files upload and optimize automatically
+  <Step title="Upload and Process">
+    Files are uploaded to S3 storage. Metadata (filename, directory, file_path, file_type, mime_type, width, height) is recorded in the `ProjectAsset` table.
   </Step>
 
   <Step title="Use in Code">
-    Assets appear in file tree and are ready to use
+    Uploaded assets appear in the file tree and are immediately available to import or reference in your code.
   </Step>
 </Steps>
 
 <Info>
-  Images under 1MB are automatically optimized. Larger images may take a moment to process.
+  Images under 1MB upload and process quickly. Larger files may take a moment depending on your connection speed.
+</Info>
+
+## The S3 Sandwich Pattern
+
+Tesslate uses an architecture pattern called the "S3 Sandwich" for asset storage. This pattern places S3-compatible object storage between the application layer and the user's project containers.
+
+### How It Works
+
+<Steps>
+  <Step title="Upload Layer">
+    When you upload an asset, the file goes from the browser to the Tesslate backend (FastAPI).
+  </Step>
+
+  <Step title="S3 Storage Layer">
+    The backend stores the file in an S3-compatible bucket (AWS S3 in production, MinIO for local development). The bucket is configured via the `S3_BUCKET_NAME` environment variable.
+  </Step>
+
+  <Step title="Container Access Layer">
+    Project containers access assets through the shared storage. In Kubernetes mode, assets are accessible via the project's persistent volume. In Docker mode, assets are available through the mounted project directory.
+  </Step>
+</Steps>
+
+### Why S3 Sandwich?
+
+| Benefit | Description |
+|---------|-------------|
+| **Persistence** | Assets survive container restarts and hibernation |
+| **Shared Access** | Multiple containers in a project can access the same assets |
+| **Scalability** | S3 scales independently of compute resources |
+| **Backup** | Assets are stored separately from ephemeral container state |
+
+### Configuration
+
+| Environment Variable | Purpose | Example |
+|---------------------|---------|---------|
+| `S3_BUCKET_NAME` | Primary storage bucket | `tesslate-projects-prod` |
+| `S3_ENDPOINT_URL` | S3 endpoint (for MinIO or non-AWS) | `http://minio:9000` |
+| `AWS_ACCESS_KEY_ID` | S3 access credentials | (from secrets) |
+| `AWS_SECRET_ACCESS_KEY` | S3 secret credentials | (from secrets) |
+
+<Info>
+  In local Docker development, Tesslate uses MinIO as an S3-compatible replacement. The API is identical, so code works the same in development and production.
 </Info>
 
 ## Using Assets in Code
@@ -111,7 +147,7 @@ Assets are static files like images, fonts, videos, and icons used in your proje
 ### Importing Images
 
 ```typescript
-// Import from assets folder
+// Import from assets folder (processed by Vite bundler)
 import heroImage from './assets/hero.png'
 import logo from './assets/logo.svg'
 
@@ -128,11 +164,10 @@ function Hero() {
 
 ### Public Folder
 
-For assets that don't need import:
+For assets that do not need bundler processing:
 
 ```typescript
-// Files in public/ folder
-// Access directly by path
+// Files in public/ folder are served directly by path
 <img src="/images/hero.png" alt="Hero" />
 <link rel="icon" href="/favicon.svg" />
 ```
@@ -145,96 +180,145 @@ For assets that don't need import:
   backgroundImage: `url('/images/background.jpg')`
 }} />
 
-// Or with Tailwind
+// Or with Tailwind CSS
 <div className="bg-[url('/images/bg.jpg')]" />
 ```
 
 ## Asset Organization
 
-### Folder Structure
+### Recommended Folder Structure
 
 ```
 src/assets/
-├── images/
-│   ├── hero/
-│   ├── products/
-│   └── icons/
-├── fonts/
-│   └── custom/
-└── videos/
-    └── demos/
+  images/
+    hero/
+    products/
+    icons/
+  fonts/
+    custom/
+  videos/
+    demos/
 
 public/
-├── favicon.svg
-├── logo.png
-└── social-preview.jpg
+  favicon.svg
+  logo.png
+  social-preview.jpg
 ```
 
 <AccordionGroup>
-  <Accordion icon="folder" title="src/assets/">
-    **Processed by build**
-    - Imported in components
-    - Bundled and optimized
-    - Hashed filenames
-    - Good for: Component images
+  <Accordion icon="folder" title="src/assets/ (Bundled)">
+    **Processed by the build tool (Vite)**
+    - Imported in components via `import` statements
+    - Bundled and optimized during build
+    - Filenames get content hashes for cache busting
+    - Best for: Component images, icons, fonts used in React code
   </Accordion>
 
-  <Accordion icon="globe" title="public/">
-    **Served directly**
-    - Not processed
-    - Keep same filename
-    - Referenced by path
-    - Good for: Favicon, social images, PDFs
+  <Accordion icon="globe" title="public/ (Static)">
+    **Served directly without processing**
+    - Not processed by the bundler
+    - Filenames stay the same
+    - Referenced by URL path
+    - Best for: Favicon, social media images, PDFs, files that need stable URLs
   </Accordion>
 </AccordionGroup>
 
-## Image Optimization
+## Asset Metadata
 
-### Automatic Optimization
+The `ProjectAsset` model tracks detailed metadata for each uploaded file:
 
-Tesslate automatically:
-- **Compresses**: Reduces file size
-- **Resizes**: Creates responsive sizes
-- **Converts**: Uses modern formats (WebP)
-- **Lazy loads**: Defers offscreen images
+| Field | Description |
+|-------|-------------|
+| `filename` | Original file name |
+| `directory` | Directory path within the project |
+| `file_path` | Full path to the asset |
+| `file_type` | Category: `image`, `font`, `video`, `audio`, `other` |
+| `mime_type` | MIME type (e.g., `image/png`, `font/woff2`) |
+| `width` | Image width in pixels (images only) |
+| `height` | Image height in pixels (images only) |
 
-### Manual Optimization
+This metadata powers the assets panel UI, enabling previews, dimension display, and type-based filtering.
 
-For more control:
+## Fonts
+
+### Adding Custom Fonts
 
 <Steps>
-  <Step title="Right-Click Asset">
-    In assets panel, right-click image
+  <Step title="Upload Font Files">
+    Upload `.woff2`, `.woff`, or `.ttf` files to the assets panel
   </Step>
 
-  <Step title="Click Optimize">
-    Choose optimization settings
+  <Step title="Create Font Face CSS">
+    Ask the AI agent: "Add custom font Inter to the project"
+
+    The agent generates:
+    ```css
+    @font-face {
+      font-family: 'Inter';
+      src: url('/fonts/Inter-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+    }
+    ```
   </Step>
 
-  <Step title="Configure">
-    - Target size
-    - Quality (1-100)
-    - Format conversion
-    - Responsive sizes
-  </Step>
-
-  <Step title="Apply">
-    Optimized version replaces original
+  <Step title="Configure Tailwind">
+    Update your Tailwind config:
+    ```js
+    // tailwind.config.js
+    fontFamily: {
+      sans: ['Inter', 'sans-serif']
+    }
+    ```
   </Step>
 </Steps>
 
+### Google Fonts
+
+For convenience, you can also use Google Fonts without uploading files:
+
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+```
+
+## Icons
+
+### Using Lucide Icons (Built-in)
+
+Tesslate projects include Lucide React by default:
+
+```typescript
+import { Home, User, Settings, ShoppingCart } from 'lucide-react'
+
+function Navigation() {
+  return (
+    <nav>
+      <Home className="w-6 h-6" />
+      <User className="w-6 h-6" />
+      <Settings className="w-6 h-6" />
+      <ShoppingCart className="w-6 h-6" />
+    </nav>
+  )
+}
+```
+
+### Custom SVG Icons
+
+Upload SVGs to your assets and import them:
+
+```typescript
+import { ReactComponent as CustomIcon } from './assets/icons/custom.svg'
+
+<CustomIcon className="w-6 h-6" />
+```
+
 ## Responsive Images
 
-### Generating Sizes
-
-Ask AI agent to create responsive image code:
-
-```
-"Create a responsive image component for the hero image
-that serves different sizes for mobile, tablet, and desktop"
-```
-
-AI generates:
+Ask the AI agent to create responsive image components:
 
 ```typescript
 <picture>
@@ -254,134 +338,54 @@ AI generates:
 </picture>
 ```
 
-## Fonts
-
-### Adding Custom Fonts
-
-<Steps>
-  <Step title="Upload Font Files">
-    Upload .woff2, .woff, .ttf files
-  </Step>
-
-  <Step title="Create Font CSS">
-    Ask AI: "Add custom font Inter to the project"
-  </Step>
-
-  <Step title="AI Generates">
-    ```css
-    @font-face {
-      font-family: 'Inter';
-      src: url('/fonts/Inter-Regular.woff2') format('woff2');
-      font-weight: 400;
-      font-display: swap;
-    }
-    ```
-  </Step>
-
-  <Step title="Use in Tailwind">
-    ```js
-    // tailwind.config.js
-    fontFamily: {
-      sans: ['Inter', 'sans-serif']
-    }
-    ```
-  </Step>
-</Steps>
-
-### Google Fonts
-
-Easier approach - use Google Fonts:
-
-```typescript
-// In index.html or main component
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-```
-
-## Icons
-
-### Using Lucide Icons
-
-Built-in icon library:
-
-```typescript
-import { Home, User, Settings, ShoppingCart } from 'lucide-react'
-
-function Navigation() {
-  return (
-    <nav>
-      <Home className="w-6 h-6" />
-      <User className="w-6 h-6" />
-      <Settings className="w-6 h-6" />
-      <ShoppingCart className="w-6 h-6" />
-    </nav>
-  )
-}
-```
-
-### Custom SVG Icons
-
-```typescript
-// Import SVG as component
-import { ReactComponent as CustomIcon } from './assets/icons/custom.svg'
-
-<CustomIcon className="w-6 h-6" />
-```
-
-## Asset Best Practices
+## Best Practices
 
 <AccordionGroup>
   <Accordion icon="gauge" title="Optimize Before Upload">
-    - Compress images first
-    - Resize to needed dimensions
-    - Use appropriate formats
-    - Remove metadata
+    - Compress images before uploading
+    - Resize to the dimensions you actually need
+    - Remove unnecessary metadata (EXIF data)
+    - Use appropriate quality settings (80% JPEG quality is usually sufficient)
   </Accordion>
 
   <Accordion icon="palette" title="Use Modern Formats">
-    - WebP for photos
-    - SVG for logos/icons
-    - AVIF for best compression
-    - PNG only when needed
+    - **WebP** for photographs and complex images
+    - **SVG** for logos, icons, and simple graphics
+    - **AVIF** for best compression when browser support allows
+    - **PNG** only when transparency is needed and SVG is not suitable
   </Accordion>
 
-  <Accordion icon="network-wired" title="Use CDNs for Large Files">
-    - Host videos on YouTube/Vimeo
-    - Use Cloudinary for images
-    - External hosting for large assets
-    - Faster load times
+  <Accordion icon="network-wired" title="External Hosting for Large Files">
+    - Host videos on YouTube or Vimeo and embed them
+    - Use Cloudinary or imgix for heavy image processing
+    - Keep your S3 bucket focused on project-essential assets
   </Accordion>
 
-  <Accordion icon="tag" title="Name Files Clearly">
-    - `hero-background.jpg` not `IMG_1234.jpg`
-    - `product-thumbnail.png` not `image-2.png`
-    - Descriptive names help organization
-    - Good for SEO
+  <Accordion icon="tag" title="Use Descriptive File Names">
+    - `hero-background.jpg` instead of `IMG_1234.jpg`
+    - `product-thumbnail.png` instead of `image-2.png`
+    - Descriptive names improve organization and SEO
   </Accordion>
 </AccordionGroup>
 
 ## Deleting Assets
 
 <Steps>
-  <Step title="Find Unused Assets">
-    Use asset panel to see usage
-  </Step>
-
   <Step title="Check References">
-    Ensure asset isn't used anywhere
+    Before deleting, verify the asset is not used in any component or stylesheet
   </Step>
 
   <Step title="Delete">
-    Right-click → Delete
+    Right-click the asset in the assets panel and select **Delete**
   </Step>
 
   <Step title="Confirm">
-    Confirm deletion (cannot undo)
+    Confirm the deletion. This removes the file from S3 storage and the `ProjectAsset` database record.
   </Step>
 </Steps>
 
 <Warning>
-  Deleting assets that are still referenced in code will break your app. Always check usage first.
+  Deleting an asset that is still referenced in your code will cause broken images or missing files. Always check usage before deleting.
 </Warning>
 
 ## Troubleshooting
@@ -389,29 +393,28 @@ import { ReactComponent as CustomIcon } from './assets/icons/custom.svg'
 <AccordionGroup>
   <Accordion icon="circle-xmark" title="Image Not Appearing">
     **Solutions:**
-    - Check file path is correct
-    - Verify file uploaded successfully
-    - Check console for 404 errors
-    - Ensure correct import syntax
-    - Try absolute path (/images/file.jpg)
+    - Check the file path is correct (case-sensitive on Linux)
+    - Verify the file uploaded successfully in the assets panel
+    - Check the browser console for 404 errors
+    - Ensure the import syntax matches the file location (`src/assets/` vs `public/`)
+    - Try an absolute path (e.g., `/images/file.jpg`)
   </Accordion>
 
   <Accordion icon="snail" title="Slow Image Loading">
     **Solutions:**
-    - Optimize/compress images
-    - Use WebP format
-    - Implement lazy loading
-    - Generate responsive sizes
-    - Use CDN for large files
+    - Compress images before uploading
+    - Use WebP format instead of PNG or JPEG
+    - Add `loading="lazy"` to images below the fold
+    - Generate responsive sizes for different viewports
   </Accordion>
 
-  <Accordion icon="file-slash" title="Upload Failed">
+  <Accordion icon="file" title="Upload Failed">
     **Solutions:**
-    - Check file size (max 10MB recommended)
-    - Verify file format is supported
-    - Check internet connection
-    - Try different browser
-    - Compress file and retry
+    - Check file size (recommended max: 10MB per file)
+    - Verify the file format is supported
+    - Check your internet connection
+    - Verify S3 storage is configured and accessible
+    - Try compressing the file and retrying
   </Accordion>
 </AccordionGroup>
 
@@ -423,27 +426,27 @@ import { ReactComponent as CustomIcon } from './assets/icons/custom.svg'
     icon="code"
     href="/guides/code-editor"
   >
-    Learn to import and use assets
+    Import and use assets in your code
   </Card>
   <Card
     title="Using Agents"
     icon="robot"
     href="/guides/using-agents"
   >
-    Ask AI to optimize images
+    Ask AI to optimize images or create responsive components
   </Card>
   <Card
     title="Projects"
     icon="folder"
     href="/guides/projects"
   >
-    Understand project structure
+    Understand project structure and file organization
   </Card>
   <Card
     title="Live Preview"
     icon="eye"
     href="/guides/live-preview"
   >
-    See assets in preview
+    See your assets rendered in the live preview
   </Card>
 </CardGroup>

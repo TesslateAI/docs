@@ -13,70 +13,56 @@ This page explains how the system is structured, how data flows between componen
 
 <Tabs>
   <Tab title="Docker Mode (Development)">
-    <Frame>
-```
-+-----------------------------------------------------------+
-|  Host Machine (Docker Desktop)                             |
-|                                                            |
-|  +--------------+                                          |
-|  |   Traefik    | :80 (HTTP), :443 (HTTPS), :8080          |
-|  |  (Reverse    | Routes by path:                          |
-|  |   Proxy)     |   /api/* /ws/*  --> orchestrator:8000     |
-|  +---------+----+   /*            --> app:5173              |
-|            |                                                |
-|       +----+------+--------------+                          |
-|       |           |              |                           |
-|       v           v              v                           |
-|  +-------+  +------------+  +--------------+                |
-|  |  App  |  |Orchestrator|  |User Projects |                |
-|  | :5173 |  |   :8000    |  | (Dynamic)    |                |
-|  +-------+  +-----+------+  +--------------+                |
-|                    |                                         |
-|                    v                                         |
-|             +----------+                                     |
-|             |PostgreSQL|                                     |
-|             |  :5432   |                                     |
-|             +----------+                                     |
-|                                                             |
-|  Storage: Local filesystem (orchestrator/users/)            |
-|  Routing: Traefik with *.localhost subdomains               |
-+-----------------------------------------------------------+
-```
-    </Frame>
+    All services run on a single host machine via Docker Desktop.
+
+    **Request routing (Traefik reverse proxy):**
+
+    | Incoming Path | Routed To | Port |
+    |---------------|-----------|------|
+    | `/api/*`, `/ws/*` | Orchestrator | 8000 |
+    | `/*` (everything else) | App (React frontend) | 5173 |
+
+    **Running services:**
+
+    | Service | Port | Role |
+    |---------|------|------|
+    | Traefik | 80, 443, 8080 | Reverse proxy, `*.localhost` subdomain routing |
+    | App | 5173 | React frontend (Vite dev server) |
+    | Orchestrator | 8000 | FastAPI backend (business logic, AI agents) |
+    | PostgreSQL | 5432 | Database |
+    | User Projects | Dynamic | One container per project, created on demand |
+
+    **Storage:** Local filesystem at `orchestrator/users/{user_id}/{project_slug}/`
   </Tab>
 
   <Tab title="Kubernetes Mode (Production)">
-    <Frame>
-```
-+-----------------------------------------------------------+
-|  Kubernetes Cluster                                        |
-+-----------------------------------------------------------+
-|  Namespace: tesslate                                       |
-|  +-------------+  +--------------+  +--------------+      |
-|  |  Frontend   |  | Orchestrator |  |  PostgreSQL  |      |
-|  |    Pod      |  |     Pod      |  |     Pod      |      |
-|  +-------------+  +--------------+  +--------------+      |
-|                                                            |
-|  Namespace: proj-{uuid-1}          Namespace: proj-{uuid-2}|
-|  +------------------------+       +----------------------+ |
-|  | File Manager Pod       |       | File Manager Pod     | |
-|  | Dev Container Pods     |       | Dev Container Pods   | |
-|  | PVC (10Gi EBS)         |       | PVC (10Gi EBS)       | |
-|  | NetworkPolicy          |       | NetworkPolicy        | |
-|  +------------------------+       +----------------------+ |
-|                                                            |
-|  Namespace: ingress-nginx                                  |
-|  +------------------------------------------------------+ |
-|  |  NGINX Ingress Controller                             | |
-|  |  Routes *.yourdomain.com to namespaces               | |
-|  |  SSL termination (wildcard certificate)               | |
-|  +------------------------------------------------------+ |
-|                                                            |
-|  Storage: EBS VolumeSnapshots for persistence              |
-|  Routing: NGINX Ingress with wildcard SSL                 |
-+-----------------------------------------------------------+
-```
-    </Frame>
+    The cluster is organized into isolated namespaces.
+
+    **Core namespace (`tesslate`):**
+
+    | Pod | Role |
+    |-----|------|
+    | Frontend | React app served via NGINX |
+    | Orchestrator | FastAPI backend |
+    | PostgreSQL | Database |
+
+    **Per-project namespaces (`proj-{uuid}`):**
+
+    Each project gets a dedicated namespace containing:
+    - File Manager Pod (always running, handles file ops and git)
+    - Dev Container Pod(s) (frontend, backend, database services)
+    - PVC (10Gi EBS block storage, shared across pods)
+    - NetworkPolicy (zero cross-project communication)
+    - Ingress (subdomain routing)
+
+    **Ingress namespace (`ingress-nginx`):**
+
+    | Component | Role |
+    |-----------|------|
+    | NGINX Ingress Controller | Routes `*.yourdomain.com` to project namespaces |
+    | cert-manager | Wildcard SSL via Let's Encrypt + Cloudflare DNS |
+
+    **Storage:** EBS VolumeSnapshots for persistence across sessions
   </Tab>
 </Tabs>
 
@@ -589,7 +575,7 @@ All long-running operations are designed to be non-blocking:
     Deploy to production with Docker Compose, Kubernetes, or AWS EKS
   </Card>
 
-  <Card title="API Documentation" icon="book" href="/api-reference/introduction">
-    Explore the REST API reference
+  <Card title="Developer Guide" icon="book" href="/developer/system-overview">
+    Explore the system internals and API reference
   </Card>
 </CardGroup>

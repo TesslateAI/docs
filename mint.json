@@ -50,16 +50,6 @@
       "url": "https://github.com/TesslateAI/Studio"
     }
   ],
-  "tabs": [
-    {
-      "name": "Developer Guide",
-      "url": "developer"
-    },
-    {
-      "name": "API Reference",
-      "url": "api-reference"
-    }
-  ],
   "navigation": [
     {
       "group": "Get Started",
@@ -127,15 +117,15 @@
         "developer/data-flow",
         "developer/container-orchestration",
         "developer/database-models",
+        "developer/api-reference",
         "developer/contributing",
         "developer/troubleshooting"
       ]
     },
     {
-      "group": "API Reference",
+      "group": "Development",
       "pages": [
-        "developer/api-reference",
-        "api-reference/introduction"
+        "development/guide"
       ]
     }
   ],

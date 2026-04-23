@@ -68,7 +68,7 @@ Node.js and Python are NOT required on the host. Everything runs inside containe
     | Redis | `REDIS_URL`, `REDIS_PORT` | Default `redis://redis:6379/0` works in Compose. |
     | Secrets | `SECRET_KEY`, `INTERNAL_API_SECRET`, `CSRF_SECRET_KEY`, `DEPLOYMENT_ENCRYPTION_KEY`, `CHANNEL_ENCRYPTION_KEY` | Generate real values for any environment you share. `CHANNEL_ENCRYPTION_KEY` needs a Fernet key: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. |
     | LiteLLM | `LITELLM_API_BASE`, `LITELLM_MASTER_KEY`, `LITELLM_DEFAULT_MODELS`, `LITELLM_TEAM_ID`, `LITELLM_INITIAL_BUDGET` | Required for the agent. `LITELLM_DEFAULT_MODELS` is a comma list, no spaces. |
-    | OAuth (optional) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `GITHUB_*` | Enable social login. Without these only email/password works. Redirect URI for dev: `http://localhost/api/auth/{google,github}/callback`. |
+    | OAuth (optional) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `GITHUB_*` | Enable social login. Without these only email/password works. Redirect URI for dev: `http://localhost/api/auth/\{google,github\}/callback`. |
     | Ports | `APP_DOMAIN`, `APP_PROTOCOL`, `APP_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `TRAEFIK_DASHBOARD_PORT` | Keep `APP_DOMAIN=localhost` for dev. Change individual ports only on conflicts. |
     | Stripe (optional) | `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_*_PRICE_ID` | Needed for billing UI. Use `sk_test_*` keys plus `stripe listen` for webhooks. |
     | SMTP (optional) | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_SENDER_EMAIL`, `TWO_FA_ENABLED` | Required for 2FA codes or password resets by email. |
@@ -76,7 +76,7 @@ Node.js and Python are NOT required on the host. Everything runs inside containe
 </Steps>
 
 <Warning>
-Docker Compose does not interpolate variables inside other variables in `.env`, so `ALLOWED_HOSTS=${APP_DOMAIN}` keeps the literal `${APP_DOMAIN}` string. For dev it still works because `APP_DOMAIN=localhost` is also the default. In production, set `ALLOWED_HOSTS` to an explicit value.
+Docker Compose does not interpolate variables inside other variables in `.env`, so `ALLOWED_HOSTS=$\{APP_DOMAIN\}` keeps the literal `$\{APP_DOMAIN\}` string. For dev it still works because `APP_DOMAIN=localhost` is also the default. In production, set `ALLOWED_HOSTS` to an explicit value.
 </Warning>
 
 ## 3. First boot
@@ -191,7 +191,7 @@ What you get: themes (default-dark, default-light, midnight, ocean, forest, rose
 | Traefik via proxy | `http://localhost/traefik` | Basic-auth gated. Defaults to `admin:admin`. Change `TRAEFIK_BASIC_AUTH` in `.env`. |
 | PostgreSQL | `localhost:5432` | Connect with pgAdmin or DBeaver. Creds from `.env`. |
 | Redis | `localhost:6379` | `redis-cli -h localhost` works. |
-| User project | `http://{container}.localhost` | Wildcard is handled by Traefik. Some OS need `dnsmasq` or `/etc/hosts` entries. |
+| User project | `http://\{container\}.localhost` | Wildcard is handled by Traefik. Some OS need `dnsmasq` or `/etc/hosts` entries. |
 
 ## 6. Create your first user
 
@@ -223,7 +223,7 @@ What you get: themes (default-dark, default-light, midnight, ocean, forest, rose
     From the dashboard, click "New project". Pick a base such as "Vite + React + FastAPI", give it a name, and confirm. A slug like `my-app-k3x8n2` is generated.
   </Step>
   <Step title="Wait for scaffolding">
-    The orchestrator copies the template and writes a `docker-compose.yml` into `/projects/{slug}/`. Watch for the "Project ready" toast.
+    The orchestrator copies the template and writes a `docker-compose.yml` into `/projects/\{slug\}/`. Watch for the "Project ready" toast.
   </Step>
   <Step title="Start the containers">
     Click "Start". Containers spin up on `tesslate-network` and register with Traefik. The preview panel loads `http://frontend.localhost` (or whatever the base's primary container is called).

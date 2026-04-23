@@ -131,7 +131,7 @@ Use this path if you want to track `main` or hack on the Tauri host.
     ./desktop/scripts/build-all.sh --release
     ```
 
-    Artifacts land under `desktop/src-tauri/target/release/bundle/{dmg,msi,appimage,deb,rpm}/`.
+    Artifacts land under `desktop/src-tauri/target/release/bundle/\{dmg,msi,appimage,deb,rpm\}/`.
   </Step>
 </Steps>
 
@@ -144,7 +144,7 @@ On first open, the Tauri host performs these steps, all invisible to the user:
     Spawns the frozen sidecar binary at `desktop/src-tauri/binaries/tesslate-studio-orchestrator-<target-triple>` on a free 127.0.0.1 port.
   </Step>
   <Step title="Handshake">
-    Parses the `TESSLATE_READY {port} {bearer}` handshake line from sidecar stdout.
+    Parses the `TESSLATE_READY \{port\} \{bearer\}` handshake line from sidecar stdout.
   </Step>
   <Step title="Inject token">
     Injects the bearer into the WebView as `window.__TESSLATE_DESKTOP_TOKEN__` so API calls work without the user signing in.
@@ -202,7 +202,7 @@ The desktop app works fully offline against local projects. Pairing to `opensail
     The OS routes it to OpenSail via the registered `tesslate://` deep-link handler. The handler persists the token through `tauri-plugin-stronghold` and posts it to the sidecar at `POST /api/desktop/auth/token`.
   </Step>
   <Step title="Verify">
-    The sidecar stores it at `$OPENSAIL_HOME/cache/cloud_token.json` with mode 0600 on POSIX. `GET /api/desktop/auth/status` now returns `{paired: true, cloud_url: ...}` and the UI reflects that in Settings.
+    The sidecar stores it at `$OPENSAIL_HOME/cache/cloud_token.json` with mode 0600 on POSIX. `GET /api/desktop/auth/status` now returns `\{paired: true, cloud_url: ...\}` and the UI reflects that in Settings.
   </Step>
 </Steps>
 

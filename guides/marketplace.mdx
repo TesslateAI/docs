@@ -1,257 +1,138 @@
 ---
 title: 'Marketplace'
-description: 'Discover, install, and manage AI agents, project bases, and workflow templates'
+description: 'Browse and install agents, skills, MCP servers, bases, themes, and apps. One place for every reusable building block on OpenSail.'
 ---
 
-## What is the Marketplace?
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-The Marketplace is where you discover and install everything you need to build with Tesslate Studio. It contains three categories of items:
+## One marketplace, six item types
 
-- **AI Agents**: Specialized coding assistants with custom system prompts, tools, and AI models
-- **Project Bases**: Pre-built templates backed by Git repositories, covering dozens of frameworks
-- **Workflow Templates**: Pre-configured multi-container architectures you can apply to a project with one click
+The OpenSail marketplace is where the community and Tesslate publish every reusable thing on the platform. Six categories, one discovery surface, one install flow.
 
 <CardGroup cols={3}>
-  <Card title="AI Agents" icon="robot">
-    Specialized assistants for code generation, debugging, and more
+  <Card title="Agents" icon="robot">
+    Configured agent personalities with a system prompt, a tool subset, attached skills, and a preferred model.
   </Card>
-  <Card title="Project Bases" icon="layer-group">
-    Full project templates with working code and configurations
+  <Card title="Skills" icon="graduation-cap">
+    Reusable capabilities (review checklists, writing styles, deployment playbooks) that attach to any agent.
   </Card>
-  <Card title="Workflow Templates" icon="diagram-project">
-    Multi-container architectures ready to deploy
+  <Card title="MCP servers" icon="plug">
+    Model Context Protocol integrations for Slack, Gmail, Linear, GitHub, Notion, and hundreds more.
+  </Card>
+  <Card title="Bases" icon="layer-group">
+    Starter project templates (Next.js 16, Vite+FastAPI, Expo, Go APIs, full-stack CRMs).
+  </Card>
+  <Card title="Themes" icon="palette">
+    Color, typography, spacing, and animation presets for the Studio UI and your projects.
+  </Card>
+  <Card title="Apps" icon="box-archive">
+    Versioned, immutable, installable bundles built from a workspace. Install and you get a running copy.
   </Card>
 </CardGroup>
 
-## Browsing the Marketplace
+## Agents vs apps
+
+This is the most common source of confusion.
+
+An **agent** is a long-running persona. It lives inside your OpenSail instance. You can reconfigure it, attach new skills, change its model, and run it against any project. Installing an agent adds it to your library, not to a specific project.
+
+An **app** is an immutable, manifest-described bundle produced by freezing a workspace. Installing an app creates a new project with the same code, the same containers, the same graph, and the same permissions as the creator's source workspace. Every install is isolated. Apps are versioned (`AppVersion`) and the marketplace lists the latest approved version.
+
+| | Agent | App |
+|---|-------|-----|
+| **Lifecycle** | Long-running, reconfigurable | Install creates a new project |
+| **Mutability** | Editable in your library | Immutable per version |
+| **Scope** | Any project you open | One project per install |
+| **Versioning** | Updated by the creator | Semver per `AppVersion` |
+| **Provenance** | None | `forked_from` tracks fork trees |
+| **Approval** | Optional moderation | Staged pipeline before public listing |
+
+## Browsing
 
 <Steps>
-  <Step title="Open the Marketplace">
-    Click **Marketplace** in the sidebar navigation.
+  <Step title="Open the marketplace">
+    Click **Marketplace** in the sidebar. The home view shows featured and category carousels for agents, bases, skills, and MCP servers.
   </Step>
-  <Step title="Choose a Category">
-    Switch between **Agents**, **Bases**, and **Workflows** using the tabs.
+  <Step title="Filter">
+    Use the Browse route (`/marketplace/browse/:type`) for a paginated list with server-side filtering. Search by keyword, sort by popularity or recency, filter by author or tag.
   </Step>
-  <Step title="Filter and Search">
-    Filter by category, pricing type, or tech stack. Use the search bar to find items by name, tags, or description.
-  </Step>
-  <Step title="View Details">
-    Click any item to see its full description, features, tech stack, pricing, download count, and user reviews.
+  <Step title="Inspect">
+    Every listing has a detail page with description, reviews, author profile, install button, and (for apps) a fork modal if the creator allows forking.
   </Step>
   <Step title="Install">
-    Click **Install** or **Add to Library** to add the item to your personal collection.
+    One click installs into your library. For apps, the install saga provisions a new project from the app's volume template. For agents, skills, MCP servers, bases, and themes, the item lands in your library and is available project-wide.
   </Step>
 </Steps>
 
-<Info>
-  Agents use server-side filtering and pagination for fast browsing even with large catalogs. Bases use a combination of server-side pagination for community bases and client-side filtering for curated collections.
-</Info>
+## Installing
 
-## AI Agents
-
-### What Makes Up an Agent?
-
-Every marketplace agent is defined by a `MarketplaceAgent` record with these core properties:
-
-| Property | Description |
-|----------|-------------|
-| **system_prompt** | Instructions that define the agent's behavior, coding style, and constraints |
-| **agent_type** | Execution strategy: `StreamAgent` (streaming with tool calls), `IterativeAgent` (multi-step planning), or others |
-| **tools** | JSON array of tool names the agent can use (for example, `["read_file", "write_file", "execute_command"]`) |
-| **model** | Specific AI model to use (for example, `claude-sonnet-4` or `gpt-4o`) |
-| **category** | Classification: builder, frontend, fullstack, data, or custom categories |
-
-### Agent Types
-
-<Tabs>
-  <Tab title="StreamAgent">
-    The default agent type. Streams responses token-by-token in real time, with interleaved tool calls. Good for UI development, component creation, and fast iteration.
-  </Tab>
-  <Tab title="IterativeAgent">
-    Plans multi-step solutions before executing. Better for complex logic, multi-file refactors, API integration, and debugging workflows that require reasoning across several steps.
-  </Tab>
-</Tabs>
-
-### Official Agents
-
-Tesslate ships with several pre-built agents:
-
-| Agent | Type | Description |
-|-------|------|-------------|
-| Stream Builder | StreamAgent | General-purpose coding assistant |
-| Tesslate Agent | TesslateAgent | Platform-optimized builder |
-| React Component Builder | StreamAgent | Specialized for React UI components |
-| API Integration Agent | IterativeAgent | Backend and API development |
-| ReAct Agent | ReActAgent | Reasoning and action loop for complex tasks |
-
-### Community Agents
-
-Open-source agents created by the community:
-
-- Code Analyzer, Documentation Writer, Refactoring Assistant
-- Test Generator, API Designer, Database Schema Designer
-
-### Forking Agents
-
-If an agent has `is_forkable = true` and `source_type = "open"`, you can create your own version:
-
-<Steps>
-  <Step title="Find a Forkable Agent">
-    Look for the "Open Source" badge on agent cards in the marketplace.
-  </Step>
-  <Step title="Click Fork">
-    This creates a copy in your library with the same system prompt, tools, and configuration.
-  </Step>
-  <Step title="Customize">
-    Edit the system prompt, change the AI model, rename it, or adjust tool configurations.
-  </Step>
-  <Step title="Use or Publish">
-    Use your forked agent privately, or publish it to the marketplace for others to discover.
-  </Step>
-</Steps>
-
-<Info>
-  Forked agents track their lineage via the `parent_agent_id` field. Forks of forks are not allowed (to keep the chain manageable).
-</Info>
-
-## Project Bases
-
-Bases are project templates backed by Git repositories. Each base defines a tech stack, category, and set of features. When you create a project from a base, Tesslate clones the repository and starts the dev server.
-
-### Base Categories
-
-<CardGroup cols={2}>
-  <Card title="Full-Stack" icon="layer-group">
-    React + FastAPI, Next.js + PostgreSQL, Vue + Go, and similar combined frontend/backend stacks
-  </Card>
-  <Card title="Frontend" icon="browser">
-    React, Vue, Svelte, Angular, Astro, and other client-side frameworks
-  </Card>
-  <Card title="Backend" icon="server">
-    FastAPI, Django, Express, Go (Gin, Fiber), Rust (Actix, Axum), Laravel, Rails
-  </Card>
-  <Card title="Mobile" icon="mobile">
-    Expo, Flutter, React Native starter templates
-  </Card>
-</CardGroup>
-
-### User-Submitted Bases
-
-Anyone can submit a base by providing a public Git repository URL. Submitted bases include the creator's user ID and can be set to public or private visibility.
-
-For a deep dive into bases, see the [Project Bases guide](/guides/bases).
-
-## Workflow Templates
-
-Workflow templates are pre-configured multi-container architectures stored as JSON definitions. They specify which containers to create, how to position them on the graph canvas, and how to connect them.
-
-### Template Definition Structure
-
-A workflow template includes:
-- **nodes**: Array of container definitions (base type with a `base_slug`, or service type with a `service_slug`)
-- **edges**: Array of connections between containers with `connector_type` and configuration
-- **required_credentials**: List of external services that need OAuth credentials (for example, `["supabase"]`)
-
-### Example: Next.js + Supabase
-
-This workflow creates a Next.js frontend connected to an external Supabase database via environment variable injection:
-
-```
-Next.js Frontend ──env_injection──▶ Supabase Database (external)
-```
-
-Applying the template automatically creates both container nodes and the connection edge on your project's architecture graph.
-
-## Pricing Models
-
-<Tabs>
-  <Tab title="Free">
-    No cost. Full access to all features. Often open source and community-supported. Most bases and several core agents use this model.
-  </Tab>
-  <Tab title="Monthly Subscription">
-    Recurring fee for continued access. Premium agents with regularly updated prompts and specialized capabilities. Managed through Stripe.
-  </Tab>
-  <Tab title="API Pricing (Pay-Per-Use)">
-    Charged based on token usage. The agent creator sets per-million-token rates for input and output. Usage is tracked through LiteLLM. Some agents in this tier allow you to bring your own API keys.
-  </Tab>
-  <Tab title="One-Time Purchase">
-    Single payment for permanent access. No recurring fees. Good for specialized agents you plan to use long-term.
-  </Tab>
-</Tabs>
-
-### Revenue Split
-
-Agent and base creators earn 90% of all revenue. The remaining 10% goes to the Tesslate platform. Payouts are handled through Stripe Connect.
-
-## Ratings and Reviews
-
-Every agent and base can be reviewed by users who have installed it. Reviews include:
-
-- **Star rating**: 1 to 5 scale
-- **Text comment**: Optional written feedback
-
-Average ratings and review counts are displayed on marketplace cards, helping you make informed choices. The system calculates running averages that update each time a new review is submitted.
-
-## Recommendations
-
-The marketplace includes a co-installation recommendation system. When you install an agent, the platform tracks which other agents are commonly installed by the same users. This powers the "People also installed" section on agent detail pages.
-
-## Installing Items
-
-<Steps>
-  <Step title="Browse or Search">
-    Find the agent, base, or workflow you want.
-  </Step>
-  <Step title="Review Details">
-    Check the description, tech stack, pricing, rating, and reviews.
-  </Step>
-  <Step title="Install or Purchase">
-    - **Free items**: Click **Install** to add to your library immediately.
-    - **Paid items**: Complete the Stripe checkout flow, then the item appears in your library.
-    - **Subscription items**: Subscribe through Stripe. Access continues as long as the subscription is active.
-  </Step>
-  <Step title="Use in Projects">
-    - **Agents**: Select the agent from the chat dropdown in any project.
-    - **Bases**: Choose the base when creating a new project.
-    - **Workflows**: Apply the workflow template from the architecture panel.
-  </Step>
-</Steps>
-
-## Best Practices
+Install flows differ by item type.
 
 <AccordionGroup>
-  <Accordion icon="magnifying-glass" title="Research Before Installing">
-    Read the full description and check the tech stack to make sure the item fits your needs. Look at the download count and reviews for quality signals.
+  <Accordion icon="robot" title="Agents">
+    Instant. The agent lands in `/library?tab=agents`. Configure name, icon, model, compaction model, context window, and thinking effort. Enable for a project by picking it in the chat agent selector.
   </Accordion>
-
-  <Accordion icon="star" title="Start with Featured Items">
-    Featured items are curated by the Tesslate team for quality and reliability. They are a good starting point for new users.
+  <Accordion icon="graduation-cap" title="Skills">
+    Instant. Skills land in `/library?tab=skills`. Attach to any agent via `AgentSkillAssignment` or enable project-wide via the skills panel.
   </Accordion>
-
-  <Accordion icon="code-branch" title="Try Open Source First">
-    Open-source agents and free bases let you experiment without commitment. You can fork open-source agents to customize them for your workflow.
+  <Accordion icon="plug" title="MCP servers">
+    Requires OAuth for most servers. After OAuth, env vars are stored encrypted in `UserMcpConfig`. Attach to an agent via `AgentMcpAssignment`. Tool schemas are cached for 5 minutes and refresh on OAuth or server update.
   </Accordion>
-
-  <Accordion icon="message" title="Leave Reviews">
-    Your reviews help other users and provide feedback to creators. Rate honestly and include specific details about what worked well or could be improved.
+  <Accordion icon="layer-group" title="Bases">
+    Used at project creation time. Pick a base in the Create Project wizard; the orchestrator clones the repo and seeds the workspace.
+  </Accordion>
+  <Accordion icon="palette" title="Themes">
+    Instant. Themes land in `/library?tab=themes`. Activate globally via Preferences or per-project via the theme picker.
+  </Accordion>
+  <Accordion icon="box-archive" title="Apps">
+    Runs through an install saga (`AppInstallAttempt` tracks every step for idempotency). Creates a new project, provisions the volume from the app's CAS bundle, and applies the manifest graph. Per-user billing dimensions (`AI compute`, `general compute`, `platform fee`) apply according to the creator's configuration.
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## Apps: publish, install, fork
+
+Apps are the platform's distribution unit. Every app is a versioned, immutable bundle that started life as a workspace.
+
+**Publish** The creator runs through the publish wizard. The orchestrator freezes the workspace volume into a content-addressed bundle, builds an `AppVersion` with a manifest, and submits it to the approval pipeline. Private and team-only apps skip the public listing gate.
+
+**Approval pipeline** Public apps go through four stages: automated security scan (overbroad OAuth scopes, leaked secrets, dependency vulns), sandbox evaluation (synthetic inputs on a cheap model), human reviewer sign-off, and final publish. Each stage records individual `SubmissionCheck` results. Creators can appeal yanks.
+
+**Install** Every install creates a new project with its own volume, containers, and permissions. The wallet mix determines who pays for what (AI compute, general compute, platform fee), configured per-dimension (creator-pays, installer-pays, BYOK, platform-subsidized, promotional).
+
+**Fork** If the creator allows forking, anyone can fork an app. Fork creates a new workspace with full source access and a `forked_from` provenance link. The marketplace shows fork trees.
+
+**Bundles** An `AppBundle` groups multiple apps into a starter pack ("Lawyer Starter Pack" installs 10 apps with consolidated OAuth consent and a dashboard app at the center).
+
+## Official vs community
+
+Tesslate publishes official agents, skills, bases, and themes. Community creators publish theirs under the same flow. Both are subject to the same approval process for public listing. Creator reputation (tracked in `AdminCreatorReputationPage`) gates distribution privileges at the edges.
+
+## Creator tools
+
+If you want to publish, the Creator Studio (`/creator`) gives you:
+
+- **Drafts** Unpublished versions you are iterating on
+- **Submissions** Items in the approval pipeline with per-stage status
+- **Analytics** Installs, runs, revenue
+- **Billing** Your creator wallet and ledger
+
+<Info>
+  Apps have their own publishing guide covering manifests, wallet mix, and approval. See [Publishing Apps](/guides/publishing-apps).
+</Info>
+
+## Related
 
 <CardGroup cols={2}>
-  <Card
-    title="Manage Your Library"
-    icon="books"
-    href="/guides/library"
-  >
-    Organize, customize, and publish your installed items
+  <Card title="Publishing apps" icon="box-archive" href="/guides/publishing-apps">
+    Freeze a workspace into an immutable bundle.
   </Card>
-  <Card
-    title="Project Bases"
-    icon="layer-group"
-    href="/guides/bases"
-  >
-    Deep dive into project templates
+  <Card title="Agents" icon="robot" href="/guides/agents">
+    The agent runner that marketplace agents configure.
+  </Card>
+  <Card title="Skills" icon="graduation-cap" href="/guides/skills">
+    How skills attach to agents.
+  </Card>
+  <Card title="MCP connectors" icon="plug" href="/guides/connectors-mcp">
+    Installing and authenticating MCP servers.
   </Card>
 </CardGroup>

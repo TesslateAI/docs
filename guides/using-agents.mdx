@@ -1,461 +1,192 @@
 ---
-title: 'Using AI Agents'
-description: 'Practical guide to chatting with agents, understanding tool calls, approval flows, and edit modes'
+title: 'Using Agents'
+description: 'Start a session, watch tools run, approve dangerous operations, and drive a tesslate-agent instance to get work done'
 ---
 
-## Getting Started
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-AI agents are your coding partners inside Tesslate Studio. You describe what you want in natural language, and the agent reads your files, writes code, runs commands, and iterates until the task is done.
+## What an agent is in OpenSail
+
+An agent in OpenSail is a running `tesslate-agent` instance, bound to a project workspace, that drives an LLM in a streaming tool-use loop. Every agent is a composition of four things:
 
 <CardGroup cols={2}>
-  <Card title="Natural Language" icon="message">
-    No coding syntax required. Just describe what you want.
+  <Card title="A system prompt" icon="file-lines">
+    The personality, role, and rules of engagement. Co-authored by the creator.
   </Card>
-  <Card title="Context-Aware" icon="brain">
-    Agents see your project files, directory structure, and git status.
+  <Card title="A tool registry" icon="wrench">
+    The built-in tool set (33 tools across 8 categories) plus any MCP connectors and view-scoped tools.
   </Card>
-  <Card title="Tool-Powered" icon="wrench">
-    Agents call tools to read, write, execute, and plan.
+  <Card title="A skill catalog" icon="book">
+    Lightweight skill descriptions injected at session start. Full bodies fetched on demand.
   </Card>
-  <Card title="Approval Control" icon="shield-halved">
-    You control which operations execute automatically.
+  <Card title="A model preference" icon="microchip">
+    A LiteLLM-routed model for each session, with BYOK support and per-tier defaults.
   </Card>
 </CardGroup>
 
-## Your First Agent Interaction
+The active agent runner lives in the `packages/tesslate-agent` submodule and is invoked by the orchestrator worker through `tesslate_agent_adapter.py`. The agent is model-agnostic, stateless between calls, and streams every step back to the UI as it happens.
+
+<Info>
+  For the authoritative, per-tool reference of all 33 built-in tools (parameters, edit-mode gating, return shape, quirks), see the tesslate-agent reference: https://github.com/TesslateAI/tesslate-agent/blob/main/docs/DOCS.md.
+</Info>
+
+## Starting a session
 
 <Steps>
-  <Step title="Open a Project">
-    Open any project in Tesslate Studio.
+  <Step title="Open a project">
+    Open any project from your dashboard. The chat panel opens on the right and the agent picks up the project workspace, open files, and git state automatically.
   </Step>
 
-  <Step title="Select an Agent">
-    Choose an agent from the dropdown in the chat interface. For your first time, try the default TesslateAgent or an IterativeAgent.
+  <Step title="Pick an agent">
+    The agent selector at the top of the chat shows every agent installed on your account plus the project's default. Any agent published to the marketplace that you have installed is available here.
   </Step>
 
-  <Step title="Describe What You Want">
-    Type a request like: "Create a hero section with a title, subtitle, and call-to-action button using Tailwind CSS"
+  <Step title="Pick an edit mode">
+    The edit-mode toggle controls how much autonomy the agent has: Ask Before Edit (default), Allow All Edits, or Plan Mode. Mode is enforced at the tool registry level, not the system prompt, so every agent respects it.
   </Step>
 
-  <Step title="Watch the Agent Work">
-    The agent reads your project, plans its approach, and executes tool calls. You see each step in real time.
+  <Step title="Describe the task">
+    Type in natural language. Reference files by path. Drop in screenshots, error messages, or attached files. The agent reads the project tree, the git status, any `TESSLATE.md`, and the skill catalog before its first model call.
   </Step>
 
-  <Step title="Approve Operations (Ask Mode)">
-    If you are in Ask Before Edit mode (the default), the agent requests approval before writing files or running commands. Click **Allow Once**, **Allow All**, or **Stop**.
-  </Step>
-
-  <Step title="See Results">
-    Your changes appear in the code editor and live preview. Continue the conversation to refine.
+  <Step title="Watch it work">
+    Each tool call streams into the transcript as a separate card: the tool name, arguments, and result. Text the agent emits between tool calls streams inline. The session persists progressively to the database, so you can close the tab and come back later without losing the trajectory.
   </Step>
 </Steps>
 
-<Info>
-  Start with simple requests to get comfortable, then gradually try more complex features.
-</Info>
+## The conversation pattern
 
-## Writing Effective Prompts
+The agent runs an iteration loop until the model stops asking for tool calls:
 
-### The Formula
+```
+loop:
+  pre-flight compaction if context >= 80% of window
+  model.chat_with_tools(messages, tools)
+  if response text: stream it
+  if no tool calls: emit complete and return
+  run tool calls
+  append tool results to history
+  emit agent_step
+```
 
-Good prompts include:
+You see streamed text, tool cards, and (on context pressure) a compaction marker. When the loop terminates with no more tool calls, you get a `complete` event and the chat is ready for your next message.
 
-1. **What** you want to build
-2. **How** it should look or behave
-3. **Which** technologies to use (optional but helpful)
-4. **Context** about existing code (optional)
+### Approval modes
 
-### Prompt Examples by Complexity
+Dangerous tools (file writes, shell commands, web fetch) are gated at the registry level by the active edit mode:
 
 <Tabs>
-  <Tab title="UI Components">
-    **Basic:**
-    "Create a button"
-
-    **Better:**
-    "Create a primary button with rounded corners and an orange background"
-
-    **Best:**
-    "Create a reusable Button component in src/components/Button.tsx using TypeScript. It should accept variant (primary, secondary, ghost), size (sm, md, lg), and children props. Use Tailwind CSS with orange-500 as the primary color. Include hover and focus states."
-
-    The best version specifies the file path, typing, variants, and styling framework.
-  </Tab>
-
-  <Tab title="Features">
-    **Basic:**
-    "Add a contact form"
-
-    **Better:**
-    "Create a contact form with name, email, and message fields with validation"
-
-    **Best:**
-    "Create a contact form in src/components/ContactForm.tsx with fields for name (required), email (validated format), and message (textarea, min 10 chars). Use React Hook Form with Zod validation. Show error messages in red below each field. Add a submit button with loading state. On success, show a green confirmation message and reset the form."
-
-    The best version covers validation, UX states, and success behavior.
-  </Tab>
-
-  <Tab title="Shell Commands">
-    **Basic:**
-    "Install dependencies"
-
-    **Better:**
-    "Install React Query and set up a basic query client"
-
-    **Best:**
-    "Install @tanstack/react-query and create a QueryClientProvider wrapper in src/providers/QueryProvider.tsx. Configure it with a default stale time of 5 minutes and retry count of 2. Wrap the App component with this provider in src/main.tsx."
-
-    The best version includes the configuration details and integration points.
-  </Tab>
-</Tabs>
-
-### Prompt Patterns
-
-**Adding features:**
-```
-"Add a [feature] to [location] that [behavior] using [technology]"
-```
-
-**Modifying existing code:**
-```
-"In [file/component], change [element] to [new behavior]"
-```
-
-**Debugging:**
-```
-"Fix the bug in [file/component] where [problem description]. The expected behavior is [expected]."
-```
-
-**Refactoring:**
-```
-"Refactor [file/component] to [improvement]. Keep the existing functionality but [specific change]."
-```
-
-## Understanding Tool Calls
-
-When an IterativeAgent, ReActAgent, or TesslateAgent works on your request, it calls tools to interact with your project. Here is what each tool category does and when the agent uses it.
-
-### File Operations
-
-<AccordionGroup>
-  <Accordion icon="file" title="read_file">
-    **What it does:** Reads the contents of a file from your project.
-
-    **When the agent uses it:** Before modifying a file (to understand current code), when investigating a bug, or when you reference a specific file.
-
-    **Example:** The agent reads `src/App.jsx` before adding a new route to the router.
-  </Accordion>
-
-  <Accordion icon="file-pen" title="write_file">
-    **What it does:** Creates a new file or completely overwrites an existing one.
-
-    **When the agent uses it:** Creating new components, configuration files, or when a file needs a full rewrite.
-
-    **Example:** The agent creates `src/components/Button.tsx` with a new component.
-  </Accordion>
-
-  <Accordion icon="scissors" title="patch_file">
-    **What it does:** Applies a surgical search/replace edit to an existing file using fuzzy matching.
-
-    **When the agent uses it:** Making small, targeted changes to existing files. More efficient than rewriting the entire file.
-
-    **Example:** The agent changes `bg-blue-500` to `bg-green-500` in a specific component.
-  </Accordion>
-
-  <Accordion icon="layer-group" title="multi_edit">
-    **What it does:** Applies multiple search/replace patches to a single file atomically. Edits are applied sequentially.
-
-    **When the agent uses it:** Batch refactoring, renaming variables, or making several related changes to one file.
-
-    **Example:** The agent updates an interface, function signature, and JSX in one operation.
-  </Accordion>
-</AccordionGroup>
-
-### Shell Operations
-
-<AccordionGroup>
-  <Accordion icon="terminal" title="bash_exec">
-    **What it does:** Executes a one-off shell command with automatic session management. Reuses sessions within the same agent run for efficiency.
-
-    **When the agent uses it:** Installing packages, running builds, checking git status, listing files, running tests.
-
-    **Example:** `npm install @tanstack/react-query` or `npm run build`
-
-    **Tip:** For long-running commands (like test suites), the agent can increase the wait time using the `wait_seconds` parameter.
-  </Accordion>
-
-  <Accordion icon="rectangle-terminal" title="shell_open / shell_exec / shell_close">
-    **What they do:** Open a persistent shell session, execute commands within it (preserving state like working directory), and close it when done.
-
-    **When the agent uses them:** Multi-step workflows that need state persistence. For example, navigating to a directory and running several commands there.
-
-    **Example:** Open a session, `cd src`, `ls -la`, then close.
-  </Accordion>
-</AccordionGroup>
-
-### Graph Operations
-
-Graph operations are available only when you are viewing the architecture/graph canvas. They let the agent manage your project's container topology.
-
-<AccordionGroup>
-  <Accordion icon="play" title="Container Lifecycle">
-    **Tools:** `graph_start_container`, `graph_stop_container`, `graph_start_all`, `graph_stop_all`, `graph_container_status`
-
-    **When the agent uses them:** Starting or stopping services, checking which containers are running, launching the entire application stack.
-  </Accordion>
-
-  <Accordion icon="diagram-project" title="Grid Management">
-    **Tools:** `graph_add_container`, `graph_add_browser_preview`, `graph_add_connection`, `graph_remove_item`
-
-    **When the agent uses them:** Setting up project architecture. Adding frontend/backend/database containers, connecting them with environment variables or API endpoints, and adding browser preview nodes.
-
-    **Connection types:** `env_injection`, `http_api`, `database`, `cache`, `depends_on`
-  </Accordion>
-</AccordionGroup>
-
-## Approval Flows
-
-In **Ask Before Edit** mode (the default), dangerous operations require your approval.
-
-### Which Tools Need Approval?
-
-**Dangerous tools (require approval):**
-- `write_file`, `patch_file`, `multi_edit` (file modifications)
-- `bash_exec`, `shell_exec`, `shell_open` (shell operations)
-- `web_fetch` (web operations)
-
-**Safe tools (execute immediately):**
-- `read_file`, `get_project_info`, `todo_read`, `todo_write`
-
-### The Approval Dialog
-
-When the agent requests a dangerous operation, you see an approval card with three options:
-
-<Tabs>
-  <Tab title="Allow Once">
-    Approves this single operation only. The next time the same tool is called, you will be asked again.
-  </Tab>
-
-  <Tab title="Allow All">
-    Behavior depends on the tool type:
-
-    **For write tools** (write_file, patch_file, multi_edit): Approves all write operations for this session and automatically switches you to "Allow All Edits" mode.
-
-    **For bash/exec tools** (bash_exec, shell_exec, shell_open, web_fetch): Approves this specific tool type for the session. Other dangerous tools still require approval. The mode stays on "Ask Before Edit."
-  </Tab>
-
-  <Tab title="Stop">
-    Cancels the operation. The agent sees "User cancelled operation" and stops the current task.
-  </Tab>
-</Tabs>
-
-### Session Management
-
-- Approvals persist until you use the `/clear` command or start a new chat
-- The `/clear` command resets all approvals and mode switches
-- Each chat session tracks approvals independently
-
-## Edit Modes
-
-The edit mode button in the chat input lets you control agent autonomy. Three modes are available:
-
-<Tabs>
-  <Tab title="Ask Before Edit (Default)">
-    **Border color:** Grey
-
-    The agent can read freely but must request approval for writes and shell commands. This is the safest mode and recommended for most work.
-
-    Dangerous tools are blocked until you approve them. You can approve per-operation or per-tool-type for the session.
+  <Tab title="Ask Before Edit">
+    Default and safest. Reads proceed silently. Writes and shell commands pause the agent and show an approval card with Allow Once, Allow All, and Stop. Allow All for write tools flips the session into Allow All Edits; Allow All for shell/web tools persists per tool category only.
   </Tab>
 
   <Tab title="Allow All Edits">
-    **Border color:** Orange
-
-    Full access. All tools execute immediately without approval. The agent operates autonomously.
-
-    Use this when you trust the agent completely and want maximum speed.
+    Full autonomy. Every tool executes immediately. Use this once you trust the agent for a given task.
   </Tab>
 
   <Tab title="Plan Mode">
-    **Border color:** Green
-
-    Read-only. The agent can read files and gather context, but all write operations and shell commands are blocked at the registry level. Instead of executing changes, the agent creates a detailed markdown plan explaining what it would do.
-
-    Activate with the mode button or the `/plan` slash command.
-
-    Plan mode is useful when you want to review the agent's approach before letting it make changes.
+    Read-only. Writes, shell commands, and any mutating tool are blocked at the registry level. The agent is forced to produce a detailed plan as text rather than execute it. Switch into Plan Mode before risky migrations, refactors, or production work to dry-run the approach.
   </Tab>
 </Tabs>
 
 <Warning>
-  Plan mode blocks tools at the ToolRegistry level. This means it works automatically for all agents, including custom ones. You do not need to configure anything special.
+  Approvals persist only for the current chat session. Clearing the chat or starting a new one resets all Allow All decisions.
 </Warning>
 
-## Advanced Prompting Techniques
+### Attaching files and context
 
-### Referencing Existing Code
+- Drag and drop files into the chat input to attach them. Images are viewable by the agent via `view_image` (supported on vision-capable models).
+- The architecture panel is shared state: nodes and edges you add show up to the agent on its next iteration, and the agent's graph edits show up on your canvas in real time.
+- Long-running sessions compact older messages automatically when the token estimate crosses 80% of the model's window. Multi-hour runs do not hit a wall.
+
+## Running, interrupting, resuming
 
 <AccordionGroup>
-  <Accordion icon="file" title="Mention Specific Files">
-    "Update the Button component in src/components/Button.tsx to add a `loading` prop that shows a spinner"
-
-    When you reference specific paths, the agent reads those files first.
+  <Accordion icon="play" title="Cancel a running task">
+    Click Stop in the chat input while the agent is working. A cancellation signal is published to the worker, which checks between iterations and stops on the next loop boundary. Partial work is preserved in the transcript.
   </Accordion>
 
-  <Accordion icon="code" title="Reference Patterns">
-    "Make the ProductCard component match the styling pattern used in FeatureCard"
-
-    The agent reads both components to understand the pattern.
+  <Accordion icon="rotate-right" title="Resume after a disconnect">
+    Agent steps persist to the database as they happen. Close the tab, lose network, or have the worker pod restart: on reconnect the transcript rehydrates from the stored trajectory and the WebSocket resubscribes to the Redis event stream. Any events you missed replay before live streaming picks up.
   </Accordion>
 
-  <Accordion icon="layer-group" title="Specify Locations">
-    "Create a new hook called useDebounce in src/hooks/useDebounce.ts"
+  <Accordion icon="clock-rotate-left" title="Rollback a change">
+    Every file write is recorded with a prior snapshot. Use `file_undo` to revert individual files, or use the workspace snapshot timeline to roll the entire project back to any point in the session. Up to 5 snapshots are retained per project.
+  </Accordion>
 
-    Giving exact paths reduces ambiguity.
+  <Accordion icon="comments" title="Refine iteratively">
+    Agents work best when steered. After a tool card lands, you can interject with a short correction ("use Tailwind, not CSS modules") without waiting for the iteration to end. The correction lands in the next model turn.
   </Accordion>
 </AccordionGroup>
 
-### Multi-Step Feature Requests
+## Writing prompts that work
 
-For complex features, break them into numbered steps:
+<Tabs>
+  <Tab title="Be specific">
+    Include the file path, the framework, the expected behavior, and any constraints. "Create `src/components/Button.tsx` as a React TS component with `variant`, `size`, and `loading` props, using Tailwind" beats "add a button".
+  </Tab>
 
-```
-I want to build a shopping cart. Let's work through it step by step:
+  <Tab title="Reference existing code">
+    Point the agent at a file, component, or pattern already in the project: "style this the same way `FeatureCard` is styled". The agent will read the referenced file and match the pattern.
+  </Tab>
 
-1. Create a CartContext with state for items, add, remove, and clear actions
-2. Add "Add to Cart" buttons to the product cards
-3. Build a cart sidebar that slides in from the right
-4. Add quantity controls and a remove button for each item
-5. Show the subtotal and a "Checkout" button at the bottom
+  <Tab title="Break up big tasks">
+    For multi-hour work, give the agent an ordered plan and let it tick off steps. Agents have planning tools (`update_plan`, `todo_write`, `save_plan`) and will use them to track progress.
+  </Tab>
 
-Start with step 1.
-```
+  <Tab title="Paste errors verbatim">
+    When debugging, paste the error output exactly. The agent pattern-matches stack traces faster than summaries and will search the codebase for the referenced symbols.
+  </Tab>
+</Tabs>
 
-<Info>
-  Breaking complex features into steps helps the agent focus on one piece at a time and reduces the chance of errors.
-</Info>
+## Tool categories at a glance
 
-### Iterative Refinement
+| Category | What the agent uses it for |
+|----------|----------------------------|
+| File operations | Read, write, patch, multi-edit, and undo files in the workspace |
+| Shell commands | One-off `bash_exec`, persistent `shell_open`/`shell_exec` sessions, background processes, Python REPL |
+| Navigation | `glob`, `grep`, and `list_dir` for fast codebase traversal |
+| Git | `git_log`, `git_blame`, `git_status`, `git_diff` inside the container |
+| Memory | Cross-session scratchpad the agent can read and write |
+| Web | `web_fetch`, `web_search` via Tavily, Brave, or DuckDuckGo |
+| Planning | Todos, plan documents, structured updates |
+| Delegation | Spawn subagents, wait on them, send messages, close them |
 
-Build gradually:
-
-<Steps>
-  <Step title="Start Simple">
-    "Create a basic product grid showing 6 placeholder products"
-  </Step>
-
-  <Step title="Add Details">
-    "Add product images, titles, and prices to each card"
-  </Step>
-
-  <Step title="Enhance UX">
-    "Add hover effects, shadows, and a Quick View button to each product"
-  </Step>
-
-  <Step title="Add Functionality">
-    "Make the products filterable by category with a dropdown"
-  </Step>
-
-  <Step title="Polish">
-    "Add loading skeletons while data loads and empty state when no results match"
-  </Step>
-</Steps>
-
-## Best Practices
-
-<AccordionGroup>
-  <Accordion icon="target" title="Be Specific">
-    **Vague:** "Make it look better"
-
-    **Specific:** "Increase card padding to 24px, use a softer shadow (shadow-sm), round corners to 12px, and change the background to gray-50"
-
-    More details lead to better results every time.
-  </Accordion>
-
-  <Accordion icon="stairs" title="Build Incrementally">
-    **Avoid:** "Build a complete e-commerce site with cart, checkout, user accounts, and admin panel"
-
-    **Instead:** Build one feature at a time, test it, then move to the next. This gives you better control and fewer issues.
-  </Accordion>
-
-  <Accordion icon="eye" title="Review Generated Code">
-    Always check what the agent created. Look for potential issues, understand the patterns used, and test functionality. Ask the agent to explain any code you do not understand.
-  </Accordion>
-
-  <Accordion icon="arrows-rotate" title="Use the Right Agent Type">
-    - **StreamAgent** for quick UI generation
-    - **IterativeAgent** for general tasks with tool calls
-    - **ReActAgent** for debugging with explicit reasoning
-    - **TesslateAgent** for full-featured production work
-
-    Switch agents mid-project as the task demands.
-  </Accordion>
-
-  <Accordion icon="shield-halved" title="Start in Ask Mode">
-    Begin with Ask Before Edit (the default) until you are comfortable with the agent's behavior. Switch to Allow All when you trust the workflow.
-  </Accordion>
-</AccordionGroup>
+For full parameter lists, gating rules, and return shapes, see the [tesslate-agent reference](https://github.com/TesslateAI/tesslate-agent/blob/main/docs/DOCS.md).
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="circle-question" title="Agent Does Not Understand My Request">
-    - Rephrase with more specific details
-    - Break the request into smaller parts
-    - Provide file paths and technology preferences
-    - Include examples of desired output
-    - Try a different agent type
+  <Accordion icon="circle-pause" title="Agent is stuck waiting">
+    If you are in Ask Before Edit mode, the agent pauses for approval on the first dangerous tool. Check the chat for a pending approval card. You can also widen the approval scope with Allow All for the tool type.
   </Accordion>
 
-  <Accordion icon="code" title="Generated Code Has Errors">
-    - Copy the error message directly to the agent: "I see this error: [paste error]"
-    - Point out the specific file and line if possible
-    - Ask the agent to fix the issue
-    - Switch to ReActAgent for explicit debugging reasoning
+  <Accordion icon="ban" title="Tool calls are blocked">
+    Plan Mode blocks writes and shell commands at the registry. Switch modes with the toggle next to the input. API-key scoping can also restrict tools: see `/guides/api-keys` for scope details.
   </Accordion>
 
-  <Accordion icon="clock" title="Agent Seems Stuck or Slow">
-    - Some complex tasks require many iterations; this is normal
-    - Check if the agent is waiting for approval (in Ask mode)
-    - If the agent is looping, try rephrasing or breaking the task into smaller steps
-    - Resource limits will stop runaway agents automatically
+  <Accordion icon="arrows-spin" title="Agent is looping">
+    The loop terminates when the model stops asking for tools. If it keeps going, cancel, clarify the success criteria, and restart. Consider Plan Mode to force the agent to commit to an approach before executing.
   </Accordion>
 
-  <Accordion icon="ban" title="Tool Calls Are Blocked">
-    - Check your edit mode. Plan mode blocks all write operations.
-    - In Ask mode, make sure you respond to approval dialogs
-    - Switch to Allow All if you want uninterrupted execution
+  <Accordion icon="credit-card" title="Credit or budget errors">
+    If you hit a credit ceiling mid-task, purchase a credit pack or upgrade your tier. See `/guides/billing`. BYOK keys (Pro and Ultra) bypass the credit system entirely.
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card
-    title="Agent Types"
-    icon="robot"
-    href="/guides/agent-types"
-  >
-    Deep dive into StreamAgent, IterativeAgent, ReActAgent, TesslateAgent
+  <Card title="Customizing Agents" icon="sliders" href="/guides/customizing-agents">
+    Build your own agent with a custom system prompt, skills, and MCP bindings
   </Card>
-  <Card
-    title="Customizing Agents"
-    icon="sliders"
-    href="/guides/customizing-agents"
-  >
-    Create and configure custom agents
+  <Card title="Skills" icon="book" href="/guides/skills">
+    Package a reusable capability and attach it to any agent
   </Card>
-  <Card
-    title="Agent Marketplace"
-    icon="store"
-    href="/guides/agent-marketplace"
-  >
-    Discover specialized agents
+  <Card title="Connectors (MCP)" icon="plug" href="/guides/connectors-mcp">
+    Wire Slack, Gmail, Linear, and more into your agent's tool registry
   </Card>
-  <Card
-    title="AI Agents Overview"
-    icon="book-open"
-    href="/guides/agents"
-  >
-    Core concepts and architecture
+  <Card title="Model Management" icon="microchip" href="/guides/model-management">
+    Pick the right model, BYOK, or self-host with Ollama or vLLM
   </Card>
 </CardGroup>

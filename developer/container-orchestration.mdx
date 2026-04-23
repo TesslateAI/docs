@@ -5,7 +5,7 @@ description: "How Docker and Kubernetes manage user project containers"
 
 ## Overview
 
-Every user project in Tesslate Studio runs in an isolated containerized environment. Projects can have multiple containers (frontend, backend, database) that communicate over a private network. The orchestration layer manages container lifecycle, file operations, shell execution, resource management, and cleanup.
+Every user project in OpenSail runs in an isolated containerized environment. Projects can have multiple containers (frontend, backend, database) that communicate over a private network. The orchestration layer manages container lifecycle, file operations, shell execution, resource management, and cleanup.
 
 This page covers both deployment modes (Docker and Kubernetes), the factory pattern that abstracts them, the S3 Sandwich pattern for hibernation, the EBS VolumeSnapshot lifecycle, pod affinity for multi-container projects, and the cleanup CronJob.
 

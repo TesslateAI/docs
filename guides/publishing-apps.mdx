@@ -1,0 +1,435 @@
+---
+title: 'Publishing Apps'
+description: 'Turn an OpenSail workspace into an installable Tesslate App: write a manifest, walk the four-stage approval pipeline, configure billing, and distribute via bundles or forks.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## Overview
+
+A **Tesslate App** is a distributable package built on top of an OpenSail project. A creator develops a workspace normally, publishes it as a versioned `AppVersion`, and end users install it from the marketplace. Each install mints a fresh `Project(app_role="app_instance")` with its own Hub volume, containers, permissions, and billing relationship. The infrastructure for Apps sits on top of the same Project, Container, and Volume primitives you already use, with extra layers for versioning, approval, billing, and distribution.
+
+<CardGroup cols={3}>
+  <Card title="Immutable versions" icon="box-archive">
+    Each publish is an append-only `AppVersion` with a content-addressed bundle hash. Never mutated, always rollback-safe.
+  </Card>
+  <Card title="Four-stage approval" icon="shield-check">
+    Intake, automated scan, sandbox eval, and human review before a public install works.
+  </Card>
+  <Card title="Flexible billing" icon="credit-card">
+    Three dimensions (AI compute, general compute, platform fee) with creator / platform / installer / BYOK payers.
+  </Card>
+</CardGroup>
+
+## Concepts
+
+| Term | What it is |
+|---|---|
+| Workspace | A regular `Project` you develop in. When you turn it into an app source it becomes `Project(app_role="app_source")`. |
+| AppVersion | An immutable, content-addressed snapshot (manifest + bundle hash). Published once, never mutated. |
+| MarketplaceApp | The public identity anchor: slug, handle, category, reputation, approval state. One app has many `AppVersion`s. |
+| AppInstance | A single user's installed copy. Installing mints a new `Project(app_role="app_instance")` with its own volume, containers, and permissions. |
+| `wallet_mix` | Per-install JSON declaring who pays for each billing dimension. Negotiated at install time. |
+| `update_policy` | `auto`, `manual`, or `pinned`. Controls whether new approved versions are pulled automatically. |
+| Surface | The entrypoint kind the app exposes: `ui` (iframe), `chat` (scoped agent session), `scheduled` (cron), `triggered` (webhook or event), `mcp-tool` (callable by other agents). A headless app declares `surfaces: []`. |
+
+Backing columns live in `orchestrator/app/models.py`. The full service map is in `docs/apps/CLAUDE.md`.
+
+## Build your workspace
+
+<Steps>
+  <Step title="Create a project">
+    Start from the dashboard or `POST /api/projects`. Use chat to describe what you want, or import code via the Desktop client's connected directories.
+  </Step>
+  <Step title="Add containers">
+    Each container is a separate service (web, api, db, worker). The AI agent wires them through `setup-config` by reading `.tesslate/config.json`.
+  </Step>
+  <Step title="Let the Librarian write config.json">
+    The Librarian agent analyzes the project and generates `.tesslate/config.json` with `containers`, `startup_command`, and `connections`.
+  </Step>
+  <Step title="Declare container dependencies">
+    Use `env_injection` edges so the manifest knows, for example, that the `api` container needs `DATABASE_URL` from the `db` container. See `seeds/apps/crm-with-postgres/app.manifest.json` for a full worked example.
+  </Step>
+  <Step title="Test locally">
+    Start the project, hit the primary container URL, exercise schedules, verify secrets resolve.
+  </Step>
+  <Step title="Promote to app source">
+    Set `app_role = "app_source"`. The Creator Studio UI does this on first publish.
+  </Step>
+</Steps>
+
+## The app manifest
+
+The manifest is a JSON document describing everything a fresh installer needs: containers, surfaces, billing, scopes, schedules, MCP tool schemas. See the authoritative [2025-02 spec on GitHub](https://github.com/TesslateAI/opensail/blob/main/docs/specs/app-manifest-2025-02.md). The schema file is `orchestrator/app/services/apps/app_manifest_2025_02.schema.json`.
+
+### Top-level shape
+
+```yaml
+manifest_schema_version: "2025-02"
+app:           { id, name, slug, version, description, category, forkable, handle? }
+compatibility: { studio: { min, max? }, manifest_schema, runtime_api, required_features[] }
+surfaces:      [ { kind, entrypoint?, name?, description?, tool_schema? } ]
+compute:
+  tier
+  compute_model
+  containers:  [ { name, image, primary, ports, env, startup_command, volumes?, resources? } ]
+  connections: [ { source_container, target_container, connector_type, config } ]
+  hosted_agents: [ ... ]
+state:         { model, volume_size?, byo_database? }
+connectors:    [ { id, kind, scopes, required, oauth?, secret_key? } ]
+schedules:     [ { name, default_cron?, entrypoint?, execution, trigger_kind, editable?, optional? } ]
+billing:       { ai_compute, general_compute, platform_fee, promotional_budget? }
+listing:       { visibility, update_policy_default?, minimum_rollback_version? }
+eval_scenarios: [ ... ]
+```
+
+### Minimal single-container app
+
+```json
+{
+  "manifest_schema_version": "2025-02",
+  "app": {
+    "id": "com.tesslate.hello-node",
+    "slug": "hello-node",
+    "name": "Hello Node",
+    "version": "0.1.0",
+    "forkable": "true"
+  },
+  "compatibility": {
+    "studio": {"min": "0.0.0"},
+    "manifest_schema": "2025-02",
+    "runtime_api": "^1.0",
+    "required_features": []
+  },
+  "compute": {
+    "tier": 1,
+    "compute_model": "per-installer",
+    "containers": [{
+      "name": "web", "primary": true,
+      "image": "tesslate-devserver:latest",
+      "ports": [3000],
+      "startup_command": "node /app/server.js",
+      "env": {"PORT": "3000"}
+    }],
+    "connections": []
+  },
+  "surfaces": [{"kind": "ui", "entrypoint": "/"}],
+  "state": {"model": "per-install-volume", "volume_size": "256Mi"},
+  "billing": {
+    "ai_compute":     {"payer": "platform"},
+    "general_compute":{"payer": "platform"},
+    "platform_fee":   {"model": "free"}
+  },
+  "listing": {"visibility": "public"}
+}
+```
+
+### Common fields
+
+- `slug` is kebab-case, globally unique, and immutable after first publish.
+- `version` is strict semver. Each publish must be strictly greater than the prior `AppVersion` for the same app.
+- `primary: true` marks the container whose URL backs `ui` / `chat` surfaces. Exactly one container must be primary when `containers[]` is non-empty.
+- Secret-ref env values use the convention `"${secret:<name>/<key>}"`. They resolve at pod-spec time via `env_resolver.py`.
+- `connectors[]` declares OAuth scopes the installer must consent to.
+- `eval_scenarios[]` supplies at least three happy-path prompts per entrypoint for public listings (used by Stage 2 sandbox eval).
+
+<Info>
+Headless apps (cron- or webhook-only) set `surfaces: []`. The workspace falls through to the Schedules tab as the primary layout.
+</Info>
+
+## Submit for publishing
+
+From Creator Studio (`app/src/pages/CreatorStudioPage.tsx`) open your source project and click **Publish version**, or drive the REST API:
+
+```http
+POST /api/apps/versions/publish
+{ "project_id": "<uuid>", "manifest": { ... }, "app_id": null }
+```
+
+The publisher (`orchestrator/app/services/apps/publisher.py`) runs atomically:
+
+<Steps>
+  <Step title="Parse and validate">
+    Manifest is validated against the frozen 2025-02 JSON Schema.
+  </Step>
+  <Step title="Compatibility check">
+    `compatibility.check()` asserts the running server supports every declared `required_features` entry.
+  </Step>
+  <Step title="Get or create MarketplaceApp">
+    By slug. First publish creates the public identity anchor.
+  </Step>
+  <Step title="Guard duplicates">
+    `(app_id, version)` must be unique.
+  </Step>
+  <Step title="Publish the bundle">
+    Bundle is written to Volume Hub's CAS and `bundle_hash` captured.
+  </Step>
+  <Step title="Insert rows">
+    `AppVersion(approval_state="pending_stage1")` and `AppSubmission(stage="stage0")` enter the review pipeline.
+  </Step>
+</Steps>
+
+Private or team installs (manifest `listing.visibility: "private"` or `"team:<uuid>"`) still pass through Stage 0 and Stage 1 for structural checks, but never surface to the public marketplace.
+
+## Approval pipeline
+
+Every public submission walks a four-stage state machine. Transitions are enforced by `orchestrator/app/services/apps/submissions.py` (`VALID_TRANSITIONS`).
+
+| Stage | What happens | Service |
+|---|---|---|
+| Stage 0 (intake) | Submission row created, bundle persisted. | `publisher.py` |
+| Stage 1 (automated scan) | Re-parses manifest, confirms declared features are supported, checks MCP scopes against the safe-list, confirms disclosure and billing payers. Hard fails reject; warnings do not. | `stage1_scanner.py` |
+| Stage 2 (sandbox eval) | Runs the app against an `AdversarialSuite` with a cheap model. Scores crashes, cost blowouts, prompt-injection resistance. Requires score >= `STAGE2_SCORE_THRESHOLD` (0.5). | `stage2_sandbox.py` |
+| Stage 3 (human review) | OpenSail admins sign off in the Admin Marketplace Workbench. | `admin_marketplace.py` |
+
+On Stage 3 approval, `AppVersion.approval_state` becomes `stage2_approved` and `MarketplaceApp.state` becomes `approved`. The version is installable from the public marketplace.
+
+<Info>
+Stage 1 writes one `SubmissionCheck` row per check, so creators can see exactly which check failed. Admins manage the adversarial suite itself from `AdminAdversarialSuitePage.tsx`.
+</Info>
+
+<Warning>
+Dev shortcut `TSL_APPS_DEV_AUTO_APPROVE=1` skips all stages. The platform blocks this whenever `app_base_url` is HTTPS, so it cannot be enabled in production by accident.
+</Warning>
+
+## Billing configuration
+
+Billing has three independent dimensions. Each declares a payer and caps independently. The resolved payer for each spend event is the `wallet_mix` entry on the `AppInstance`, negotiated at install time.
+
+| Dimension | Payer options | Default `on_cap` |
+|---|---|---|
+| `ai_compute` | `creator`, `platform`, `installer`, `byok` | `pause` |
+| `general_compute` | `creator`, `platform`, `installer` (no BYOK) | `degrade` |
+| `platform_fee` | `subscription`, `one-time`, `free` | `pause` |
+
+```yaml
+billing:
+  ai_compute:
+    payer: installer
+    cap_usd_per_session: 1.00
+    cap_usd_per_month_per_install: 50.00
+  general_compute:
+    payer: installer
+    cap_usd_per_month_per_install: 10.00
+    on_cap: degrade
+  platform_fee:
+    model: subscription
+    price_usd: 9.00
+    billing_period: monthly
+    trial_days: 7
+  promotional_budget:
+    fund_usd: 500
+    covers: [ai_compute]
+    on_exhaust: flip_to_installer
+```
+
+<Info>
+A `promotional_budget` lets the creator fund AI costs up to `fund_usd`. When exhausted, the payer automatically flips to the installer so the app keeps working.
+</Info>
+
+Settlement runs in ARQ via `settlement_worker.settle_spend_batch` with `SELECT ... FOR UPDATE SKIP LOCKED` for safe concurrency. The platform keeps `markup_pct` (default 10%) and credits the creator the rest. BYOK on `ai_compute` records a no-op `SpendRecord` with `reason='byok_no_op'`.
+
+Creators set billing from `app/src/pages/CreatorBillingPage.tsx`. Installers see the resolved numbers in `AppInstallWizard.tsx` before installing.
+
+## Installing apps
+
+One-click install launches the `AppInstallWizard` (`app/src/components/apps/AppInstallWizard.tsx`). It collects:
+
+- Team under which to install.
+- OAuth consents for every `connectors[]` entry with `oauth: true`.
+- `wallet_mix` consent (which payer is accepted per dimension).
+- MCP scope consent per declared MCP server.
+- Update policy (`auto`, `manual`, `pinned`).
+
+On submit, `POST /api/apps/installs` reaches `installer.install_app()`, which:
+
+1. Verifies the AppVersion is in `stage1_approved` or `stage2_approved`.
+2. Re-runs compatibility against the current server.
+3. Dedupes against an existing active `AppInstance`.
+4. Calls `hub_client.restore_bundle()` to materialize a new volume from the CAS bundle. An `AppInstallAttempt(state="hub_created")` row is written before the DB commit so the background reaper (`install_reaper.py`) can clean up crashed installs.
+5. Inserts a new `Project(app_role="app_instance")` plus one `Container` per entry in `compute.containers` and `ContainerConnection` rows for `compute.connections`.
+6. Inserts the `AppInstance`, attaches `McpConsentRecord` rows, flips the attempt to `committed`.
+
+The installer returns `{app_instance_id, project_id, volume_id, node_name}`. Containers start through the normal orchestrator factory at `orchestrator/app/services/orchestration/factory.py`. Installed apps live in `app/src/pages/MyAppsPage.tsx`. The running UI is hosted by `app/src/components/apps/IframeAppHost.tsx` with a signed URL scoped to the install.
+
+## Bundles
+
+Bundles group multiple AppVersions that should install together (for example the Tesslate Starter Pack: a CRM + nightly digest + center dashboard that embeds the others).
+
+- Model: `AppBundle` + `AppBundleItem`.
+- Service: `orchestrator/app/services/apps/bundles.py`.
+- Router: `orchestrator/app/routers/app_bundles.py`.
+- UI: `app/src/pages/BundleDetailPage.tsx` plus `app/src/components/apps/BundleInstallWizard.tsx`.
+
+`consolidated_manifest_hash` hashes member manifest hashes in sorted order, so semantically identical bundles deduplicate. The install wizard shows a single consolidated consent screen covering every member's OAuth scopes. The center-dashboard pattern uses `WorkspaceSurface.tsx` to render an app that embeds its bundle siblings via signed iframes.
+
+## Forking
+
+If the manifest declares `forkable: "true"`, any user can clone the app:
+
+```http
+POST /api/apps/marketplace/{slug}/fork
+```
+
+`orchestrator/app/services/apps/fork.py` restores the source bundle to a new Hub volume, inserts a `MarketplaceApp(state="draft", forked_from=...)` row, and hands the forker a `Project(app_role="app_source")` they can edit and republish under their own slug. The marketplace surfaces fork lineage on `AppDetailPage.tsx`.
+
+| `forkable` value | Meaning |
+|---|---|
+| `"true"` | Anyone can fork |
+| `"restricted"` | Creator approval required per fork request |
+| `"no"` | Forks disabled |
+
+<Warning>
+Forks do not inherit the source's consents or OAuth grants. The new owner re-wires hosted-agent tools and MCPs.
+</Warning>
+
+## Yanking
+
+If a version needs to be pulled, anyone with creator or admin rights can file a yank request via `orchestrator/app/services/apps/yanks.py` and `orchestrator/app/routers/app_yanks.py`.
+
+| Severity | Admin approvals | Typical reason |
+|---|---|---|
+| `low` | One admin | Cosmetic bug |
+| `medium` | One admin | Functional bug |
+| `critical` | Two distinct admins | Security or legal. Enforced by DB `CHECK ck_yank_critical_two_admin` and service-layer `NeedsSecondAdminError`. |
+
+Approved yanks flip `AppVersion.yanked_at` and `state = "yanked"`. Running installs stop being able to mint new runtime keys via `orchestrator/app/services/apps/runtime.py`, which refuses yanked and deprecated apps.
+
+Creators can file a `YankAppeal` against a decision. Admins review at `app/src/pages/AdminYankCenterPage.tsx`.
+
+## Creator reputation
+
+`MarketplaceApp.reputation` is a JSON blob refreshed by `orchestrator/app/services/apps/monitoring.py` and its sweep worker `monitoring_sweep.py`. Inputs:
+
+- Star ratings and install count.
+- Review score from post-install feedback.
+- Uptime and crash metrics pulled from the compute tier.
+- Approval history (rejections, prior yanks, appeal outcomes).
+
+Aggregated creator reputation surfaces on the public creator profile (`orchestrator/app/routers/creators.py`) and in admin tooling at `app/src/pages/AdminCreatorReputationPage.tsx`.
+
+## SDK usage
+
+For apps that call back into OpenSail (publish from CI, open a session against an install, invoke an MCP tool), use the versioned SDKs in `packages/tesslate-app-sdk/`.
+
+<CodeGroup>
+```python Python
+import asyncio
+from tesslate_app_sdk import AppClient, AppSdkOptions, ManifestBuilder
+
+async def main() -> None:
+    opts = AppSdkOptions(base_url="https://opensail.tesslate.com", api_key="tsk_...")
+    manifest = (
+        ManifestBuilder()
+        .app(slug="hello", name="Hello App", version="0.1.0")
+        .surface(kind="iframe", entry="index.html")
+        .billing(model="wallet-mix", default_budget_usd=0.25)
+        .require_features(["apps.v1"])
+        .build()
+    )
+    async with AppClient(opts) as client:
+        pub = await client.publish_version(project_id="...", manifest=manifest)
+        inst = await client.install_app(
+            app_version_id=pub["app_version_id"],
+            team_id="...",
+            wallet_mix_consent={"accepted": True},
+            mcp_consents=[],
+        )
+        sess = await client.begin_session(
+            app_instance_id=inst["app_instance_id"], budget_usd=1.0, ttl_seconds=3600
+        )
+        # sess["api_key"] is returned once only; cache it.
+
+asyncio.run(main())
+```
+
+```ts TypeScript
+import { AppClient, ManifestBuilder } from "@tesslate/app-sdk";
+
+const client = new AppClient({
+  baseUrl: "https://opensail.tesslate.com",
+  apiKey: process.env.TESSLATE_API_KEY!,
+});
+
+const manifest = new ManifestBuilder()
+  .app({ slug: "hello", name: "Hello App", version: "0.1.0" })
+  .surface({ kind: "iframe", entry: "index.html" })
+  .billing({ model: "wallet-mix", default_budget_usd: 0.25 })
+  .requireFeatures(["apps.v1"])
+  .build();
+
+const published = await client.publishVersion({ projectId: "...", manifest });
+```
+</CodeGroup>
+
+Both SDKs authenticate with a Tesslate external API key (`tsk_...`) via `Authorization: Bearer`. CSRF is not needed because cookie sessions are not used. For the agent runtime that powers chat and hosted-agent surfaces, read the [tesslate-agent docs](https://github.com/TesslateAI/tesslate-agent/blob/main/docs/DOCS.md).
+
+## MCP surface
+
+Any app can expose one or more of its entrypoints as MCP tools callable by other agents.
+
+```yaml
+surfaces:
+  - kind: mcp-tool
+    entrypoint: tools/redline
+    name: redline
+    description: "Return tracked-change suggestions on a document."
+    tool_schema:
+      type: object
+      properties:
+        document_ref: { type: string }
+      required: [document_ref]
+```
+
+`tool_schema` is JSON Schema for the tool input. Stage 1 scans the declared MCP scopes; Stage 2 exercises the tool against the adversarial suite. At install time the user consents to scopes via `AppInstallWizard.tsx` and consent is recorded in `McpConsentRecord`. Runtime bridging lives in `orchestrator/app/services/mcp/` (client, bridge, manager).
+
+<Info>
+`stateless` or `shared-db` state models are recommended for MCP tools because they are called concurrently across invocations.
+</Info>
+
+## Scheduled triggers and webhooks
+
+Every `schedules[]` entry gets an `AgentSchedule` row scoped to the install. Two dimensions combine into four shapes:
+
+| `trigger_kind` | `execution` | Semantics |
+|---|---|---|
+| `cron` | `job` | Cron fires, a `V1Job` runs the `entrypoint` command in the primary container image. |
+| `cron` | `http-post` | Cron fires, POST to `${primary_url}${entrypoint}` with an invocation-key auth header. |
+| `webhook` | `job` | External POST to `/api/app-instances/{id}/trigger/{name}` kicks off a job. |
+| `webhook` | `http-post` | External POST is forwarded to the primary container endpoint. |
+
+Webhook authentication uses HMAC-SHA256 of the request body against `trigger_config.webhook_secret` in header `X-Tesslate-Signature`.
+
+Ingestion is fast: `schedule_triggers.ingest_trigger_event()` does a single INSERT into `ScheduleTriggerEvent`. `process_trigger_events_batch()` drains them into ARQ tasks using `SELECT ... FOR UPDATE SKIP LOCKED`. See `orchestrator/app/services/apps/schedule_triggers.py` and the routers `app_schedules.py` / `app_triggers.py`.
+
+Installers manage schedules from the My Apps UI; creators declare defaults and editability in the manifest. The `nightly_digest` seed at `seeds/apps/nightly_digest/app.manifest.json` is a full headless cron example (`surfaces: []`, one cron schedule).
+
+## Admin review
+
+Tesslate staff drive the approval queue from these pages, all behind superuser auth on the router side (`orchestrator/app/routers/admin_marketplace.py`).
+
+| Page | Purpose |
+|---|---|
+| `AdminSubmissionWorkbenchPage.tsx` | Stage advance and per-check triage |
+| `AdminMarketplaceReviewPage.tsx` | Stage 3 final review |
+| `AdminYankCenterPage.tsx` | Yank requests, appeals, two-admin rule for critical severity |
+| `AdminAdversarialSuitePage.tsx` | Stage 2 eval suite management |
+| `AdminCreatorReputationPage.tsx` | Creator reputation overrides and audits |
+
+## Where to next
+
+<CardGroup cols={3}>
+  <Card title="Deployment Targets" icon="rocket" href="/guides/deployment-targets">
+    Ship a hosted build to Vercel, Netlify, Cloudflare, and 19 other providers.
+  </Card>
+  <Card title="Communication Gateways" icon="comments" href="/guides/communication-gateways">
+    Put your installed app into Slack, Telegram, Discord, WhatsApp, or Signal.
+  </Card>
+  <Card title="Desktop Install" icon="desktop" href="/guides/desktop-install">
+    Distribute your app on the Tauri desktop shell.
+  </Card>
+</CardGroup>
+
+<Info>
+Need the agent authoring reference for hosted-agent surfaces? See the [tesslate-agent docs](https://github.com/TesslateAI/tesslate-agent/blob/main/docs/DOCS.md). Looking to trigger an installed app from outside OpenSail? See the external agent API at `orchestrator/app/routers/external_agent.py`.
+</Info>

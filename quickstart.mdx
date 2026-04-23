@@ -1,242 +1,159 @@
 ---
 title: 'Quickstart'
-description: 'Get started with Tesslate Studio in under 5 minutes'
+description: 'Sign in, create a project, and ship your first OpenSail agent in five minutes'
 ---
 
-## Create Your Account
+<img
+  src="/images/opensail-banner.png"
+  alt="Tesslate OpenSail"
+/>
+
+This walkthrough uses the hosted cloud at [tesslate.com](https://tesslate.com). If you want to self-host, jump to the [Docker setup guide](/guides/docker-setup) or the [Desktop install guide](/guides/desktop-install) instead.
+
+## Sign in
 
 <Steps>
-  <Step title="Sign Up">
-    Navigate to [studio.tesslate.com](https://studio.tesslate.com) and click **Sign Up**.
-
-    Fill in your details:
-    - Full Name
-    - Username (unique)
-    - Email Address
-    - Password (minimum 8 characters)
+  <Step title="Create an account">
+    Go to [tesslate.com](https://tesslate.com) and sign up with email or one of the OAuth providers (GitHub, Google).
   </Step>
 
-  <Step title="Verify and Login">
-    After registration, you'll be automatically logged in and redirected to your dashboard.
+  <Step title="Verify your email">
+    Check your inbox for a verification link. The first account on a fresh self-hosted install is promoted to admin automatically.
+  </Step>
+
+  <Step title="Land on your dashboard">
+    The dashboard lists every project you own or have been given access to. A new account starts empty.
   </Step>
 </Steps>
 
-## Create Your First Project
+## Create your first project
 
 <Steps>
-  <Step title="Open Dashboard">
-    You'll land on the Dashboard showing all your projects (currently empty for new users).
-  </Step>
-
-  <Step title="Click Create Project">
-    Click the **"Create New Project"** button in the center or top-right corner.
-  </Step>
-
-  <Step title="Choose Source">
-    Select how you want to start:
+  <Step title="Click New project">
+    Pick a source:
 
     <Tabs>
-      <Tab title="Template (Recommended)">
-        Start with a blank React + Vite template
-
-        - Enter project name (e.g., "My First App")
-        - Add optional description
-        - Click **Create Project**
+      <Tab title="Template">
+        Start from a pre-wired base. Pick from Next.js, Vite+React+FastAPI, Vite+React+Go, Expo, and more.
       </Tab>
 
-      <Tab title="GitHub">
-        Import an existing repository
-
-        - Paste GitHub repository URL
-        - Enter branch name (default: main)
-        - Click **Create Project**
+      <Tab title="Import">
+        Paste a GitHub, GitLab, or Bitbucket URL. OpenSail clones the repo, detects the stack, and generates a `.tesslate/config.json` for the containers.
       </Tab>
 
-      <Tab title="Base">
-        Use a pre-built template
-
-        - Select a base from your library
-        - Enter project name
-        - Click **Create Project**
+      <Tab title="Describe">
+        Tell OpenSail what you want in plain English. An agent proposes the stack, writes the scaffolding, and checks in.
       </Tab>
     </Tabs>
   </Step>
 
-  <Step title="Wait for Initialization">
-    The development server will start automatically. You'll see:
-    - "Starting development server..." (toast notification)
-    - "Development server ready!" (when complete)
+  <Step title="Wait for the container">
+    Your project provisions a sandboxed container on a shared node. A loading overlay tracks progress; the container is usually ready in 10 to 30 seconds.
+  </Step>
 
-    This usually takes 10-30 seconds.
+  <Step title="Open the builder">
+    The workspace layout has four panels: file tree, editor, live preview, and chat. A kanban board, git viewer, and architecture canvas are one click away.
   </Step>
 </Steps>
 
-## Build Your First Feature
+## Build with the agent
 
 <Steps>
-  <Step title="Open Chat">
-    At the bottom of the screen, you'll see the chat interface. Click to expand it.
+  <Step title="Open chat">
+    The chat panel is docked at the bottom. Expand it to full height for longer sessions.
   </Step>
 
-  <Step title="Describe What You Want">
-    Type a natural language description of what you want to build. For example:
+  <Step title="Describe the feature">
+    Be specific. Good prompts describe the behavior, not the code. For example:
 
     ```
-    Create a landing page with a hero section, feature cards,
-    and a contact form. Use a blue color scheme.
+    Add a /api/contacts endpoint that returns a list of contacts from Postgres,
+    ordered by last_interacted_at descending, paginated 20 per page.
     ```
   </Step>
 
-  <Step title="Select an Agent">
-    In the chat input, you'll see an agent selector dropdown. For your first project, use the default **Stream Agent**.
+  <Step title="Watch it work">
+    The agent streams every step: file reads, edits, shell commands, test runs. You can interrupt, redirect, or roll back at any point.
   </Step>
 
-  <Step title="Send Message">
-    Press **Enter** or click the send button. The AI will:
-
-    - Generate React components
-    - Create necessary files
-    - Auto-save to your project
-    - Show progress in the chat
-  </Step>
-
-  <Step title="View Live Preview">
-    As files are generated, the live preview updates automatically. You'll see your landing page appear in real-time!
+  <Step title="See changes live">
+    Files land on the project volume and the dev server reloads. The preview iframe updates without a refresh.
   </Step>
 </Steps>
 
-## Make Changes
+## Iterate and review
 
 <Steps>
-  <Step title="Request Modifications">
-    Continue chatting with the AI to refine your app:
-
-    ```
-    Change the hero background to a gradient from blue to purple.
-    Add hover animations to the feature cards.
-    ```
+  <Step title="Keep chatting">
+    Follow-up prompts build on the same context. The agent remembers decisions, reads files, and reasons about the whole project.
   </Step>
 
-  <Step title="Manual Edits">
-    Click the **Code** tab to view files. You can:
-
-    - Browse the file tree
-    - Click any file to open in the editor
-    - Make manual changes
-    - Click **Save** to update the preview
+  <Step title="Review diffs">
+    Every edit is a reviewable diff. Accept the change, reject it, or edit it yourself in Monaco.
   </Step>
 
-  <Step title="See Changes Live">
-    Every change (AI-generated or manual) instantly appears in the live preview thanks to Hot Module Replacement (HMR).
+  <Step title="Run and test">
+    Use the terminal panel for manual commands. The agent can also run commands itself when given permission.
+  </Step>
+
+  <Step title="Commit">
+    The git panel shows uncommitted changes. Write a message, commit, and optionally push to your remote.
   </Step>
 </Steps>
 
-## Explore More Features
+## Ship it
 
-<CardGroup cols={2}>
-  <Card
-    title="Install Agents"
-    icon="robot"
-    href="/guides/marketplace"
-  >
-    Browse the marketplace for specialized AI agents
+Three common next steps:
+
+<CardGroup cols={3}>
+  <Card title="Deploy" icon="cloud-arrow-up" href="/guides/deployment-targets">
+    Connect Vercel, AWS, Cloudflare, Fly, or another provider. Draw an edge from a container to a target.
   </Card>
-
-  <Card
-    title="GitHub Integration"
-    icon="github"
-    href="/guides/github-integration"
-  >
-    Connect GitHub and commit your code
+  <Card title="Schedule" icon="clock" href="/guides/communication-gateways">
+    Set the agent to run on cron and deliver reports to Slack or Telegram.
   </Card>
-
-  <Card
-    title="Architecture Diagrams"
-    icon="diagram-project"
-    href="/guides/architecture-diagrams"
-  >
-    Visualize your application architecture
-  </Card>
-
-  <Card
-    title="API Keys & Models"
-    icon="key"
-    href="/guides/api-keys"
-  >
-    Configure external AI models
+  <Card title="Publish" icon="store" href="/guides/publishing-apps">
+    Turn the workspace into a one-click installable app on the marketplace.
   </Card>
 </CardGroup>
 
-## Tips for Success
+## Learn more
+
+<CardGroup cols={2}>
+  <Card title="Core concepts" icon="compass" href="/guides/projects">
+    Projects, workspaces, agents, marketplace, the Architecture Panel.
+  </Card>
+  <Card title="Using agents" icon="robot" href="/guides/using-agents">
+    Conversation patterns, approval modes, skills, and connectors.
+  </Card>
+  <Card title="Architecture panel" icon="diagram-project" href="/guides/architecture-panel">
+    Visual canvas that authors the `.tesslate/config.json` for your project.
+  </Card>
+  <Card title="Join Discord" icon="discord" href="https://discord.gg/qmrcHGNch7">
+    Ask questions, share what you are building.
+  </Card>
+</CardGroup>
+
+## Tips
 
 <AccordionGroup>
-  <Accordion icon="message-dots" title="Be Specific in Prompts">
-    The more detailed your description, the better the results. Include:
-    - Specific features you want
-    - Color schemes and styling preferences
-    - Layout and structure details
-    - Any specific libraries or patterns to use
+  <Accordion icon="message-dots" title="Be specific in prompts">
+    Describe behavior, not syntax. Include:
+    - What the feature does
+    - Inputs and outputs
+    - Edge cases you care about
+    - Any constraints (libraries, style, performance)
   </Accordion>
 
-  <Accordion icon="arrows-rotate" title="Iterate Incrementally">
-    Build your application step by step:
-    1. Start with basic structure
-    2. Add features one at a time
-    3. Refine styling and UX
-    4. Test and debug
-
-    This approach gives better results than trying to build everything at once.
+  <Accordion icon="arrows-rotate" title="Iterate in small steps">
+    Ship something small that works, then expand. One prompt per feature beats one prompt for the whole app.
   </Accordion>
 
-  <Accordion icon="robot" title="Use the Right Agent">
-    Different agents excel at different tasks:
-    - **Stream Agent**: Fast iteration, UI building
-    - **Iterative Agent**: Complex logic, multi-step tasks
-
-    Switch agents based on your current need.
+  <Accordion icon="shield-halved" title="Review before you run">
+    OpenSail asks for approval before shell commands, git pushes, or network calls outside the allowlist. Review the diff, not just the chat summary.
   </Accordion>
 
-  <Accordion icon="floppy-disk" title="Save Your Work">
-    Tesslate auto-saves, but you can also:
-    - Commit to GitHub regularly
-    - Download your project files
-    - Keep backups of important versions
+  <Accordion icon="floppy-disk" title="Commit often">
+    OpenSail autosaves, but git is still your history of record. Commit after each feature works.
   </Accordion>
 </AccordionGroup>
-
-## Common Issues
-
-<Warning>
-  **Development Server Not Starting?**
-
-  If the dev server fails to start:
-  1. Check your internet connection
-  2. Try refreshing the page
-  3. Contact support if the issue persists
-</Warning>
-
-<Warning>
-  **Preview Not Updating?**
-
-  If changes aren't appearing:
-  1. Click the refresh button in the preview
-  2. Check the browser console for errors
-  3. Try restarting the development server in Settings
-</Warning>
-
-## Next Steps
-
-Now that you've built your first project, explore these guides:
-
-1. [Understanding Projects](/guides/projects) - Learn project management
-2. [Working with Agents](/guides/agents) - Master AI agents
-3. [Code Editor Guide](/guides/code-editor) - Advanced editing features
-4. [Marketplace](/guides/marketplace) - Discover agents and bases
-
-<Card
-  title="Join Our Community"
-  icon="discord"
-  href="https://discord.gg/qmrcHGNch7"
->
-  Get help, share projects, and connect with other builders
-</Card>

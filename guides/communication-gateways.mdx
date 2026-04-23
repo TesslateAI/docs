@@ -1,0 +1,355 @@
+---
+title: 'Communication Gateways'
+description: 'Put an OpenSail agent into Telegram, Slack, Discord, WhatsApp, Signal, or a CLI WebSocket, and run agents on cron schedules with delivery to any channel.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## Overview
+
+OpenSail agents do not need to live inside the app. The **Gateway** is a persistent process that maintains live connections to messaging platforms so users can talk to an agent wherever they already work. A message from Telegram, Slack, Discord, WhatsApp, Signal, or an authenticated CLI WebSocket flows through the same pipeline as a browser chat, runs inside a sandboxed agent worker, and replies back to the originating thread, DM, or channel.
+
+<CardGroup cols={3}>
+  <Card title="Six built-in adapters" icon="plug">
+    Telegram, Slack, Discord, WhatsApp, Signal, and CLI WebSocket, each with inbound and outbound support.
+  </Card>
+  <Card title="Cron schedules" icon="clock">
+    Agents run on their own with natural-language or cron expressions and deliver to any channel.
+  </Card>
+  <Card title="Identity pairing" icon="user-check">
+    8-character pairing codes link platform accounts to OpenSail users via `PlatformIdentity`.
+  </Card>
+</CardGroup>
+
+### Platform adapters
+
+| Platform | Inbound mode | Adapter file |
+|---|---|---|
+| Telegram | Webhook or long-poll | `orchestrator/app/services/channels/telegram.py` |
+| Slack | Events API webhook or Socket Mode | `orchestrator/app/services/channels/slack.py` |
+| Discord | Gateway WebSocket via `discord.py`, or interactions webhook | `orchestrator/app/services/channels/discord_bot.py` |
+| WhatsApp | Meta Cloud API webhook | `orchestrator/app/services/channels/whatsapp.py` |
+| Signal | `signal-cli` REST SSE | `orchestrator/app/services/channels/signal.py` |
+| CLI | Authenticated WebSocket | `orchestrator/app/services/channels/cli_websocket.py` |
+
+## Prerequisites
+
+<Steps>
+  <Step title="Run OpenSail">
+    Bring up the backend in Docker, Kubernetes, or desktop mode. See the [Self-Hosting quickstart](/self-hosting/quickstart) if you need the full install.
+  </Step>
+  <Step title="Set CHANNEL_ENCRYPTION_KEY">
+    Generate a base64 Fernet key:
+
+    ```bash
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    ```
+
+    Set it as `CHANNEL_ENCRYPTION_KEY`. OpenSail falls back to `DEPLOYMENT_ENCRYPTION_KEY` and then `SECRET_KEY` (see `get_channel_encryption_key` in `orchestrator/app/config.py`), but an explicit channel key is strongly recommended.
+  </Step>
+  <Step title="Configure Redis">
+    Set `REDIS_URL` if you want scheduled delivery, hot reload, or multi-pod routing. Without Redis the gateway still handles inbound messages in-process on desktop, but delivery to non-browser channels is disabled.
+  </Step>
+  <Step title="Enable the gateway">
+    `GATEWAY_ENABLED=true` is the default. The scheduler polls `agent_schedules` every `GATEWAY_TICK_INTERVAL` seconds (default 60).
+  </Step>
+  <Step title="Public HTTPS for webhook platforms">
+    Telegram webhooks, Slack Events API, Discord interactions, and WhatsApp all require a public HTTPS endpoint. Socket-mode flavors (Slack Socket Mode, Discord gateway, Telegram long-poll, Signal SSE) work behind NAT with no inbound port.
+  </Step>
+</Steps>
+
+## Architecture
+
+```
+Platform (Slack, Telegram, ...)
+          |
+          v   webhook POST  or  outbound WS / poll
+  /api/channels/webhook/{type}/{config_id}  <---  HTTP ingress
+          |                                         |
+          v                                         v
+  ChannelConfig (Fernet-encrypted creds)     GatewayRunner (runner.py)
+          |                                         |
+          |    inbound MessageEvent                 |
+          +---------------------------------------->+
+                                                    |
+                                                    v
+                                  TaskQueue (ARQ cloud / asyncio desktop)
+                                                    |
+                                                    v
+                                       Agent worker runs agent loop
+                                                    |
+                                                    v
+                                   Redis XADD -> gateway_delivery_stream
+                                                    |
+                                                    v
+                                  GatewayRunner._delivery_consumer
+                                                    |
+                                                    v
+                                    adapter.send_gateway_response(chat_id, text)
+                                                    |
+                                                    v
+                                      Reply lands in the original chat
+```
+
+Key invariants:
+
+- One adapter per `ChannelConfig` row. Adapters are keyed by `config_id` inside `GatewayRunner.adapters`.
+- Per-session ordering: the runner derives a `session_key` from `platform:chat_type:chat_id[:thread_id]` so concurrent messages in the same chat are serialized.
+- Response routing uses Redis `XREADGROUP` on `gateway_delivery_stream`, so only the pod holding the session's adapter delivers the reply.
+- A `PlatformIdentity` row links a platform account (`telegram:12345`) to an OpenSail `User`, gating who the agent will respond to.
+
+## Identity pairing
+
+Every platform user must be linked to an OpenSail user before the agent talks back.
+
+<Steps>
+  <Step title="User messages the bot">
+    The user sends a message from the platform. The gateway sees no verified `PlatformIdentity` for the `(platform, platform_user_id)` pair.
+  </Step>
+  <Step title="Gateway replies with a pairing code">
+    The gateway generates an 8-character code, stores it on an unverified `PlatformIdentity` row with `pairing_expires_at = now + GATEWAY_PAIRING_CODE_TTL` (default 1 hour), and sends it back through the same channel.
+  </Step>
+  <Step title="User verifies in OpenSail">
+    The user opens OpenSail, navigates to Settings, and submits the code to `POST /api/gateway/pair/verify` with `{ "platform": "...", "pairing_code": "..." }`. See `orchestrator/app/routers/gateway.py`.
+  </Step>
+  <Step title="Identity goes live">
+    The backend assigns `user_id`, sets `is_verified=true`, and stamps `paired_at`. All future inbound messages from that platform account run under that OpenSail user.
+  </Step>
+</Steps>
+
+Manage identities at `GET /api/gateway/identities` (list) and `DELETE /api/gateway/identities/{id}` (unlink). Rate limits flow through `GATEWAY_PAIRING_MAX_PENDING` and `GATEWAY_PAIRING_RATE_LIMIT_MINUTES`.
+
+## Per-platform setup
+
+Configure all platforms from Settings > Channels in the OpenSail UI (`app/src/pages/settings/ChannelsSettings.tsx`) or directly through `POST /api/channels`. Credentials are Fernet-encrypted in `channel_configs.credentials`.
+
+<Tabs>
+  <Tab title="Slack">
+    <Steps>
+      <Step title="Create a Slack app">
+        Go to `https://api.slack.com/apps` and install it to your workspace.
+      </Step>
+      <Step title="Add bot scopes">
+        Under OAuth and Permissions, add: `chat:write`, `im:history`, `channels:history`, `groups:history`, `mpim:history`, `users:read`. Add `files:read` if you want attachments.
+      </Step>
+      <Step title="Copy credentials">
+        Copy the bot token (`xoxb-...`) and the signing secret.
+      </Step>
+      <Step title="Pick inbound mode">
+        - **Socket Mode (recommended)**: enable Socket Mode, generate an app-level token (`xapp-...`), and subscribe to `message.channels`, `message.im`, `message.groups`, `message.mpim`. No public URL required.
+        - **Events API webhook**: paste `https://<your-domain>/api/channels/webhook/slack/<config_id>` as the Request URL after creating the config.
+      </Step>
+      <Step title="Create the channel in OpenSail">
+        Settings > Channels > New > Slack. Paste `bot_token`, `signing_secret`, and optional `app_token`. Save.
+      </Step>
+      <Step title="Invite the bot">
+        Invite the bot into any channel you want it to hear from. DMs work automatically.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Telegram">
+    <Steps>
+      <Step title="Create the bot">
+        Open `@BotFather`, run `/newbot`, follow the prompts, copy the token.
+      </Step>
+      <Step title="Create the channel">
+        Settings > Channels > New > Telegram. Paste the token into `bot_token`. Save.
+      </Step>
+      <Step title="Pick inbound mode">
+        The adapter defaults to long-polling via `getUpdates`, so no public URL is required. If you prefer webhooks, the adapter calls `setWebhook` with the generated URL and a secret token header.
+      </Step>
+      <Step title="Optional: pool tokens">
+        Paste additional tokens for agent swarm mode (multiple bot identities posting into the same chat). See `pool_tokens` in `telegram.py`.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Discord">
+    <Steps>
+      <Step title="Create an application">
+        Go to `https://discord.com/developers/applications`.
+      </Step>
+      <Step title="Create a bot">
+        Under Bot, create a bot and copy the token. Under General Information, copy the Application ID and Public Key.
+      </Step>
+      <Step title="Enable intents">
+        Toggle `MESSAGE CONTENT INTENT` under Bot > Privileged Gateway Intents.
+      </Step>
+      <Step title="Invite the bot">
+        Generate an invite URL with the `bot` and `applications.commands` scopes, plus `Send Messages`, `Read Message History`, `Use Slash Commands` permissions. Invite it to your server.
+      </Step>
+      <Step title="Create the channel">
+        Settings > Channels > New > Discord. Paste `bot_token`, `application_id`, and `public_key`. Save.
+      </Step>
+      <Step title="Optional: interactions webhook">
+        The adapter defaults to a `discord.py` gateway WebSocket. For interactions-only mode, configure `https://<your-domain>/api/channels/webhook/discord/<config_id>` as your Interactions Endpoint URL.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="WhatsApp">
+    <Steps>
+      <Step title="Create a Meta developer app">
+        Visit `https://developers.facebook.com` and create a WhatsApp Business app.
+      </Step>
+      <Step title="Register a phone number">
+        Register the number and note the `phone_number_id`. Generate a permanent System User access token.
+      </Step>
+      <Step title="Create the channel">
+        Settings > Channels > New > WhatsApp. Paste `access_token`, `phone_number_id`, a random `verify_token`, and the `app_secret` from App Settings > Basic.
+      </Step>
+      <Step title="Configure Meta callback">
+        In the Meta App Dashboard, under WhatsApp > Configuration, set Callback URL to `https://<your-domain>/api/channels/webhook/whatsapp/<config_id>` and Verify Token to your value. Subscribe to `messages` events.
+      </Step>
+    </Steps>
+
+    <Warning>
+      WhatsApp is webhook-only. `supports_gateway` is False on this adapter.
+    </Warning>
+  </Tab>
+  <Tab title="Signal">
+    Signal requires a self-hosted `signal-cli` REST API (for example `bbernhard/signal-cli-rest-api` in JSON-RPC mode). Once your number is registered:
+
+    <Steps>
+      <Step title="Create the channel">
+        Settings > Channels > New > Signal.
+      </Step>
+      <Step title="Paste config">
+        Fill `signal_cli_url` (for example `http://signal-cli:8080`) and the registered `phone_number` in E.164 format.
+      </Step>
+    </Steps>
+
+    The adapter opens an SSE stream on `/v1/receive/{phone}` and posts outbound messages to `/v2/send`.
+
+    <Warning>
+      Do not expose `signal-cli` publicly. Keep it on an internal network.
+    </Warning>
+  </Tab>
+  <Tab title="CLI WebSocket">
+    The CLI adapter backs the Tesslate TUI and external API clients. No platform credentials are needed. A client connects to the gateway's CLI WebSocket route with a `tsk_` API key, OpenSail authenticates the key, and messages flow through the same `MessageEvent` pipeline. See `orchestrator/app/services/channels/cli_websocket.py` and the [agent docs](https://github.com/TesslateAI/tesslate-agent).
+  </Tab>
+</Tabs>
+
+## Creating schedules
+
+Schedules let an agent run on a clock and push the result anywhere. The UI lives at `app/src/pages/settings/SchedulesSettings.tsx`. The API is `/api/schedules` (see `orchestrator/app/routers/schedules.py`).
+
+<CodeGroup>
+```http Create a schedule
+POST /api/schedules
+{
+  "project_id": "...",
+  "agent_id": "...",
+  "name": "Friday summary",
+  "schedule": "every Friday at 9am",
+  "timezone": "America/New_York",
+  "repeat": null,
+  "prompt_template": "Summarize this week and post the highlights.",
+  "deliver": "telegram:123456789"
+}
+```
+
+```text Natural language
+every 30m
+daily at 9:30am
+weekdays at 8am
+every monday at 6am
+nightly at 2am
+```
+
+```text Cron
+0 9 * * 1-5
+*/15 * * * *
+0 0 1 * *
+```
+</CodeGroup>
+
+Parser and runner files:
+
+- Natural language parser: `orchestrator/app/services/gateway/schedule_parser.py`
+- Any valid 5-field cron passes through unchanged.
+- `CronScheduler` (`orchestrator/app/services/gateway/scheduler.py`) ticks every `GATEWAY_TICK_INTERVAL`, picks due schedules, enqueues the agent task, increments `runs_completed`, and updates `next_run_at`.
+
+### Delivery targets
+
+| Target | Meaning |
+|---|---|
+| `origin` | Replies to whatever channel or chat created the schedule, using `origin_platform`, `origin_chat_id`, `origin_config_id` |
+| `telegram:<chat_id>` | Specific Telegram chat |
+| `discord:<channel_id>` | Specific Discord channel |
+| `slack:<channel_id>` | Specific Slack channel |
+| `whatsapp:<phone>` | Specific WhatsApp recipient |
+| `signal:<recipient>` | Specific Signal recipient |
+
+<Info>
+  Per-user limits are enforced by `GATEWAY_MAX_SCHEDULES_PER_USER` (default 50).
+</Info>
+
+## Agents sending messages
+
+Agents can push messages into channels on their own using the `send_message` tool. Full reference: [tesslate-agent DOCS](https://github.com/TesslateAI/tesslate-agent).
+
+```python
+send_message(
+  channel="discord",
+  target="<chat_id>",
+  text="Hello from the agent",
+)
+```
+
+- `send_message` is a dangerous tool and is subject to plan-mode and approval gating (see `DANGEROUS_TOOLS` in the agent docs).
+- The backend resolves the right `ChannelConfig` for the current user and calls its adapter. Targets for DMs are the platform user ID; for channels, the channel or chat ID.
+- For quick Discord notifications without a full bot, set `AGENT_DISCORD_WEBHOOK_URL` and the tool will post through that webhook even if no Discord `ChannelConfig` exists.
+
+## Credential security
+
+- Credentials are serialized to JSON and Fernet-encrypted before insert. See `encrypt_credentials` in `orchestrator/app/services/channels/registry.py`.
+- `CHANNEL_ENCRYPTION_KEY` must be a base64 Fernet key. If a raw string is provided, the registry derives a Fernet key through SHA-256 to avoid a cold-start crash, but this path is a fallback, not a recommendation.
+- `GET` endpoints on `/api/channels` never return raw credentials. The UI masks values via `_mask_credentials` in `orchestrator/app/routers/channels.py`.
+- Webhook URLs include a per-config `webhook_secret` (see `generate_webhook_secret`) on top of platform signature verification: HMAC-SHA256 for Slack and WhatsApp, Ed25519 for Discord, secret-token header for Telegram.
+- Key rotation: generate a new key, re-encrypt existing rows, set the new key. Channel credentials are small, so a migration script that reads decrypted values and writes them back with the new key works cleanly.
+
+## Voice transcription
+
+Set `GATEWAY_VOICE_TRANSCRIPTION=true` (default) and `GATEWAY_VOICE_MODEL` (default `whisper-1`) to transcribe inbound voice messages before they reach the agent. The gateway downloads audio via the platform's file API (for example Telegram `getFile`, Slack `files.info`), sends it to the configured LiteLLM transcription model, and forwards the resulting text as a normal `TEXT` `MessageEvent`. Cached media lives under `GATEWAY_MEDIA_CACHE_DIR` and ages out after `GATEWAY_MEDIA_CACHE_MAX_AGE_HOURS`.
+
+## Testing and debugging
+
+Useful places to look when something is off:
+
+- `kubectl logs deploy/tesslate-gateway --context=<name>` or `docker compose logs -f gateway`. Look for `[GATEWAY]`, `[TG-GW]`, `[SLACK-GW]`, `[DISCORD-GW]`, `[SIGNAL-GW]` prefixes.
+- `GET /api/gateway/status` returns shard count, adapter count, heartbeat, last sync timestamp.
+- `ChannelMessage` rows log inbound and outbound messages with `direction`, `status`, `platform_message_id`, and the associated `task_id`. Query by `channel_config_id`.
+- `POST /api/gateway/reload` forces a diff-based adapter resync.
+
+### Common failure modes
+
+| Symptom | Likely cause |
+|---|---|
+| Slack webhook returns 401 | Wrong `signing_secret`, or clock skew greater than 300 seconds. The gateway rejects any timestamp outside that window. |
+| Discord signature failures | Wrong `public_key`, or the body was rewritten by a reverse proxy. Verify Ed25519 over raw bytes. |
+| Telegram sends messages but never receives | `setWebhook` was called but the URL is unreachable. Switch to long-poll mode by leaving the webhook unset. |
+| WhatsApp webhook never fires | `verify_token` mismatch, or the app is not subscribed to `messages` events. |
+| Bot ignores a message | No verified `PlatformIdentity` for that sender. The gateway should have replied with an 8-character pairing code. |
+| Schedule fires but no delivery | Redis is not configured, so the delivery consumer is a no-op. Set `REDIS_URL`. |
+
+## Production notes
+
+- `GATEWAY_SHARD` and `GATEWAY_NUM_SHARDS` shard `ChannelConfig` rows across gateway replicas. Each config is pinned to a shard via `channel_configs.gateway_shard`.
+- Use a `Recreate` update strategy with `replicas=1` per shard so there is only ever one active adapter per config. The file lock at `GATEWAY_LOCK_DIR` is defense in depth for Docker Compose.
+- `GATEWAY_SESSION_IDLE_MINUTES` controls how long an inactive session holds its place in the runner's per-session ordering (default 1440).
+- `GATEWAY_TICK_INTERVAL` is the cron scheduler granularity. Sixty seconds is a good default. Dropping below 30 raises load without gaining much resolution.
+- Heartbeat keys `tesslate:gateway:active:{config_id}` expire every 120 seconds. Use them in Grafana for liveness.
+- The `gateway_delivery_stream` Redis Stream is capped at `GATEWAY_DELIVERY_MAXLEN` entries (default 10000) so crashes never lose pending deliveries forever.
+
+## Where to next
+
+<CardGroup cols={3}>
+  <Card title="Deployment targets" icon="rocket" href="/guides/deployment-targets">
+    Ship your agent's containers to 22 external providers in the same canvas flow.
+  </Card>
+  <Card title="Publishing apps" icon="box" href="/guides/publishing-apps">
+    Package an agent workspace as an installable Tesslate App with its own billing.
+  </Card>
+  <Card title="Agent tool reference" icon="robot" href="https://github.com/TesslateAI/tesslate-agent">
+    Full surface for `send_message`, approval policy, plan mode, and tool gating.
+  </Card>
+</CardGroup>

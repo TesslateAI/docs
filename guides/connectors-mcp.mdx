@@ -1,0 +1,238 @@
+---
+title: 'Connectors and MCP'
+description: 'Wire Slack, Gmail, Linear, GitHub, and dozens of other tools into any OpenSail agent using the Model Context Protocol'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## What MCP is
+
+Model Context Protocol (MCP) is an open protocol for exposing tools, resources, and prompts from an external server to an LLM agent. OpenSail uses MCP to wire real third-party systems (Slack, Gmail, Google Drive, Linear, GitHub, Brave Search, Postgres, filesystems, and more) into any agent's tool registry.
+
+From the agent's perspective, MCP tools look identical to built-in tools. The agent calls `slack__post_message` or `linear__create_issue` exactly like it calls `write_file`. The protocol is open, so nothing in your stack is locked to Tesslate.
+
+<CardGroup cols={2}>
+  <Card title="Real integrations" icon="plug">
+    Slack, Gmail, Drive, Linear, GitHub, Brave, Postgres, filesystem, and more
+  </Card>
+  <Card title="Per-user credentials" icon="key">
+    You install a connector with your credentials, encrypted at rest with Fernet
+  </Card>
+  <Card title="Per-agent binding" icon="link">
+    Attach a connector to a specific agent or reuse across many
+  </Card>
+  <Card title="Open protocol" icon="code-branch">
+    Standard MCP server; BYO server for internal tools
+  </Card>
+</CardGroup>
+
+## Architecture
+
+OpenSail's MCP layer has three pieces, all on the orchestrator side.
+
+<Tabs>
+  <Tab title="MCP client">
+    `orchestrator/app/services/mcp/client.py` opens a streamable-HTTP connection to an MCP server, initializes the session, and lists its tools, resources, and prompts. Streamable HTTP is the only supported transport (see "Why not stdio" below).
+  </Tab>
+
+  <Tab title="MCP bridge">
+    `orchestrator/app/services/mcp/bridge.py` turns MCP capabilities into native Tesslate `Tool` objects. Each tool is name-prefixed with the server slug (`github__create_issue`, `slack__post_message`) and gets a stateless executor that reconnects to the server on each call.
+  </Tab>
+
+  <Tab title="MCP manager">
+    `orchestrator/app/services/mcp/manager.py` is the per-user orchestrator. It resolves which servers are attached to which agent, loads encrypted credentials, connects to each server, caches tool schemas in Redis, and bridges the results into the agent's `ToolRegistry` right before the session starts.
+  </Tab>
+</Tabs>
+
+### Why streamable HTTP only
+
+MCP defines two transports: stdio (child process per user per call) and streamable HTTP (stateless HTTP). OpenSail supports only streamable HTTP. Stdio was designed for single-user desktop apps. In a multi-tenant environment it requires Node.js on every orchestrator pod, spawns a process per call per user, and doesn't scale horizontally. Streamable HTTP offloads load to the connector provider, works identically across replicas, and adds zero dependencies to the backend container.
+
+When adding a new MCP server to the seed catalog, verify the server publishes a streamable-HTTP endpoint. If it's stdio-only, OpenSail cannot use it until the maintainer ships an HTTP transport.
+
+## The user journey
+
+<Steps>
+  <Step title="Browse">
+    Open the Marketplace and filter to MCP Servers. Each card shows the server name, the tools it exposes, the auth type (none, bearer), and any required credential fields.
+  </Step>
+
+  <Step title="Install">
+    Click Install. The connector lands in your Library as a `UserMcpConfig`. If the server requires credentials, you are prompted to enter them. Credentials are encrypted at rest with Fernet before being stored.
+  </Step>
+
+  <Step title="Test">
+    From the Library MCP card, click Test Connection. OpenSail opens a streamable-HTTP session to the server, lists capabilities, and returns tool/resource/prompt counts.
+  </Step>
+
+  <Step title="Attach to an agent">
+    From the Library MCP card, click Add to Agent and pick from your agent list. This creates an `AgentMcpAssignment` row linking the connector to the agent.
+  </Step>
+
+  <Step title="Use it">
+    Start a chat with that agent. The worker bridges the connector's tools into the agent's registry before the first model call. The session header shows a purple badge for each attached MCP server.
+  </Step>
+</Steps>
+
+<Info>
+  Per-user limits apply: the `mcp_max_servers_per_user` setting (default 20) caps how many connectors any one user can install. Enough for most workflows, prevents registry bloat.
+</Info>
+
+## Real connectors
+
+OpenSail's marketplace ships or is adding official support for:
+
+<CardGroup cols={3}>
+  <Card title="Slack" icon="slack">
+    Post messages, read channels, manage threads
+  </Card>
+  <Card title="Gmail" icon="envelope">
+    Read, send, label, draft, thread operations
+  </Card>
+  <Card title="Google Drive" icon="google-drive">
+    List, search, read, write, and share files
+  </Card>
+  <Card title="Linear" icon="list-check">
+    Create and update issues, comments, projects, cycles
+  </Card>
+  <Card title="GitHub" icon="github">
+    Issues, PRs, files, commits, releases
+  </Card>
+  <Card title="Brave Search" icon="magnifying-glass">
+    Web search with privacy-first provider
+  </Card>
+  <Card title="Filesystem" icon="folder">
+    Scoped filesystem access for local workflows
+  </Card>
+  <Card title="Postgres" icon="database">
+    Read-only or read-write SQL access
+  </Card>
+  <Card title="Context7" icon="book">
+    Library documentation and code examples
+  </Card>
+</CardGroup>
+
+More connectors ship on the marketplace regularly. Any streamable-HTTP MCP server works: if your internal system has an MCP server (or can wrap one), you can install it.
+
+## Managing connectors
+
+Every connector is stored as a `UserMcpConfig` row for your user. Key operations:
+
+| Operation | Where |
+|-----------|-------|
+| Install | Marketplace detail page, click Install |
+| Update credentials | Library MCP card, Credentials button |
+| Test connection | Library MCP card, Test button |
+| Re-discover capabilities | Library MCP card, Details panel, Refresh |
+| Attach to agent | Library MCP card, Add to Agent dropdown |
+| Detach from agent | Agent detail page, MCP tab, remove |
+| Uninstall | Library MCP card, Uninstall (soft-delete) |
+
+Tool schemas are cached in Redis for `mcp_tool_cache_ttl` seconds (default 300). When you rotate credentials or change enabled capabilities, the cache is automatically invalidated.
+
+## Attaching to an agent
+
+<Steps>
+  <Step title="Pick the agent">
+    Open the agent detail page from your Library. Go to the MCP Servers tab.
+  </Step>
+
+  <Step title="Click Add">
+    Pick from your installed connectors. Attachment is idempotent; re-adding a previously disabled assignment re-enables it.
+  </Step>
+
+  <Step title="Confirm the bridge">
+    Open a chat with that agent. The session header shows a purple plug badge for each attached MCP. The tool list in the agent's first turn includes prefixed tool names like `slack__post_message`.
+  </Step>
+
+  <Step title="Remove when done">
+    Tools can pile up and dilute the agent's focus. If a connector isn't being used, detach it. You can always re-attach later.
+  </Step>
+</Steps>
+
+## Authoring your own connector
+
+For internal tools, you can run your own MCP server and install it on OpenSail exactly like a marketplace connector.
+
+<Steps>
+  <Step title="Implement MCP over streamable HTTP">
+    Use the official MCP SDK (Python, TypeScript, or another language) and expose a streamable-HTTP endpoint. Stdio transport is not supported.
+  </Step>
+
+  <Step title="Declare auth type">
+    Supported auth: `none` or `bearer`. If bearer, your clients pass a token via the Authorization header.
+  </Step>
+
+  <Step title="Host it">
+    Run it anywhere reachable over HTTPS. You can run it inside an OpenSail project if you want it co-located.
+  </Step>
+
+  <Step title="Register it">
+    Contact Tesslate to add it to the marketplace, or install it directly via API with a custom `UserMcpConfig`.
+  </Step>
+</Steps>
+
+## OpenSail as an MCP server
+
+OpenSail also exposes itself as an MCP server. External coding agents (Claude Code, Cursor, Codex, or your own) can connect to your OpenSail instance and get sandboxed compute, invoke your agents, and manipulate projects through a standard MCP interface. See the Gateway API section of the platform docs for details.
+
+## Security
+
+<AccordionGroup>
+  <Accordion icon="lock" title="Credential encryption">
+    All MCP credentials are encrypted at rest using Fernet symmetric encryption. The encryption key is held server-side in `CHANNEL_ENCRYPTION_KEY`. Credentials are decrypted only at call time and never logged.
+  </Accordion>
+
+  <Accordion icon="user-shield" title="Per-user scoping">
+    Every MCP install and attachment is scoped to your user. Other users (even on the same team) never see your credentials or your attachments.
+  </Accordion>
+
+  <Accordion icon="shield-halved" title="Approval still applies">
+    MCP tools participate in the standard edit-mode gating. If you're in Ask Before Edit, dangerous MCP tools still prompt for approval before execution.
+  </Accordion>
+
+  <Accordion icon="rotate" title="Rotation and revocation">
+    Rotate credentials in the Library. Uninstall to soft-delete the config and invalidate the schema cache. Tokens can be revoked at the provider at any time; OpenSail will fail closed on the next call.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Agent doesn't see the connector tools">
+    Check that the `AgentMcpAssignment` exists and is enabled. Verify the chat is using the expected agent (worker logs show `MCP context query: agent_id=...`). Re-run Test Connection from the Library to force a fresh discovery.
+  </Accordion>
+
+  <Accordion icon="plug-circle-xmark" title="Connection refused or timeout">
+    The MCP server is unreachable. Check the configured URL, the server's uptime, and any network restrictions. Some servers rate-limit by user key; verify your credential is still valid.
+  </Accordion>
+
+  <Accordion icon="ban" title="Stdio MCP transport is not supported">
+    This error means the connector's config specified stdio. Only streamable HTTP is supported. If the connector's maintainer doesn't ship an HTTP endpoint, OpenSail cannot install it.
+  </Accordion>
+
+  <Accordion icon="clock" title="Tool call timed out">
+    Default MCP tool timeout is 30 seconds (`mcp_tool_timeout`). Some tools (large Drive searches, complex Postgres queries) need longer. The setting is orchestrator-wide; contact your admin if you're self-hosting.
+  </Accordion>
+
+  <Accordion icon="memory" title="Stale tool schemas">
+    Schemas are cached in Redis for 5 minutes by default. If a connector added new tools and the agent isn't seeing them, run Re-discover from the Library card. This invalidates the cache and fetches fresh schemas.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Customizing Agents" icon="sliders" href="/guides/customizing-agents">
+    Bind connectors to custom agents
+  </Card>
+  <Card title="Skills" icon="book" href="/guides/skills">
+    Pair connectors with skill playbooks for end-to-end workflows
+  </Card>
+  <Card title="API Keys" icon="key" href="/guides/api-keys">
+    Manage external API keys for model BYOK and agent invocation
+  </Card>
+  <Card title="Using Agents" icon="comments" href="/guides/using-agents">
+    See MCP tool calls in the chat transcript
+  </Card>
+</CardGroup>

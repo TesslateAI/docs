@@ -1,249 +1,181 @@
 ---
-title: 'AI Agents'
-description: 'Core concepts, architecture, and capabilities of AI agents in Tesslate Studio'
+title: 'Agents'
+description: 'The OpenSail agent runner is tesslate-agent, a 33-tool Python package that drives any LiteLLM-compatible model through a streaming iteration loop with progressive persistence and context compaction.'
 ---
 
-## What Are AI Agents?
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-AI agents in Tesslate Studio are autonomous coding assistants powered by large language models. They do more than generate text; they can read your files, write code, execute shell commands, manage containers, and plan multi-step tasks. Each agent has a system prompt that defines its behavior, a set of tools it can call, and a model that powers its reasoning.
+## The agent runner
 
-Think of agents as programmers you can chat with. Describe what you want in natural language, and the agent figures out which tools to use, which files to modify, and how to get it done.
+OpenSail ships one first-class agent runner: [**tesslate-agent**](https://github.com/TesslateAI/tesslate-agent). It is a Python package vendored in the monorepo at `packages/tesslate-agent/` and also published standalone. One class (`TesslateAgent`), 33 tools across 8 categories, LiteLLM for model access, and ATIF v1.4 trajectory recording.
+
+There is no longer a `StreamAgent`, `IterativeAgent`, or `ReActAgent`. All four were replaced by this single runner.
 
 <CardGroup cols={2}>
-  <Card title="Natural Language Input" icon="message">
-    Describe features, fixes, or changes in plain English
+  <Card title="33 built-in tools" icon="wrench">
+    File ops, shell, navigation, git, memory, web, planning, delegation.
   </Card>
-  <Card title="Tool Calling" icon="wrench">
-    Agents read files, write code, run commands, and more
+  <Card title="Any LiteLLM model" icon="plug">
+    OpenAI, Anthropic, DeepSeek, Qwen, Gemini, Mistral, xAI, Z.AI, local Ollama, any OpenAI-compatible endpoint.
   </Card>
-  <Card title="Multiple Agent Types" icon="robot">
-    Four architectures optimized for different tasks
+  <Card title="Progressive persistence" icon="database">
+    Every step streams to the database as it happens. Pods can die mid-run, you can resume later.
   </Card>
-  <Card title="Marketplace Ecosystem" icon="store">
-    Discover, install, and publish specialized agents
+  <Card title="Context compaction" icon="compress">
+    At 80 percent of the model window, the agent compacts older messages with a cheap model and keeps going.
   </Card>
 </CardGroup>
 
-## The Four Agent Types
+## The agent loop
 
-Tesslate Studio provides four agent architectures. Each inherits from a shared `AbstractAgent` base class and can be created through the factory pattern.
+Everything happens inside `TesslateAgent.run(user_request, context)`. It is an async generator that yields events and never touches the filesystem directly. Every tool call goes through the `ToolRegistry`.
 
-<CardGroup cols={2}>
-  <Card title="StreamAgent" icon="water">
-    **Single LLM call, fast streaming output**
+```
+loop (iteration = 1..N):
+  pre-flight compaction if tokens >= window * 0.80
+  response = model.chat_with_tools(messages, tools)
+  if response.content:          yield stream event
+  if not response.tool_calls:   yield complete and return
+  append assistant turn with tool_calls
+  execute tool_calls in parallel (respecting approval policy)
+  append tool results
+```
 
-    - No tool calling; extracts code blocks from the response
-    - Ideal for quick code generation and prototyping
-    - Lowest token usage and cost
-  </Card>
-
-  <Card title="IterativeAgent" icon="rotate">
-    **Multi-step loop with full tool support**
-
-    - Think, Act, Observe loop with JSON-based tool calls
-    - Automatic error recovery and retry
-    - Great for file operations, shell commands, and multi-file changes
-  </Card>
-
-  <Card title="ReActAgent" icon="brain">
-    **Explicit Reasoning + Acting pattern**
-
-    - Mandatory THOUGHT section before every action
-    - Structured observations after each tool execution
-    - Best for debugging, architecture decisions, and auditable reasoning
-  </Card>
-
-  <Card title="TesslateAgent" icon="rocket">
-    **Full-featured production agent**
-
-    - Native LLM function calling (no JSON-in-text parsing)
-    - Subagent spawning for focused subtasks
-    - Trajectory recording for debugging and analytics
-    - Context compaction for long conversations
-    - Planning mode for structured plans before execution
-  </Card>
-</CardGroup>
+The loop ends when the model emits a turn with no tool calls. There is no fixed iteration cap. Runs can be hours long thanks to compaction and progressive persistence.
 
 <Info>
-  Most users start with **TesslateAgent** (the default) or **IterativeAgent** for general development. See [Agent Types](/guides/agent-types) for a deep comparison.
+  Full protocol, tool schemas, edit modes, and quirks live in the agent repo: [DOCS.md on GitHub](https://github.com/TesslateAI/tesslate-agent/blob/main/docs/DOCS.md).
 </Info>
 
-## How Agents Work
+## Tool catalog
 
-### Agent Lifecycle
-
-Every agent follows this high-level lifecycle:
-
-<Steps>
-  <Step title="Initialization">
-    The agent factory loads the agent configuration from the marketplace database, creates a scoped tool registry, substitutes system prompt markers (like `{project_name}` and `{mode_instructions}`), and instantiates the correct agent class.
-  </Step>
-
-  <Step title="Context Building">
-    Before the first LLM call, the system assembles context: environment info, file listings, git status, chat history, and your message. This context helps the agent understand your project.
-  </Step>
-
-  <Step title="Execution Loop">
-    The agent sends messages to the LLM and receives a response. If the response contains tool calls, the agent executes them (respecting edit mode permissions), collects results, and feeds them back for the next iteration. This loop continues until the task is complete.
-  </Step>
-
-  <Step title="Completion">
-    The agent signals completion when it detects a `TASK_COMPLETE` marker, runs out of tool calls, or reaches resource limits. Final results stream back to the chat interface.
-  </Step>
-</Steps>
-
-### Architecture Overview
-
-```
-Agent System
-  AbstractAgent (base class)
-    |
-    |-- StreamAgent        (single-pass, code block extraction)
-    |-- IterativeAgent     (multi-step, JSON tool calls)
-    |-- ReActAgent         (explicit reasoning, structured observations)
-    |-- TesslateAgent      (native function calling, subagents, trajectory)
-    |
-    +-- ToolRegistry       (central tool registration and execution)
-          |
-          |-- File Ops     (read_file, write_file, patch_file, multi_edit)
-          |-- Shell Ops    (bash_exec, shell_open, shell_exec, shell_close)
-          |-- Project Ops  (get_project_info)
-          |-- Planning Ops (todo_read, todo_write)
-          |-- Web Ops      (web_fetch)
-          |-- Graph Ops    (9 container management tools)
-```
-
-## Agent Tools
-
-Tools are the actions agents can perform. Each tool has a name, description, parameter schema, and an async executor function. The ToolRegistry manages registration, lookup, and execution with edit mode control.
+33 tools across 8 categories. The registry is fixed; extensions happen through skills and MCP bridges, not new tool modules.
 
 <Tabs>
-  <Tab title="File Operations">
-    | Tool | Description |
-    |------|-------------|
-    | `read_file` | Read the contents of any file in the project |
-    | `write_file` | Create a new file or overwrite an existing one |
-    | `patch_file` | Surgical search/replace edit with fuzzy matching |
-    | `multi_edit` | Apply multiple patches to a single file atomically |
+  <Tab title="File operations (8)">
+    `read_file`, `write_file`, `read_many_files`, `patch_file`, `multi_edit`, `apply_patch`, `view_image`, `file_undo`.
+
+    Surgical edits use `patch_file` with fuzzy matching. Atomic multi-file changes use `multi_edit`. `apply_patch` takes unified diffs. `file_undo` rolls back the most recent edit.
   </Tab>
+  <Tab title="Shell commands (8)">
+    `bash_exec`, `shell_open`, `shell_close`, `shell_exec`, `write_stdin`, `list_background_processes`, `read_background_output`, `python_repl`.
 
-  <Tab title="Shell Operations">
-    | Tool | Description |
-    |------|-------------|
-    | `bash_exec` | Execute a one-off shell command with automatic session management |
-    | `shell_open` | Open a persistent shell session in the dev container |
-    | `shell_exec` | Execute a command in an existing shell session |
-    | `shell_close` | Close a shell session to free resources |
+    Shell sessions are persistent PTY sessions. Long-running processes (dev servers, watchers) go to background and the agent reads their output on demand.
   </Tab>
-
-  <Tab title="Project & Planning">
-    | Tool | Description |
-    |------|-------------|
-    | `get_project_info` | Get project metadata and structure |
-    | `todo_read` | Read the current task/plan list |
-    | `todo_write` | Update the task list with progress |
-    | `web_fetch` | Fetch content from an external URL |
+  <Tab title="Navigation (3)">
+    `glob`, `grep`, `list_dir`. Fast code search without cat-ing entire files.
   </Tab>
-
-  <Tab title="Graph Operations">
-    Available only in the architecture/graph view:
-
-    | Tool | Description |
-    |------|-------------|
-    | `graph_start_container` | Start a specific container |
-    | `graph_stop_container` | Stop a specific container |
-    | `graph_start_all` | Start all containers in the project |
-    | `graph_stop_all` | Stop all containers |
-    | `graph_container_status` | Get status of all containers |
-    | `graph_add_container` | Add a container node to the grid |
-    | `graph_add_browser_preview` | Add a browser preview node |
-    | `graph_add_connection` | Create a connection between containers |
-    | `graph_remove_item` | Remove a container, connection, or preview |
+  <Tab title="Git (4)">
+    `git_log`, `git_blame`, `git_status`, `git_diff`. Read-only. Writes go through shell.
+  </Tab>
+  <Tab title="Memory (2)">
+    `memory_read`, `memory_write`. Persistent key-value store scoped to the agent run.
+  </Tab>
+  <Tab title="Web (2)">
+    `web_fetch`, `web_search`. Tavily, Brave, or DuckDuckGo backends configured at the platform level.
+  </Tab>
+  <Tab title="Planning (1)">
+    `update_plan`. Structured plan that lives alongside the chat and gets updated as work progresses.
+  </Tab>
+  <Tab title="Delegation (5)">
+    `task`, `wait_agent`, `send_message_to_agent`, `close_agent`, `list_agents`. Spawn subagents for focused subtasks and coordinate between them.
   </Tab>
 </Tabs>
 
-## Edit Modes
+<Info>
+  OpenSail extends this set with platform tools for project control, graph editing (`apply_setup_config`), and kanban (TSK-NNNN refs). The core 33 ship with every install.
+</Info>
 
-Edit modes control how much autonomy an agent has when executing tools. You can switch modes at any time using the mode button in the chat input.
+## Subagents and delegation
+
+An agent can spawn subagents for focused subtasks. Each subagent gets its own system prompt, its own tool subset, and its own budget. The parent agent sees subagent output and decides what to do next.
+
+Typical patterns:
+
+- **Divide and conquer** Frontend agent and backend agent run in parallel inside the same workspace
+- **Specialist lookup** Spawn a `doc-writer` subagent to generate changelog entries
+- **Verification** Spawn a `reviewer` subagent to audit the main agent's diff before finalizing
+
+Subagents use the `task`, `wait_agent`, `send_message_to_agent`, `close_agent`, and `list_agents` tools. They run in the same workspace, so file edits are visible to everyone.
+
+## Skills and progressive disclosure
+
+Skills are reusable capabilities (writing style, code review checklist, deployment playbook, research methodology). They attach to any agent.
+
+Skills load progressively:
+
+1. The lightweight **catalog** (name + description) is injected into the agent's context
+2. The full **body** is pulled on demand only when the agent calls `load_skill`
+
+This keeps the context window lean. An agent with 20 skills attached still only carries 20 short descriptions until it needs one.
+
+Built-in skills like `project-architecture` use live marker tokens (`{{MARKER}}`) that get resolved at load time with the current config schema, service catalog, and URL patterns, so skill bodies never drift out of sync with the platform.
+
+## MCP integration
+
+The agent supports MCP (Model Context Protocol) natively. Installed MCP servers appear as native tools in the agent's registry. Tool schemas are cached in Redis (`MCP_TOOL_CACHE_TTL`, default 300 seconds) and refreshed on OAuth or server update.
+
+The MCP bridge also surfaces:
+
+- **Citations** returned by MCP tools render as `CitationCard` in chat
+- **Re-auth prompts** trigger a yellow `ReauthBanner` linking to `/settings/connectors`
+- **Structured outputs** per MCP spec 2025-06-18+
+
+## Context compaction
+
+When a session crosses 80 percent of the active model's context window, the agent compacts older messages with a cheap model (`compaction_summary_model`, usually a small, fast model). Compaction preserves tool outputs by reference and keeps the most recent turns verbatim. The agent continues without hitting a wall.
+
+Multi-hour runs are normal. Compaction is automatic and costless from the user's perspective.
+
+## Progressive persistence
+
+Every agent step (`AgentStep`) streams to the database as it happens. The row goes in before the next tool call. If the pod dies, the browser closes, or the network hiccups, you can come back later and see the full trajectory.
+
+Resuming picks up from the last persisted step. No re-execution, no duplicate tool calls.
+
+## Edit modes and approval
+
+Edit mode controls how much autonomy the agent has. Switch it any time from the chat input.
 
 <Tabs>
-  <Tab title="Ask Before Edit (Default)">
-    Dangerous tools (file writes, shell commands) require your approval before executing. Read operations proceed without interruption.
-
-    When a tool needs approval, you see three options:
-    - **Allow Once**: Approve this single operation
-    - **Allow All**: Approve this tool type for the rest of the session
-    - **Stop**: Cancel the operation
+  <Tab title="Ask (default)">
+    Dangerous tools (writes, shell, git push) trigger an `ApprovalRequestCard` in chat. Three buttons: Allow Once, Allow All, Stop. Read-only tools run without prompting.
   </Tab>
-
-  <Tab title="Allow All Edits">
-    Full access. All tools execute immediately without approval. Use this when you trust the agent and want maximum speed.
+  <Tab title="Allow">
+    All tools run immediately. Use when you trust the agent fully.
   </Tab>
-
-  <Tab title="Plan Mode">
-    Read-only. The agent can read files and gather information, but all write operations are blocked. Instead of making changes, the agent creates a detailed markdown plan explaining what it would do.
-
-    You can activate plan mode with the mode button or the `/plan` slash command.
+  <Tab title="Plan">
+    Read-only. The agent gathers context and produces a structured plan instead of mutating anything. Activate with the mode button or `/plan`.
   </Tab>
 </Tabs>
 
-<Warning>
-  In **Allow All Edits** mode, the agent can modify files and run commands without asking. Use this mode only when you are comfortable with fully autonomous operation.
-</Warning>
+On desktop, permissions also flow through `.tesslate/permissions.json` per project. Each capability (shell, network, git push, file write, process spawn) has an `allow`, `deny`, or `ask` policy with optional always-allow persistence.
 
-## Quick Comparison
+## Orchestration backends
 
-| Feature | StreamAgent | IterativeAgent | ReActAgent | TesslateAgent |
-|---------|-------------|----------------|------------|---------------|
-| Tool Support | No (code blocks only) | Yes (full registry) | Yes (full registry) | Yes (native function calling) |
-| Execution Loop | Single LLM call | Think, Act, Observe loop | Thought, Action, Observation | Native tool loop with trajectory |
-| Error Recovery | None | Automatic retry | Automatic retry | Retry + context compaction |
-| Reasoning Style | Implicit | Optional | Mandatory (explicit) | Flexible |
-| Planning Mode | No | No | No | Yes |
-| Subagents | No | No | No | Yes |
-| Speed | Fastest | Moderate | Moderate | Moderate |
-| Token Usage | Low | Medium | High | Medium |
-| Best For | Quick UI generation | General development tasks | Debugging, architecture | Full-featured production work |
+`tesslate-agent` has a pluggable orchestration layer. `LocalOrchestrator` ships in the open-source repo. OpenSail registers Docker, Kubernetes, and desktop-local backends via `OrchestratorFactory.register(mode, cls)`, so the same agent code runs against subprocesses, containers, or pods without change.
 
-## Agent Marketplace
+## Running an agent
 
-The [Marketplace](/guides/agent-marketplace) is where you discover, install, and publish agents:
+From the chat UI, pick an agent and type. From the external API, call `POST /api/external/agent/invoke` with your `tsk_` API key and subscribe to SSE events at `/api/external/agent/events/{task_id}`. From the CLI (inside the `tesslate-agent` repo), run `tesslate-agent run --task "..." --workdir . --output trajectory.json`.
 
-- **Official Agents**: Built and maintained by Tesslate (Stream Builder, Tesslate Agent, React Component Builder, and more)
-- **Community Agents**: Created by users (Code Analyzer, Doc Writer, Refactoring Assistant, Test Generator, and more)
-- **Specialized Agents**: Focused on specific frameworks, languages, or tasks
+<Info>
+  Every execution produces an ATIF v1.4 trajectory recording (`trajectory.json`). Use it for replay, debugging, and benchmark analysis.
+</Info>
 
-Agents can be free or paid, open-source or closed-source. Open-source agents can be forked and customized.
-
-## Next Steps
+## Related
 
 <CardGroup cols={2}>
-  <Card
-    title="Agent Types"
-    icon="robot"
-    href="/guides/agent-types"
-  >
-    Deep dive into each agent architecture
+  <Card title="Full tool reference" icon="book" href="https://github.com/TesslateAI/tesslate-agent/blob/main/docs/DOCS.md">
+    Every tool, every parameter, every quirk.
   </Card>
-  <Card
-    title="Using Agents"
-    icon="comments"
-    href="/guides/using-agents"
-  >
-    Practical guide to chatting with agents
+  <Card title="Chat interface" icon="comments" href="/guides/chat-interface">
+    How agents stream to the chat panel.
   </Card>
-  <Card
-    title="Customizing Agents"
-    icon="sliders"
-    href="/guides/customizing-agents"
-  >
-    Create and configure custom agents
+  <Card title="Marketplace" icon="store" href="/guides/marketplace">
+    Install specialized agents, skills, and MCP servers.
   </Card>
-  <Card
-    title="Agent Marketplace"
-    icon="store"
-    href="/guides/agent-marketplace"
-  >
-    Browse and install specialized agents
+  <Card title="External agent API" icon="code" href="/guides/api-keys">
+    Invoke agents from outside the UI with `tsk_` keys.
   </Card>
 </CardGroup>

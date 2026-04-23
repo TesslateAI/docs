@@ -1,11 +1,11 @@
 ---
 title: "Data Flow Patterns"
-description: "How requests flow through Tesslate Studio from frontend to backend"
+description: "How requests flow through OpenSail from frontend to backend"
 ---
 
 ## Overview
 
-Every user interaction in Tesslate Studio follows a consistent request/response pattern that flows through the frontend, orchestrator, database, and (optionally) the container runtime. This page documents the lifecycle of each major flow: general API requests, agent chat, file operations, container management, Git operations, deployments, and streaming patterns.
+Every user interaction in OpenSail follows a consistent request/response pattern that flows through the frontend, orchestrator, database, and (optionally) the container runtime. This page documents the lifecycle of each major flow: general API requests, agent chat, file operations, container management, Git operations, deployments, and streaming patterns.
 
 If you are new to the codebase, start with the General API Request Flow to understand the common pattern, then explore the specific flows relevant to your work.
 
@@ -106,10 +106,10 @@ The agent chat is the most complex data flow, involving LLM calls, tool executio
     The chat router loads previous messages from the database and builds conversation context.
   </Step>
   <Step title="Create agent instance">
-    `agent/factory.py` instantiates a `StreamAgent` with the appropriate system prompt, available tools (read_file, write_file, bash_exec, etc.), and LLM model.
+    `agent/factory.py` instantiates a `tesslate-agent` with the appropriate system prompt, available tools (read_file, write_file, bash_exec, etc.), and LLM model.
   </Step>
   <Step title="Agent execution loop">
-    The `StreamAgent` enters a loop:
+    The `tesslate-agent` enters a loop:
 
     1. Call the LLM with system prompt + conversation history
     2. If the LLM returns tool calls, execute them (e.g., `write_file`, `bash_exec`)
@@ -357,7 +357,7 @@ External deployments to Vercel, Netlify, or Cloudflare follow a consistent non-b
 
 ## WebSocket and SSE Streaming Patterns
 
-Tesslate Studio uses two streaming mechanisms for real-time communication.
+OpenSail uses two streaming mechanisms for real-time communication.
 
 <Tabs>
   <Tab title="Server-Sent Events (Agent Chat)">

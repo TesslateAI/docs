@@ -1,360 +1,140 @@
 ---
 title: 'Code Editor'
-description: 'Using the Monaco-powered code editor for professional development inside Tesslate Studio'
+description: 'Monaco-based code editor with multi-language syntax, autocomplete, find-in-files, refactor support, and a file tree that stays in sync with the agent.'
 ---
 
-## Overview
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-Tesslate Studio uses the **Monaco Editor** (version 4.7.0), the same editor engine that powers Visual Studio Code. This gives you a professional coding experience directly in the browser, with full support for TypeScript, syntax highlighting, IntelliSense, and real-time error detection.
+## A real editor
+
+OpenSail ships a full Monaco editor (the engine that powers VS Code), not a chat box with a side panel. You get the same syntax highlighting, autocomplete, command palette, multi-cursor, and refactor shortcuts you expect from a dedicated coding tool.
+
+The editor lives in `app/src/components/CodeEditor.tsx` and composes with the file tree, tab bar, and Design view.
 
 <CardGroup cols={2}>
-  <Card title="Syntax Highlighting" icon="palette">
-    Full support for TypeScript, JavaScript, JSX, TSX, CSS, HTML, JSON, Python, Go, and more
+  <Card title="Multi-language" icon="language">
+    TypeScript, JavaScript, Python, Go, Rust, Ruby, Java, C#, SQL, HTML, CSS, Markdown, YAML, JSON, and more.
   </Card>
-  <Card title="IntelliSense" icon="lightbulb">
-    Auto-completion, type information, parameter hints, and import suggestions
+  <Card title="Autocomplete" icon="wand-magic-sparkles">
+    IntelliSense via Monaco's built-in language services. TypeScript gets full type inference.
   </Card>
-  <Card title="Error Detection" icon="triangle-exclamation">
-    Real-time TypeScript and syntax error checking as you type
+  <Card title="Find and replace" icon="magnifying-glass">
+    In-file and project-wide. Regex, case-sensitive, whole-word.
   </Card>
-  <Card title="Multi-File Editing" icon="files">
-    Open multiple files in tabs and switch between them instantly
+  <Card title="Refactor support" icon="arrows-rotate">
+    Rename symbol, extract function, go to definition, find references.
   </Card>
 </CardGroup>
 
-## Editor Layout
-
-The code editor sits within the project builder workspace. You can switch between multiple view modes:
-
-<Tabs>
-  <Tab title="Code View">
-    The editor takes the primary panel. The file tree appears on the left side, and you can resize the editor to be as wide as you need.
-  </Tab>
-  <Tab title="Preview View">
-    The live preview takes the primary panel. The editor is available in a secondary panel or collapsed.
-  </Tab>
-  <Tab title="Split View">
-    Code editor and live preview share the screen side by side.
-  </Tab>
-</Tabs>
-
-The project builder also includes other view modes (kanban, assets, terminal) that you can switch to at any time. The editor preserves your open tabs and cursor position when you switch views.
-
-## Opening Files
-
-<Tabs>
-  <Tab title="File Tree">
-    Click any file in the file tree sidebar to open it in the editor. Files open as tabs at the top of the editor panel.
-  </Tab>
-  <Tab title="Quick Open">
-    Press `Ctrl/Cmd + P` to open the quick file search. Type part of the filename and press Enter to open it.
-  </Tab>
-  <Tab title="AI-Generated Files">
-    When an AI agent creates or modifies a file, the editor automatically opens and navigates to that file, highlighting the changes.
-  </Tab>
-</Tabs>
-
-### Container-Scoped Files
-
-In multi-container projects, files are scoped to the active container. The file tree shows only the files belonging to the currently selected container. Switch containers using the container selector in the builder toolbar.
-
-## Editing Files
-
-<Steps>
-  <Step title="Select a File">
-    Click a file in the tree or use `Ctrl/Cmd + P` to search.
-  </Step>
-  <Step title="Edit Code">
-    Make changes in the Monaco editor. IntelliSense provides suggestions as you type.
-  </Step>
-  <Step title="Save">
-    Files save when you press `Ctrl/Cmd + S`. The save operation calls `projectsApi.saveFile(slug, filePath, content)` to persist the file to the container filesystem.
-  </Step>
-  <Step title="See Changes in Preview">
-    If Hot Module Replacement (HMR) is active, changes appear in the live preview within milliseconds.
-  </Step>
-</Steps>
-
-## Keyboard Shortcuts
-
-<AccordionGroup>
-  <Accordion icon="keyboard" title="File Operations">
-    | Shortcut | Action |
-    |----------|--------|
-    | `Ctrl/Cmd + S` | Save current file |
-    | `Ctrl/Cmd + P` | Quick file open |
-    | `Ctrl/Cmd + W` | Close current tab |
-    | `Ctrl/Cmd + Shift + F` | Search across all files |
-  </Accordion>
-
-  <Accordion icon="keyboard" title="Editing">
-    | Shortcut | Action |
-    |----------|--------|
-    | `Ctrl/Cmd + Z` | Undo |
-    | `Ctrl/Cmd + Shift + Z` | Redo |
-    | `Ctrl/Cmd + F` | Find in file |
-    | `Ctrl/Cmd + H` | Find and replace |
-    | `Ctrl/Cmd + D` | Select next occurrence |
-    | `Alt + Up/Down` | Move line up/down |
-    | `Alt + Shift + Up/Down` | Copy line up/down |
-  </Accordion>
-
-  <Accordion icon="keyboard" title="Code Manipulation">
-    | Shortcut | Action |
-    |----------|--------|
-    | `Ctrl/Cmd + /` | Toggle line comment |
-    | `Ctrl/Cmd + ]` | Indent line |
-    | `Ctrl/Cmd + [` | Outdent line |
-    | `Alt + Shift + F` | Format document |
-    | `F2` | Rename symbol |
-    | `Ctrl/Cmd + .` | Quick fix suggestions |
-  </Accordion>
-
-  <Accordion icon="keyboard" title="Navigation">
-    | Shortcut | Action |
-    |----------|--------|
-    | `Ctrl/Cmd + G` | Go to line |
-    | `F12` | Go to definition |
-    | `Alt + F12` | Peek definition |
-    | `Ctrl/Cmd + Tab` | Switch between open tabs |
-  </Accordion>
-</AccordionGroup>
-
-<Info>
-  Tesslate Studio has over 50 keyboard shortcuts registered through a centralized keyboard registry. Press `?` at any time to open the keyboard shortcuts modal for the full list, or press `Cmd/Ctrl + K` to open the command palette.
-</Info>
+## One tree, two authors
 
-## IntelliSense Features
+The agent sees the same tree, the same files, and the same shell output you do. Every edit the agent makes is a reviewable diff you can accept, reject, or keep editing. Every command the agent runs shows up in your terminal. The agent's work is your work, in the same checkout.
 
-### Auto-Completion
+Files are saved through `POST /api/projects/{slug}/files/save`. The save writes to the database (always), and to the filesystem (Docker) or the volume (Kubernetes). The file-manager pod syncs changes across container restarts. Agents and humans post to the same endpoint.
 
-As you type, Monaco provides contextual suggestions:
+## File tree
 
-- **Variable and function names** from the current scope
-- **Import suggestions** for modules and packages
-- **Property access** on objects and components
-- **CSS class names** and property values
+The left sidebar renders the project file tree with expand/collapse, single-click to open, right-click context menu (create file, create folder, rename, delete).
 
-Press `Tab` or `Enter` to accept a suggestion. Use the arrow keys to navigate the suggestion list.
+- **Search** filter at the top narrows the tree as you type
+- **Empty directory support** directories with no files still render (backend sends entries ending in `/`)
+- **Excluded directories** like `node_modules`, `.git`, `.next`, `__pycache__`, `dist`, `build`, `.venv`, `.cache`, `.turbo`, `coverage` never appear
+- **Live updates** when the agent creates, renames, or deletes files (WebSocket push, not polling)
 
-### Type Information
+## Tabs
 
-Hover over any symbol to see its type definition and documentation:
+Click a file to open it in a tab. Multiple tabs open at once. Close with the `x` or middle-click. Tabs track dirty state (unsaved changes get a dot).
 
-- Function signatures with parameter types
-- Variable types and values
-- Component prop interfaces
-- Module exports
+## Autosave
 
-### Parameter Hints
+Files autosave after a short debounce when you stop typing. Toast confirmation ("Saved") appears briefly. No need to Cmd+S, but Cmd+S still works and triggers an immediate save.
 
-When you type a function call, Monaco shows the expected parameters:
+## Language features
 
-- Parameter names and types
-- Optional vs. required parameters
-- Default values where applicable
+Monaco detects language from the file extension. Supported out of the box:
 
-### Import Suggestions
+| Extension | Language |
+|-----------|----------|
+| `.ts`, `.tsx` | TypeScript (JSX-aware) |
+| `.js`, `.jsx` | JavaScript |
+| `.py` | Python |
+| `.go` | Go |
+| `.rs` | Rust |
+| `.rb` | Ruby |
+| `.java` | Java |
+| `.cs` | C# |
+| `.sql` | SQL |
+| `.html`, `.css`, `.scss` | Web |
+| `.md`, `.mdx` | Markdown |
+| `.json`, `.yaml`, `.toml` | Config |
+| `.sh`, `.bash` | Shell |
 
-Monaco can automatically add missing import statements:
+## Keyboard shortcuts
 
-- Type a component or function name that is not imported
-- Accept the auto-import suggestion
-- The import statement is added at the top of the file
+All the standard Monaco shortcuts work:
 
-## Error Detection
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl + S` | Save |
+| `Cmd/Ctrl + P` | Quick open file |
+| `Cmd/Ctrl + Shift + P` | Command palette |
+| `Cmd/Ctrl + F` | Find in file |
+| `Cmd/Ctrl + Shift + F` | Find in project |
+| `Cmd/Ctrl + D` | Add next match to selection |
+| `Cmd/Ctrl + /` | Toggle line comment |
+| `Cmd/Ctrl + B` | Toggle file tree |
+| `F2` | Rename symbol |
+| `F12` | Go to definition |
+| `Alt + Click` | Add multi-cursor |
 
-The editor provides real-time error feedback:
+## Terminal beside the editor
 
-| Indicator | Meaning |
-|-----------|---------|
-| Red squiggly underline | Syntax error or type error |
-| Yellow squiggly underline | Warning (unused variable, implicit any, etc.) |
-| Lightbulb icon | Quick fix available (click or press `Ctrl/Cmd + .`) |
+Open the terminal panel for a real PTY attached to the running container. The terminal uses xterm.js (fit, weblinks, search addons) and connects over WebSocket.
 
-<Info>
-  TypeScript errors appear in real time as you type. This helps catch issues before they reach the dev server or the live preview.
-</Info>
+- **Docker mode** `docker exec` into the container
+- **Kubernetes mode** K8s API exec with PTY
+- **Desktop local** subprocess with PTY
 
-## File Tree
+Shell sessions are persistent. An agent can `shell_open` a session, run a long-lived watcher, and you can attach to that same session from the terminal panel.
 
-### Navigation
+## Live preview
 
-The file tree shows your project's directory structure:
+The preview iframe sits alongside the editor. HMR flows into the iframe automatically. Save a file, the preview repaints. See [Live Preview](/guides/live-preview) for details.
 
-- **Expand/Collapse**: Click the arrow icons to navigate folders
-- **Select a file**: Click to open in the editor
-- **Context menu**: Right-click for options (create, rename, delete)
-- **Search/Filter**: Filter the tree by typing a filename
+## Design view integration
 
-### File Operations
+Click into the Design view and the same editor stays in play. Clicking an element in the live preview jumps the editor to the JSX line that rendered it. Edits flow back through the same save API. See [Design Engineer](/guides/design-engineer).
 
-<Tabs>
-  <Tab title="Create Files">
-    Right-click a folder in the file tree and select **New File** or **New Folder**. AI agents also create files automatically when generating code.
-  </Tab>
-  <Tab title="Rename Files">
-    Right-click a file and select **Rename**. The editor updates all open tabs to reflect the new name.
-  </Tab>
-  <Tab title="Delete Files">
-    Right-click a file and select **Delete**. You can also delete files programmatically via `projectsApi.deleteFile(slug, filePath)`.
-  </Tab>
-</Tabs>
+## Empty directory handling
 
-### Excluded Directories
+The backend sends directories with no files as entries ending in `/` (empty content). `buildFileTree` in `CodeEditor.tsx` treats these as directories:
 
-The file tree hides certain directories by default to reduce clutter:
+```ts
+const isEmptyDir = file.file_path.endsWith('/');
+const cleanPath = isEmptyDir ? file.file_path.slice(0, -1) : file.file_path;
+```
 
-- `node_modules/` (dependency tree)
-- `.git/` (version control internals)
-- `dist/` and `build/` (build output)
+Auto-select skips directory placeholders when picking the first file to open.
 
-## Working with Multiple Files
+## Performance notes
 
-### Tab Management
+- Monaco loads lazily (the bundle is large); the editor shows a placeholder until it is ready
+- File tree is memoized; it only rebuilds when the files list changes
+- Autosave is debounced 1000ms by default
 
-Open files appear as tabs at the top of the editor:
-
-- **Open**: Click a file in the tree to add a tab
-- **Switch**: Click a tab or use `Ctrl/Cmd + Tab`
-- **Close**: Click the X on a tab or press `Ctrl/Cmd + W`
-- **Close Others**: Right-click a tab and select Close Others
-- **Close All**: Right-click and select Close All
-
-### File Events
-
-When a file changes (from the editor, AI agent, or external process), Tesslate's file event system (`fileEvents`) broadcasts the update. This keeps the file tree, open tabs, and live preview in sync.
-
-## AI-Generated Code
-
-When an AI agent creates or modifies files through the chat interface:
-
-<Steps>
-  <Step title="Agent Writes Code">
-    The agent uses the `write_file` or `edit_file` tool to create or modify files in your project.
-  </Step>
-  <Step title="File Opens Automatically">
-    The editor navigates to the affected file and opens it in a new tab (or switches to an existing tab).
-  </Step>
-  <Step title="Changes Highlighted">
-    Newly generated or modified lines are briefly highlighted so you can see exactly what changed.
-  </Step>
-  <Step title="Review">
-    Read through the changes. The file is already saved to the container filesystem.
-  </Step>
-  <Step title="Edit if Needed">
-    Make manual adjustments directly in the editor. The live preview updates as you save.
-  </Step>
-</Steps>
-
-<Warning>
-  Always review AI-generated code before deploying to production. AI agents can produce functional but imperfect code. Check for edge cases, security issues, and alignment with your project's conventions.
-</Warning>
-
-## Editor Configuration
-
-Customize your editing experience through the editor settings:
-
-<AccordionGroup>
-  <Accordion icon="text-size" title="Font and Display">
-    - Font size (adjustable range)
-    - Font family (monospace fonts like Fira Code, Consolas, JetBrains Mono)
-    - Line height
-    - Minimap toggle (the code overview on the right edge)
-  </Accordion>
-
-  <Accordion icon="palette" title="Theme">
-    The editor follows Tesslate's global theme (dark or light mode). Toggle between themes using your user preferences or the theme switcher.
-  </Accordion>
-
-  <Accordion icon="sliders" title="Behavior">
-    - Tab size (2 or 4 spaces)
-    - Word wrap on/off
-    - Bracket matching
-    - Auto-closing brackets and quotes
-  </Accordion>
-</AccordionGroup>
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion icon="circle-exclamation" title="Editor Not Responding">
-    **Cause**: Browser memory pressure or a heavy file loaded in the editor.
-
-    **What to try**:
-    - Close unused tabs to free memory
-    - Refresh the browser page
-    - Check the browser console for JavaScript errors
-    - Disable browser extensions that might interfere
-  </Accordion>
-
-  <Accordion icon="file-slash" title="File Not Saving">
-    **Cause**: Network issue or container not running.
-
-    **What to try**:
-    - Check your internet connection
-    - Verify the container status (should be "running")
-    - Try pressing `Ctrl/Cmd + S` to trigger a manual save
-    - Check the browser console for API errors
-  </Accordion>
-
-  <Accordion icon="lightbulb-slash" title="IntelliSense Not Working">
-    **Cause**: TypeScript language service has not initialized yet, or the file type is not recognized.
-
-    **What to try**:
-    - Wait a few seconds after opening the project (the TypeScript service needs time to index)
-    - Verify the file has a `.ts` or `.tsx` extension
-    - Check that `package.json` and `tsconfig.json` are valid
-    - Restart the dev server from project settings
-  </Accordion>
-</AccordionGroup>
-
-## Best Practices
+## Related
 
 <CardGroup cols={2}>
-  <Card title="Review AI Changes" icon="eye">
-    Always read through generated code. Understand what was created, test the functionality, and refine as needed.
+  <Card title="Live preview" icon="eye" href="/guides/live-preview">
+    The iframe next to the editor.
   </Card>
-  <Card title="Keep Files Focused" icon="bullseye">
-    One component per file. Use logical folder structures. Keep files at a manageable size for both you and the AI agents.
+  <Card title="Design engineer" icon="pen-ruler" href="/guides/design-engineer">
+    Click-to-source canvas on top of the preview.
   </Card>
-  <Card title="Use TypeScript" icon="shield">
-    TypeScript catches errors at edit time, improves IntelliSense accuracy, and makes refactoring safer. The editor's strongest features rely on type information.
+  <Card title="Chat interface" icon="comments" href="/guides/chat-interface">
+    The agent edits the same files you do.
   </Card>
-  <Card title="Learn the Shortcuts" icon="keyboard">
-    Invest time in learning keyboard shortcuts. They dramatically speed up navigation and editing. Press `?` to see all available shortcuts.
-  </Card>
-</CardGroup>
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card
-    title="Live Preview"
-    icon="eye"
-    href="/guides/live-preview"
-  >
-    See your changes in real time as you edit
-  </Card>
-  <Card
-    title="Chat Interface"
-    icon="comments"
-    href="/guides/chat-interface"
-  >
-    Use AI agents to generate and modify code
-  </Card>
-  <Card
-    title="Git Integration"
-    icon="code-branch"
-    href="/guides/github-integration"
-  >
-    Commit and push your changes to a remote repository
-  </Card>
-  <Card
-    title="Understanding Projects"
-    icon="folder"
-    href="/guides/projects"
-  >
-    Learn about project structure and multi-container support
+  <Card title="Git integration" icon="code-branch" href="/guides/git-integration">
+    Diff, commit, push from the panel.
   </Card>
 </CardGroup>

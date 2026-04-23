@@ -1,452 +1,134 @@
 ---
-title: 'Assets & Media'
-description: 'Manage images, fonts, media files, and understand S3 storage in your projects'
+title: 'Assets Panel'
+description: 'Upload, browse, organize, and serve project assets. Images, fonts, videos, and documents live alongside your code with direct URLs for use in your app.'
 ---
 
-## Overview
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-Assets are static files such as images, fonts, videos, and icons used in your Tesslate Studio projects. The platform provides upload, organization, and storage capabilities backed by S3-compatible object storage, with metadata tracked in the `ProjectAsset` database model.
+## What the Assets panel does
+
+The Assets panel is where binary files live. Images, fonts, videos, PDFs, and other non-code files that your app needs at runtime. The panel uploads, organizes, previews, and gives you a direct URL for each asset.
+
+Assets are stored in the project database as binary data and written to the container filesystem or persistent volume at the path you specify. Your running app serves them over the dev server URL.
 
 <CardGroup cols={2}>
-  <Card title="Drag-and-Drop Upload" icon="upload">
-    Upload files by dragging them into the assets panel or clicking the upload button
+  <Card title="Drag-drop upload" icon="upload">
+    Drop files anywhere on the panel. Batch uploads supported.
   </Card>
-  <Card title="S3 Storage" icon="cloud">
-    Assets stored in S3-compatible storage with the "S3 Sandwich" pattern
+  <Card title="Directory tree" icon="folder-tree">
+    Organize assets into folders. Create, expand, collapse, inline rename.
   </Card>
-  <Card title="Metadata Tracking" icon="database">
-    File type, dimensions, MIME type, and directory tracked in the database
+  <Card title="Preview" icon="image">
+    Image previews, dimension readout, file size, MIME type.
   </Card>
-  <Card title="Organized by Directory" icon="folder-tree">
-    Folder-based organization within your project structure
+  <Card title="Direct URLs" icon="link">
+    Every asset has a URL you can paste into your code.
   </Card>
 </CardGroup>
 
-## Asset Types
+## Opening the panel
 
-<Tabs>
-  <Tab title="Images">
-    **Photos and graphics**
+Open the Assets panel from the tool dock in the project builder. It lives in `panels/AssetsPanel.tsx` and composes `AssetUploadZone`, `DirectoryTree`, and `AssetCard` renderers.
 
-    Supported formats:
-    - PNG, JPG, JPEG
-    - WebP, SVG
-    - GIF, AVIF
+The panel has two view modes: **grid** and **list**. Grid shows thumbnails for images. List shows a dense sortable table with filename, size, MIME type, and upload time.
 
-    The `ProjectAsset` model stores `width` and `height` for image files, making it easy to reference dimensions in your code.
-  </Tab>
-
-  <Tab title="Fonts">
-    **Custom typography**
-
-    Supported formats:
-    - WOFF2 (recommended for web)
-    - WOFF
-    - TTF, OTF
-    - Variable fonts
-
-    Upload font files and reference them in your CSS with `@font-face` declarations.
-  </Tab>
-
-  <Tab title="Icons">
-    **Icon sets and SVGs**
-
-    - SVG icons (recommended for scalability)
-    - Icon fonts
-    - PNG sprites
-
-    Tesslate projects include Lucide React icons by default, but you can add custom SVG icons to your assets.
-  </Tab>
-
-  <Tab title="Media">
-    **Video and audio**
-
-    Supported formats:
-    - MP4, WebM (video)
-    - MP3, WAV (audio)
-
-    For large video files, consider using external hosting (YouTube, Vimeo) and embedding them instead of uploading directly.
-  </Tab>
-</Tabs>
-
-## Uploading Assets
+## Uploading
 
 <Steps>
-  <Step title="Open the Assets Panel">
-    Click **Assets** in the project sidebar to open the assets management panel.
+  <Step title="Drop or click">
+    Drag files onto the upload zone or click to open a file picker. Multiple files upload in parallel.
   </Step>
-
-  <Step title="Choose Upload Method">
-    Three ways to add assets:
-    - **Drag and drop**: Drag files directly onto the assets panel
-    - **Upload button**: Click **Upload** and browse your file system
-    - **Clipboard paste**: Paste an image from your clipboard
+  <Step title="Pick a directory">
+    Default is `public`. Override with the directory picker if you are uploading into a subdirectory.
   </Step>
-
-  <Step title="Select Files">
-    Choose one or multiple files. Supported formats are validated before upload.
+  <Step title="Wait for progress">
+    Upload progress shows per file. Size limits are 10MB per file, 50MB per upload batch by default.
   </Step>
-
-  <Step title="Upload and Process">
-    Files are uploaded to S3 storage. Metadata (filename, directory, file_path, file_type, mime_type, width, height) is recorded in the `ProjectAsset` table.
-  </Step>
-
-  <Step title="Use in Code">
-    Uploaded assets appear in the file tree and are immediately available to import or reference in your code.
+  <Step title="Use in code">
+    After upload, copy the asset's URL from the card and paste it into your code.
   </Step>
 </Steps>
+
+## File types
+
+| Category | Extensions | Notes |
+|----------|------------|-------|
+| **Images** | PNG, JPG, JPEG, SVG, GIF, WebP, AVIF | Dimensions and thumbnails generated |
+| **Fonts** | TTF, OTF, WOFF, WOFF2 | Served with correct MIME types |
+| **Video** | MP4, WebM, MOV | Stream-friendly, no transcoding |
+| **Audio** | MP3, WAV, OGG | Same direct serve |
+| **Documents** | PDF, TXT, Markdown | Downloadable or rendered in-browser |
+| **Data** | JSON, CSV, XML | Usable as seed data |
+
+Validation runs client-side (`validateFile` in `types/assets.ts`) and server-side. Unsupported or oversized files are rejected with a toast.
+
+## Directory tree
+
+The directory tree is the `DirectoryTree` component. It shows nested folders with expand/collapse and lets you create new directories inline.
+
+- **Create a folder** click the + button on any node
+- **Rename** double-click the folder name
+- **Move assets** drag asset cards onto a folder to move them
+- **Delete** kebab menu on the folder (only works if the folder is empty)
+
+## Per-asset actions
+
+Each asset card has a right-click menu (or a kebab in list view):
+
+- **Copy URL** puts the public URL on the clipboard
+- **Copy markdown** `![alt](url)` snippet
+- **Rename** inline input for the new filename
+- **Move** picker for the target directory
+- **Download** download the asset to your machine
+- **Delete** remove from the project (permanent)
+
+## Direct URLs
+
+Every asset has a URL served by the project's dev server:
+
+```
+http://{container}.{slug}.localhost/public/hero.png          # Docker
+https://{container}.{slug}.{domain}/public/hero.png          # Kubernetes
+http://127.0.0.1:{port}/public/hero.png                      # Desktop local
+```
+
+Use them in your code like any static file:
+
+```tsx
+<img src="/public/hero.png" alt="Hero" />
+```
+
+The dev server picks up new uploads immediately. No restart required.
+
+## Search
+
+The panel top bar has a search input. Filter by filename, directory, or MIME type. Combines with the directory selection to scope the search.
+
+## Assets vs code files
+
+Assets live in the `Asset` model with binary storage, metadata (MIME, size, dimensions), and directory tracking. Code files live in `ProjectFile` or on the volume directly. The two are separate because code is text-oriented and tracked in git while assets are typically binary and tracked as blobs.
 
 <Info>
-  Images under 1MB upload and process quickly. Larger files may take a moment depending on your connection speed.
+  If you want an asset to ship in git, drop it in `public/` and commit it through the Git panel. If you want it platform-managed with UI tooling, upload through the Assets panel.
 </Info>
 
-## The S3 Sandwich Pattern
+## Agent access
 
-Tesslate uses an architecture pattern called the "S3 Sandwich" for asset storage. This pattern places S3-compatible object storage between the application layer and the user's project containers.
+The agent can read assets (URLs are visible in the project tree and the agent can `web_fetch` them) but currently cannot upload. For agent-driven asset creation (like generated images), have the agent produce the file in the project directory through `write_file` and the asset pipeline will ingest it on the next scan.
 
-### How It Works
-
-<Steps>
-  <Step title="Upload Layer">
-    When you upload an asset, the file goes from the browser to the Tesslate backend (FastAPI).
-  </Step>
-
-  <Step title="S3 Storage Layer">
-    The backend stores the file in an S3-compatible bucket (AWS S3 in production, MinIO for local development). The bucket is configured via the `S3_BUCKET_NAME` environment variable.
-  </Step>
-
-  <Step title="Container Access Layer">
-    Project containers access assets through the shared storage. In Kubernetes mode, assets are accessible via the project's persistent volume. In Docker mode, assets are available through the mounted project directory.
-  </Step>
-</Steps>
-
-### Why S3 Sandwich?
-
-| Benefit | Description |
-|---------|-------------|
-| **Persistence** | Assets survive container restarts and hibernation |
-| **Shared Access** | Multiple containers in a project can access the same assets |
-| **Scalability** | S3 scales independently of compute resources |
-| **Backup** | Assets are stored separately from ephemeral container state |
-
-### Configuration
-
-| Environment Variable | Purpose | Example |
-|---------------------|---------|---------|
-| `S3_BUCKET_NAME` | Primary storage bucket | `tesslate-projects-prod` |
-| `S3_ENDPOINT_URL` | S3 endpoint (for MinIO or non-AWS) | `http://minio:9000` |
-| `AWS_ACCESS_KEY_ID` | S3 access credentials | (from secrets) |
-| `AWS_SECRET_ACCESS_KEY` | S3 secret credentials | (from secrets) |
-
-<Info>
-  In local Docker development, Tesslate uses MinIO as an S3-compatible replacement. The API is identical, so code works the same in development and production.
-</Info>
-
-## Using Assets in Code
-
-### Importing Images
-
-```typescript
-// Import from assets folder (processed by Vite bundler)
-import heroImage from './assets/hero.png'
-import logo from './assets/logo.svg'
-
-// Use in components
-function Hero() {
-  return (
-    <div>
-      <img src={logo} alt="Logo" />
-      <img src={heroImage} alt="Hero" />
-    </div>
-  )
-}
-```
-
-### Public Folder
-
-For assets that do not need bundler processing:
-
-```typescript
-// Files in public/ folder are served directly by path
-<img src="/images/hero.png" alt="Hero" />
-<link rel="icon" href="/favicon.svg" />
-```
-
-### Background Images
-
-```typescript
-// CSS background images
-<div style={{
-  backgroundImage: `url('/images/background.jpg')`
-}} />
-
-// Or with Tailwind CSS
-<div className="bg-[url('/images/bg.jpg')]" />
-```
-
-## Asset Organization
-
-### Recommended Folder Structure
-
-```
-src/assets/
-  images/
-    hero/
-    products/
-    icons/
-  fonts/
-    custom/
-  videos/
-    demos/
-
-public/
-  favicon.svg
-  logo.png
-  social-preview.jpg
-```
-
-<AccordionGroup>
-  <Accordion icon="folder" title="src/assets/ (Bundled)">
-    **Processed by the build tool (Vite)**
-    - Imported in components via `import` statements
-    - Bundled and optimized during build
-    - Filenames get content hashes for cache busting
-    - Best for: Component images, icons, fonts used in React code
-  </Accordion>
-
-  <Accordion icon="globe" title="public/ (Static)">
-    **Served directly without processing**
-    - Not processed by the bundler
-    - Filenames stay the same
-    - Referenced by URL path
-    - Best for: Favicon, social media images, PDFs, files that need stable URLs
-  </Accordion>
-</AccordionGroup>
-
-## Asset Metadata
-
-The `ProjectAsset` model tracks detailed metadata for each uploaded file:
-
-| Field | Description |
-|-------|-------------|
-| `filename` | Original file name |
-| `directory` | Directory path within the project |
-| `file_path` | Full path to the asset |
-| `file_type` | Category: `image`, `font`, `video`, `audio`, `other` |
-| `mime_type` | MIME type (e.g., `image/png`, `font/woff2`) |
-| `width` | Image width in pixels (images only) |
-| `height` | Image height in pixels (images only) |
-
-This metadata powers the assets panel UI, enabling previews, dimension display, and type-based filtering.
-
-## Fonts
-
-### Adding Custom Fonts
-
-<Steps>
-  <Step title="Upload Font Files">
-    Upload `.woff2`, `.woff`, or `.ttf` files to the assets panel
-  </Step>
-
-  <Step title="Create Font Face CSS">
-    Ask the AI agent: "Add custom font Inter to the project"
-
-    The agent generates:
-    ```css
-    @font-face {
-      font-family: 'Inter';
-      src: url('/fonts/Inter-Regular.woff2') format('woff2');
-      font-weight: 400;
-      font-display: swap;
-    }
-    ```
-  </Step>
-
-  <Step title="Configure Tailwind">
-    Update your Tailwind config:
-    ```js
-    // tailwind.config.js
-    fontFamily: {
-      sans: ['Inter', 'sans-serif']
-    }
-    ```
-  </Step>
-</Steps>
-
-### Google Fonts
-
-For convenience, you can also use Google Fonts without uploading files:
-
-```html
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link
-  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-  rel="stylesheet"
-/>
-```
-
-## Icons
-
-### Using Lucide Icons (Built-in)
-
-Tesslate projects include Lucide React by default:
-
-```typescript
-import { Home, User, Settings, ShoppingCart } from 'lucide-react'
-
-function Navigation() {
-  return (
-    <nav>
-      <Home className="w-6 h-6" />
-      <User className="w-6 h-6" />
-      <Settings className="w-6 h-6" />
-      <ShoppingCart className="w-6 h-6" />
-    </nav>
-  )
-}
-```
-
-### Custom SVG Icons
-
-Upload SVGs to your assets and import them:
-
-```typescript
-import { ReactComponent as CustomIcon } from './assets/icons/custom.svg'
-
-<CustomIcon className="w-6 h-6" />
-```
-
-## Responsive Images
-
-Ask the AI agent to create responsive image components:
-
-```typescript
-<picture>
-  <source
-    media="(min-width: 1024px)"
-    srcSet="/images/hero-large.webp"
-  />
-  <source
-    media="(min-width: 768px)"
-    srcSet="/images/hero-medium.webp"
-  />
-  <img
-    src="/images/hero-small.webp"
-    alt="Hero"
-    loading="lazy"
-  />
-</picture>
-```
-
-## Best Practices
-
-<AccordionGroup>
-  <Accordion icon="gauge" title="Optimize Before Upload">
-    - Compress images before uploading
-    - Resize to the dimensions you actually need
-    - Remove unnecessary metadata (EXIF data)
-    - Use appropriate quality settings (80% JPEG quality is usually sufficient)
-  </Accordion>
-
-  <Accordion icon="palette" title="Use Modern Formats">
-    - **WebP** for photographs and complex images
-    - **SVG** for logos, icons, and simple graphics
-    - **AVIF** for best compression when browser support allows
-    - **PNG** only when transparency is needed and SVG is not suitable
-  </Accordion>
-
-  <Accordion icon="network-wired" title="External Hosting for Large Files">
-    - Host videos on YouTube or Vimeo and embed them
-    - Use Cloudinary or imgix for heavy image processing
-    - Keep your S3 bucket focused on project-essential assets
-  </Accordion>
-
-  <Accordion icon="tag" title="Use Descriptive File Names">
-    - `hero-background.jpg` instead of `IMG_1234.jpg`
-    - `product-thumbnail.png` instead of `image-2.png`
-    - Descriptive names improve organization and SEO
-  </Accordion>
-</AccordionGroup>
-
-## Deleting Assets
-
-<Steps>
-  <Step title="Check References">
-    Before deleting, verify the asset is not used in any component or stylesheet
-  </Step>
-
-  <Step title="Delete">
-    Right-click the asset in the assets panel and select **Delete**
-  </Step>
-
-  <Step title="Confirm">
-    Confirm the deletion. This removes the file from S3 storage and the `ProjectAsset` database record.
-  </Step>
-</Steps>
-
-<Warning>
-  Deleting an asset that is still referenced in your code will cause broken images or missing files. Always check usage before deleting.
-</Warning>
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion icon="circle-xmark" title="Image Not Appearing">
-    **Solutions:**
-    - Check the file path is correct (case-sensitive on Linux)
-    - Verify the file uploaded successfully in the assets panel
-    - Check the browser console for 404 errors
-    - Ensure the import syntax matches the file location (`src/assets/` vs `public/`)
-    - Try an absolute path (e.g., `/images/file.jpg`)
-  </Accordion>
-
-  <Accordion icon="snail" title="Slow Image Loading">
-    **Solutions:**
-    - Compress images before uploading
-    - Use WebP format instead of PNG or JPEG
-    - Add `loading="lazy"` to images below the fold
-    - Generate responsive sizes for different viewports
-  </Accordion>
-
-  <Accordion icon="file" title="Upload Failed">
-    **Solutions:**
-    - Check file size (recommended max: 10MB per file)
-    - Verify the file format is supported
-    - Check your internet connection
-    - Verify S3 storage is configured and accessible
-    - Try compressing the file and retrying
-  </Accordion>
-</AccordionGroup>
-
-## Next Steps
+## Related
 
 <CardGroup cols={2}>
-  <Card
-    title="Code Editor"
-    icon="code"
-    href="/guides/code-editor"
-  >
-    Import and use assets in your code
+  <Card title="Code editor" icon="code" href="/guides/code-editor">
+    Text files and source code.
   </Card>
-  <Card
-    title="Using Agents"
-    icon="robot"
-    href="/guides/using-agents"
-  >
-    Ask AI to optimize images or create responsive components
+  <Card title="Projects" icon="folder" href="/guides/projects">
+    The project model that holds assets.
   </Card>
-  <Card
-    title="Projects"
-    icon="folder"
-    href="/guides/projects"
-  >
-    Understand project structure and file organization
+  <Card title="Live preview" icon="eye" href="/guides/live-preview">
+    The dev server that serves asset URLs.
   </Card>
-  <Card
-    title="Live Preview"
-    icon="eye"
-    href="/guides/live-preview"
-  >
-    See your assets rendered in the live preview
+  <Card title="Git integration" icon="code-branch" href="/guides/git-integration">
+    Commit assets that need to ship in git.
   </Card>
 </CardGroup>

@@ -1,480 +1,236 @@
 ---
 title: 'Model Management'
-description: 'Configure AI models, understand the LiteLLM gateway, manage per-token pricing, and control costs'
+description: 'Route AI requests through LiteLLM, bring your own keys, or self-host models with Ollama or vLLM. Switch providers without rewriting agents.'
 ---
 
-## Overview
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-Tesslate Studio routes all AI requests through a **LiteLLM proxy gateway** that provides unified access to multiple AI providers. This means you can use OpenAI, Anthropic, Google, and other models through a single interface, with automatic budget tracking, usage monitoring, and dynamic pricing.
+## One agent, every model
+
+OpenSail is model-agnostic. Every AI call routes through a LiteLLM proxy, which exposes a unified OpenAI-compatible interface to any supported provider. Switch from Claude to GPT-4 to Qwen to a local Llama without changing a line of agent code.
 
 <CardGroup cols={2}>
-  <Card title="LiteLLM Gateway" icon="route">
-    Unified proxy routing requests to OpenAI, Anthropic, Google, and more
+  <Card title="LiteLLM gateway" icon="route">
+    Unified proxy across all providers and local inference
   </Card>
-  <Card title="Dynamic Pricing" icon="dollar-sign">
-    Per-token cost calculated in real time from provider rates
+  <Card title="Dynamic pricing" icon="dollar-sign">
+    Per-token cost fetched live from the proxy and cached 5 minutes
   </Card>
-  <Card title="Budget Controls" icon="shield">
-    Per-user budget limits and team-based access tiers
+  <Card title="BYOK" icon="key">
+    Attach your own keys; platform credits are not charged
   </Card>
-  <Card title="BYOK Support" icon="key">
-    Bring Your Own Key to bypass platform credits entirely
+  <Card title="Self-hosted" icon="server">
+    Point LiteLLM at Ollama, vLLM, or any OpenAI-compatible endpoint
   </Card>
 </CardGroup>
 
-## How the LiteLLM Gateway Works
+## Supported providers
 
-LiteLLM acts as a reverse proxy between Tesslate and AI providers. When you send a message to an agent, the request flows through this pipeline:
+OpenSail ships with first-party support for every major model provider. Any OpenAI-compatible endpoint also works out of the box.
+
+| Provider | Flagship models |
+|----------|-----------------|
+| **Anthropic** | Claude 3.5/4.x family (Opus, Sonnet, Haiku) |
+| **OpenAI** | GPT-4, GPT-4 Turbo, GPT-4o, o-series |
+| **DeepSeek** | DeepSeek V3, R1 |
+| **Meta** | Llama 3.1, Llama 3.2, Llama 3.3 |
+| **Mistral** | Mistral Large, Codestral, Mixtral |
+| **Qwen** | Qwen 2.5, Qwen-Coder, QwQ |
+| **Google** | Gemini 1.5/2.x Pro, Flash |
+| **Moonshot** | Kimi K2 family |
+| **MiniMax** | MiniMax M-series |
+| **Z.AI (ChatGLM)** | GLM-4 family |
+| **xAI** | Grok |
+
+Additional gateways: OpenRouter (100+ models through a single key), Groq (ultra-low latency), Together, Fireworks, Perplexity, Cohere, Bedrock. Any gateway LiteLLM can reach is routable.
+
+## How routing works
 
 <Steps>
-  <Step title="User Sends Message">
-    Your message is sent from the chat UI to the FastAPI backend.
+  <Step title="Agent sends a request">
+    The tesslate-agent's LLM adapter calls the LiteLLM proxy with an OpenAI-style chat completion request.
   </Step>
 
-  <Step title="Credit Check">
-    The `check_credits(user, model_name)` function verifies you have sufficient credits (or a BYOK key) before proceeding.
+  <Step title="Credit check">
+    The `check_credits(user, model_name)` function runs before the upstream request. If the model is BYOK for this user, the check always passes. Otherwise it verifies sufficient platform credits across all pools.
   </Step>
 
-  <Step title="LiteLLM Routing">
-    The request is forwarded to the LiteLLM proxy (running on port 4000), which routes it to the correct AI provider based on the model name.
+  <Step title="Provider dispatch">
+    LiteLLM looks up the model name, resolves the provider, and dispatches to the correct upstream API using either the platform's key, your BYOK key (passthrough mode), or a local endpoint.
   </Step>
 
-  <Step title="Provider Response">
-    The AI provider processes the request and streams the response back through LiteLLM to the Tesslate backend.
+  <Step title="Stream back">
+    The response streams back through the proxy to the agent, token by token, into the chat UI.
   </Step>
 
-  <Step title="Cost Calculation">
-    After the response, `calculate_cost_cents(model, tokens_in, tokens_out)` computes the cost using the current pricing data.
-  </Step>
-
-  <Step title="Credit Deduction">
-    The `deduct_credits()` function subtracts the cost from your credit pools in priority order: daily, then bundled, then signup bonus, then purchased.
+  <Step title="Cost and usage logged">
+    Post-request, `calculate_cost_cents(model, tokens_in, tokens_out)` computes the cost using current pricing. `deduct_credits` subtracts from credit pools in priority order (daily, bundled, signup bonus, purchased). BYOK requests log with `is_byok=True` and cost zero.
   </Step>
 </Steps>
-
-## Supported Models and Providers
-
-<Tabs>
-  <Tab title="OpenAI">
-    **GPT-4 Family**
-
-    | Model | Strengths | Speed | Cost |
-    |-------|-----------|-------|------|
-    | GPT-4 Turbo | Best reasoning, most capable | Moderate | High |
-    | GPT-4 | Strong general purpose | Slower | High |
-    | GPT-3.5 Turbo | Fast, affordable | Very fast | Low |
-
-    **Requires:** OpenAI API key (BYOK) or platform credits
-  </Tab>
-
-  <Tab title="Anthropic">
-    **Claude Family**
-
-    | Model | Strengths | Speed | Cost |
-    |-------|-----------|-------|------|
-    | Claude 3 Opus | Most capable, deep reasoning | Moderate | High |
-    | Claude 3 Sonnet | Balanced performance and cost | Fast | Medium |
-    | Claude 3 Haiku | Fastest, lightweight tasks | Very fast | Low |
-
-    **Requires:** Anthropic API key (BYOK) or platform credits
-  </Tab>
-
-  <Tab title="Google">
-    **Gemini Family**
-
-    | Model | Strengths | Speed | Cost |
-    |-------|-----------|-------|------|
-    | Gemini Pro | Multimodal, strong reasoning | Fast | Medium |
-
-    **Requires:** Google API key (BYOK) or platform credits
-  </Tab>
-
-  <Tab title="OpenRouter">
-    **100+ Models**
-
-    Access to all major providers through a single API key:
-    - All OpenAI models
-    - All Anthropic models
-    - Qwen, DeepSeek, Mistral
-    - Gemini, Command R
-    - Open-source models (Llama, Mixtral, etc.)
-
-    **Requires:** OpenRouter API key
-    **Benefits:** Unified billing, automatic model fallbacks, access to the latest releases
-  </Tab>
-</Tabs>
-
-## Model Pricing System
-
-Tesslate uses dynamic pricing fetched directly from LiteLLM's `/model/info` endpoint. Prices are cached for 5 minutes and calculated with Decimal arithmetic to avoid floating-point errors.
-
-### How Pricing Works
-
-| Step | Description |
-|------|-------------|
-| **Fetch** | Calls LiteLLM `/model/info` to get per-token costs for all configured models |
-| **Cache** | Stores the pricing map in distributed cache (Redis or in-memory) for 5 minutes |
-| **Lookup** | On each AI request, looks up the model's pricing (exact match, then partial match, then fallback) |
-| **Calculate** | Converts token counts to cost in cents using Decimal arithmetic |
-
-### Cost Calculation Formula
-
-```
-cost_input  = ceil((tokens_in / 1,000,000) * price_per_1M_input * 100)
-cost_output = ceil((tokens_out / 1,000,000) * price_per_1M_output * 100)
-cost_total  = cost_input + cost_output
-```
-
-**Key details:**
-- Prices are in **USD per 1 million tokens**
-- Costs are calculated in **cents** (1 credit = $0.01)
-- Ceiling rounding ensures any non-zero usage costs at least 1 cent
-- All arithmetic uses Python's `decimal.Decimal` for financial precision
-
-### Fallback Pricing
-
-If a model is not found in LiteLLM's pricing data, default rates apply:
-
-| Token Type | Fallback Rate |
-|-----------|---------------|
-| Input | $1.00 per 1M tokens |
-| Output | $3.00 per 1M tokens |
-
-A warning is logged when fallback pricing is used, so administrators can add proper pricing data.
-
-<Info>
-  Exact pricing varies by provider and changes over time. The dynamic pricing system ensures you always pay current rates without manual configuration updates.
-</Info>
-
-## Model Access Tiers
-
-LiteLLM organizes users into teams with different model access levels:
-
-| Team Tier | Available Models | Max Budget |
-|-----------|-----------------|------------|
-| **Free** | GPT-3.5 Turbo, Claude 3 Haiku | $5.00 |
-| **Internal** (Basic) | GPT-4, Claude 3 Sonnet, GPT-3.5 Turbo | $100.00 |
-| **Premium** (Pro/Ultra) | GPT-4, Claude 3 Opus, Claude 3 Sonnet | $1,000.00 |
-
-When you subscribe to a tier, your LiteLLM team assignment updates automatically to grant access to the appropriate models.
 
 ## BYOK (Bring Your Own Key)
 
-BYOK lets you use your own API keys instead of platform credits. Available on **Pro** and **Ultra** tiers.
+BYOK lets you use your own API keys instead of platform credits. Available on Pro and Ultra tiers.
 
 <Tabs>
-  <Tab title="How It Works">
-    When a model is identified as BYOK (you have provided your own API key for that provider):
-
-    1. The cost is **$0** in platform credits
-    2. No credits are deducted from any pool
-    3. A `UsageLog` entry is still created with `is_byok=True` and `billed_status="exempt"` for your analytics
-    4. You pay the provider directly through your own API key billing
+  <Tab title="What you get">
+    - Cost is zero in platform credits
+    - No deduction from any credit pool
+    - You pay the upstream provider directly on your own account
+    - `UsageLog` is still created for your analytics, with `is_byok=True` and `billed_status="exempt"`
+    - No platform margin on top
   </Tab>
 
-  <Tab title="Passthrough Mode">
-    LiteLLM supports passthrough mode where your own keys are used instead of platform keys:
-
-    ```
-    Enable passthrough with your keys for:
-    - OpenAI (your sk-... key)
-    - Anthropic (your sk-ant-... key)
-    - Any supported provider
-    ```
-
-    LiteLLM routes the request to the provider using your key while still tracking usage for your analytics dashboard.
-  </Tab>
-</Tabs>
-
-## Model Configuration
-
-### Setting Default Models
-
-<Steps>
-  <Step title="Open Settings">
-    Navigate to **Settings > Preferences**
-  </Step>
-
-  <Step title="Choose Diagram Model">
-    Set the model used for architecture diagram generation via the `diagram_model` preference
-  </Step>
-
-  <Step title="Configure Agent Models">
-    Each agent can use a different model. When creating or editing an agent, select the model from the dropdown.
-  </Step>
-
-  <Step title="Disable Models">
-    Use the `disabled_models` preference to hide specific models from the chat model selector. This is stored as a JSON array in your user profile.
-  </Step>
-</Steps>
-
-### Per-Agent Model Selection
-
-<Steps>
-  <Step title="Open Library">
-    Go to **Library > Agents**
-  </Step>
-
-  <Step title="Edit Agent">
-    Click **Edit** on an open-source agent you own
-  </Step>
-
-  <Step title="Select Model">
-    Choose from the available models based on your tier
-  </Step>
-
-  <Step title="Save and Test">
-    Save changes. The agent immediately uses the new model for all future requests.
-  </Step>
-</Steps>
-
-<Warning>
-  You can only change models for open-source agents you own. Marketplace agents with closed-source configurations have fixed models set by the creator.
-</Warning>
-
-## Model Parameters
-
-### Temperature
-
-Controls randomness and creativity in AI responses:
-
-<Tabs>
-  <Tab title="Low (0.0 to 0.3)">
-    **Deterministic and focused**
-    - More predictable output
-    - Consistent code style
-    - Repeatable results
-
-    **Best for:** Production code, bug fixes, refactoring, documentation
+  <Tab title="How to set it up">
+    <Steps>
+      <Step title="Open Settings, API Keys">
+        Go to Settings, then the API Keys section.
+      </Step>
+      <Step title="Add a provider key">
+        Pick a provider (OpenAI, Anthropic, OpenRouter, Google, or any supported provider), paste the key from the provider's console, optionally name it.
+      </Step>
+      <Step title="Save">
+        The key is encrypted at rest with Fernet. Raw keys are never logged.
+      </Step>
+      <Step title="Use it">
+        Any chat that routes to a model matching this provider now runs BYOK. The model selector shows a BYOK badge.
+      </Step>
+    </Steps>
   </Tab>
 
-  <Tab title="Medium (0.4 to 0.7)">
-    **Balanced**
-    - Good creativity with consistency
-    - Varied approaches to problems
-    - Reliable quality
-
-    **Best for:** General development, new features, UI components (default: 0.5)
-  </Tab>
-
-  <Tab title="High (0.8 to 1.0)">
-    **Creative and varied**
-    - Highly creative solutions
-    - Diverse coding approaches
-    - Less predictable output
-
-    **Best for:** Brainstorming, design exploration, generating multiple alternatives
+  <Tab title="Passthrough mode">
+    LiteLLM runs your BYOK keys in passthrough mode. Your key is used for the upstream call; the proxy handles routing, streaming, and cost accounting. OpenSail never proxies through its own key when a BYOK key is available for the model's provider.
   </Tab>
 </Tabs>
-
-### Max Tokens
-
-Limits the length of AI responses:
-- **Stream Agents**: Typically 4,000 to 8,000 tokens
-- **Iterative Agents**: Typically 2,000 to 4,000 tokens per step
-- Higher values produce more complete responses at higher cost
-- Lower values are faster and cheaper but may truncate output
 
 <Info>
-  1 token is approximately 4 characters. A React component with 100 lines is roughly 400 to 800 tokens.
+  BYOK detection is provider-prefix based. The `is_byok_model(model_name)` check looks up the model's provider in `BUILTIN_PROVIDERS`. If you have a key stored for that provider, the call runs BYOK automatically.
 </Info>
 
-### Other Parameters
+## Self-hosted models
 
-<AccordionGroup>
-  <Accordion icon="percentage" title="Top P (Nucleus Sampling)">
-    Alternative to temperature for controlling randomness:
-    - **0.1**: Very focused, narrow range of tokens considered
-    - **0.5**: Balanced
-    - **0.9**: Diverse
-    - **1.0**: All token possibilities considered (default)
-  </Accordion>
-
-  <Accordion icon="ban" title="Frequency Penalty">
-    Reduces repetition in generated code:
-    - **0.0**: No penalty (default)
-    - **0.5**: Moderate reduction in repeated patterns
-    - **2.0**: Maximum reduction
-  </Accordion>
-
-  <Accordion icon="hashtag" title="Presence Penalty">
-    Encourages exploration of new topics:
-    - **0.0**: No penalty (default)
-    - **0.5**: Moderate encouragement for new topics
-    - **2.0**: Maximum encouragement
-  </Accordion>
-</AccordionGroup>
-
-## Cost Management
-
-### Understanding Your Costs
-
-AI costs are based on two factors: the model you choose and the number of tokens processed.
+For air-gapped deployments or latency-sensitive workloads, point LiteLLM at a local inference server.
 
 <Tabs>
-  <Tab title="Input Tokens">
-    **What you send to the model**
-    - Your prompts and messages
-    - System prompts and agent instructions
-    - Chat history and context
-    - Code being analyzed or edited
+  <Tab title="Ollama">
+    Ollama runs open-weight models on your hardware with a simple HTTP API. Add an entry to the LiteLLM config pointing at your Ollama host:
 
-    Input tokens are typically cheaper than output tokens.
+    ```yaml
+    model_list:
+      - model_name: llama3-local
+        litellm_params:
+          model: ollama/llama3
+          api_base: http://ollama:11434
+    ```
+
+    The model `llama3-local` now appears in OpenSail's model selector and routes to your Ollama instance.
   </Tab>
 
-  <Tab title="Output Tokens">
-    **What the model generates**
-    - Generated code
-    - Explanations and responses
-    - Tool call arguments
+  <Tab title="vLLM">
+    vLLM is a high-throughput inference server with OpenAI-compatible endpoints. Configure LiteLLM to route to it:
 
-    Output tokens are typically 2x to 5x more expensive than input tokens.
+    ```yaml
+    model_list:
+      - model_name: qwen-coder
+        litellm_params:
+          model: openai/Qwen/Qwen2.5-Coder-32B-Instruct
+          api_base: http://vllm:8000/v1
+          api_key: dummy
+    ```
+
+    vLLM requires a dummy API key even for local access.
+  </Tab>
+
+  <Tab title="Any OpenAI-compatible">
+    LM Studio, Text Generation Inference, Fireworks, or any server exposing `/v1/chat/completions` works identically. Treat it as an `openai/`-prefixed provider with a custom `api_base`.
   </Tab>
 </Tabs>
 
-### Reducing Costs
+<Warning>
+  Self-hosted inference requires enough VRAM for the model plus concurrent sessions. Plan for batch size and max sequence length. Ollama and vLLM both handle quantization for smaller GPUs.
+</Warning>
+
+## Model selector in chat
+
+Every chat session has a model selector at the top. The menu shows:
+
+- Models available to your subscription tier
+- BYOK-enabled models (if you have a matching key stored)
+- Self-hosted models (if your LiteLLM config includes them)
+- Cost badges: platform credits or BYOK or self-hosted
+
+Agents can also declare a default model as part of their configuration (see `/guides/customizing-agents`). Users can override per session unless the agent locks the model.
+
+## Default models per tier
+
+| Tier | Typical default | Bundled credits (USD equivalent) |
+|------|-----------------|----------------------------------|
+| Free | Fast, low-cost (e.g., Haiku-class, GPT-3.5-class, Qwen-7B-class) | 0 bundled, 5 daily |
+| Basic | Mid-tier (Sonnet-class, GPT-4-class) | 500 |
+| Pro | Top-tier plus BYOK (Opus-class, GPT-4-class, or your own key) | 2,000 |
+| Ultra | Everything unlocked | 8,000 |
+
+Exact model availability is configured in LiteLLM's team settings. Your admin (or you, if self-hosting) can expose any subset of models to any tier. See `/guides/billing` for tier pricing details.
+
+## Model parameters
+
+All LiteLLM-routed calls accept the standard OpenAI-compatible parameters: temperature, `max_tokens`, `top_p`, `frequency_penalty`, `presence_penalty`, and stop sequences. Agents can override per call; the platform does not impose hard caps beyond what upstream providers enforce.
+
+For extended-thinking capable models (Claude 3.7+, o1, o3), agents can pass a thinking budget. The default thinking effort is set via `default_thinking_effort` in the platform config.
+
+## Cost management
 
 <AccordionGroup>
-  <Accordion icon="robot" title="Match Model to Task Complexity">
-    - Use GPT-3.5 or Claude Haiku for simple UI work and quick iterations
-    - Use GPT-4 or Claude Opus for complex logic, architecture decisions, and debugging
-    - Do not use premium models for tasks that smaller models handle well
+  <Accordion icon="gauge-simple" title="Match model to task">
+    Use Haiku-class or Qwen-Coder-7B for UI tweaks and simple edits. Save Opus or GPT-4 for reasoning-heavy debugging and architecture. The cost delta is often 10x.
   </Accordion>
 
-  <Accordion icon="comments" title="Optimize Your Prompts">
-    - Be specific and concise in your requests
-    - Avoid sending unnecessary context
-    - Clear chat history when changing topics to reduce input tokens
+  <Accordion icon="compress" title="Watch context pressure">
+    The agent auto-compacts at 80% of the context window using a cheap summarization model (`compaction_summary_model`). Long runs accrue compaction cost; clearing chat between unrelated tasks saves more.
   </Accordion>
 
-  <Accordion icon="key" title="Use BYOK for Heavy Usage">
-    If you use AI models heavily, adding your own API key (BYOK) can be more cost-effective than purchasing platform credits, since you pay provider rates directly.
+  <Accordion icon="key" title="BYOK for heavy users">
+    If you run many hours per day, BYOK pays for itself quickly. No platform margin; you buy at provider list price.
   </Accordion>
 
-  <Accordion icon="sliders" title="Adjust Agent Parameters">
-    - Lower `max_tokens` when you need shorter responses
-    - Use temperature 0.2 to 0.3 for predictable, focused output
-    - Set per-run cost limits to prevent runaway agent loops (default limit: $5 per run)
+  <Accordion icon="server" title="Self-host for scale">
+    On Pro/Ultra with self-hosted Qwen-Coder or Llama 3.3, you can drive agents at near-zero marginal cost after GPU depreciation. Great for batch workflows and scheduled agents.
   </Accordion>
 </AccordionGroup>
-
-## Usage Monitoring
-
-### In Tesslate Studio
-
-Track your AI usage directly from the billing dashboard:
-
-<Steps>
-  <Step title="Open Billing">
-    Navigate to **Settings > Billing**
-  </Step>
-
-  <Step title="View Usage Summary">
-    The usage section shows total cost, token counts, and request counts for the current billing period, broken down by model and by agent.
-  </Step>
-
-  <Step title="View Detailed Logs">
-    Click into usage logs to see individual requests with model, tokens, cost, and timestamp.
-  </Step>
-
-  <Step title="Check Credit Status">
-    The credit status indicator warns you when your balance drops below 20% of your monthly allowance.
-  </Step>
-</Steps>
-
-### Usage API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/billing/usage` | Usage summary for a date range, broken down by model and agent |
-| `GET /api/billing/usage/logs` | Detailed per-request usage logs with pagination |
-| `POST /api/billing/usage/sync` | Manually trigger usage sync from LiteLLM |
-
-## Model Selection Strategy
-
-<CardGroup cols={2}>
-  <Card title="Simple UI Work" icon="browser">
-    **Use:** GPT-3.5, Claude Haiku, Qwen
-    Fast, affordable, great for visual components and Tailwind CSS
-  </Card>
-
-  <Card title="Complex Logic" icon="gears">
-    **Use:** GPT-4, Claude Opus
-    Better reasoning, handles complexity, fewer errors in business logic
-  </Card>
-
-  <Card title="API Integration" icon="plug">
-    **Use:** GPT-4 Turbo, Claude Sonnet
-    Strong understanding of APIs, good error handling, async patterns
-  </Card>
-
-  <Card title="Debugging" icon="bug">
-    **Use:** GPT-4, Claude Opus
-    Deep code analysis, root cause identification, comprehensive fixes
-  </Card>
-</CardGroup>
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="circle-xmark" title="Invalid API Key Error">
-    **Solutions:**
-    - Verify `LITELLM_MASTER_KEY` is set correctly in the environment
-    - Confirm the LiteLLM proxy is running (test: `curl http://localhost:4000/health`)
-    - Check that your BYOK key is valid and has sufficient credits with the provider
+  <Accordion icon="circle-xmark" title="Model not available">
+    Your tier may not include that model. Check the model selector; greyed-out entries show the minimum tier required. For self-hosted, confirm the model is in the LiteLLM config and the inference server is reachable.
   </Accordion>
 
-  <Accordion icon="ban" title="Model Not Available">
-    **Solutions:**
-    - Your subscription tier may not include that model; check the access tier table above
-    - Verify the model is configured in the LiteLLM config
-    - Use `GET /api/billing/config` to see which models are available for your tier
+  <Accordion icon="dollar-sign" title="Budget exceeded">
+    The LiteLLM per-key budget is a $10,000 runaway ceiling, not the real gate. If you hit it unexpectedly, your admin may need to run `ensure_budget_headroom()`. The real usage gate is your OpenSail credit balance.
   </Accordion>
 
-  <Accordion icon="dollar-sign" title="Budget Exceeded">
-    **Solutions:**
-    - Purchase additional credits from **Settings > Billing**
-    - Upgrade your subscription tier for more bundled credits
-    - Add your own API key (BYOK) to bypass platform credit costs
+  <Accordion icon="clock" title="Slow responses">
+    Switch to a faster model (Haiku, Flash, or a hosted Qwen-7B). Reduce `max_tokens`. Clear chat history to shrink input. If self-hosting, check GPU utilization; batched throughput dominates.
   </Accordion>
 
-  <Accordion icon="clock" title="Slow Model Responses">
-    **Solutions:**
-    - Switch to a faster model (e.g., Claude Haiku or GPT-3.5 Turbo)
-    - Reduce the `max_tokens` parameter
-    - Clear chat history to reduce input context size
+  <Accordion icon="key-skeleton" title="BYOK key rejected">
+    Verify the key in the provider's console. Check it has sufficient balance. Some providers scope keys to specific models; confirm access. Rotate the key in OpenSail Settings.
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card
-    title="API Keys"
-    icon="key"
-    href="/guides/api-keys"
-  >
-    Set up your AI provider keys for BYOK
+  <Card title="API Keys" icon="key" href="/guides/api-keys">
+    Set up BYOK model keys and external API keys for agent invocation
   </Card>
-  <Card
-    title="Billing"
-    icon="credit-card"
-    href="/guides/billing"
-  >
-    Understand credits, tiers, and cost management
+  <Card title="Billing" icon="credit-card" href="/guides/billing">
+    Credit pools, tiers, and how BYOK changes the math
   </Card>
-  <Card
-    title="Using Agents"
-    icon="robot"
-    href="/guides/using-agents"
-  >
-    Get the most from your AI agents
+  <Card title="Self-hosting" icon="server" href="/self-hosting/configuration">
+    Run OpenSail on your own infrastructure with local models
   </Card>
-  <Card
-    title="Customizing Agents"
-    icon="sliders"
-    href="/guides/customizing-agents"
-  >
-    Create custom agents with specific models and parameters
+  <Card title="Using Agents" icon="comments" href="/guides/using-agents">
+    Pick the right model mid-session
   </Card>
 </CardGroup>

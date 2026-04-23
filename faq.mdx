@@ -1,539 +1,270 @@
 ---
 title: 'FAQ'
-description: 'Frequently asked questions about Tesslate Studio'
+description: 'Common questions about OpenSail: licensing, pricing, models, data privacy, deployment, and usage'
 ---
 
-## General Questions
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## General
 
 <AccordionGroup>
-  <Accordion title="What is Tesslate Studio?">
-    Tesslate Studio is an open-source AI-powered development platform that helps you build full-stack web applications using natural language. It can be self-hosted, giving you complete control over your development environment and data.
+  <Accordion title="What is OpenSail?">
+    OpenSail is an open platform for building, running, and sharing AI-powered software. You describe a job, and OpenSail helps turn it into a working agent, app, scheduled automation, webhook handler, or MCP tool. Agents write code, use connected tools, remember context, and run in sandboxed environments.
 
-    **Key features:**
-    - AI code generation from natural language prompts
-    - Live preview with hot module replacement
-    - Self-hosted or cloud-hosted at tesslate.com
-    - Container isolation for every project
-    - Support for 100+ AI models via LiteLLM
-    - Multi-container projects (frontend, backend, database)
-    - Marketplace for agents and project templates
+    Key capabilities:
+
+    - Natural-language agent coding with a real IDE (Monaco, terminal, git)
+    - Multi-container projects with live preview
+    - btrfs-based workspaces with instant snapshots and forking
+    - 22+ deployment targets and 6+ messaging channels
+    - Marketplace for agents, skills, MCP connectors, and installable apps
+    - Runs on any model via LiteLLM
   </Accordion>
 
-  <Accordion title="Is Tesslate Studio free?">
-    **Yes.** Tesslate Studio is 100% open source under the Apache 2.0 license. You can:
-    - Use it for free (personal or commercial)
+  <Accordion title="Is OpenSail free?">
+    Yes. OpenSail is Apache 2.0 licensed. You can:
+
+    - Use it for personal or commercial projects
     - Self-host on your own infrastructure
-    - Modify and customize the source code
-    - Fork and distribute it
+    - Modify, fork, and redistribute the source
 
-    **You only pay for:**
-    - Infrastructure costs (if deploying to cloud providers)
-    - AI API usage (OpenAI, Anthropic, etc.) or use free local models with Ollama
-    - Optional credit purchases on the hosted platform
+    You only pay for:
+
+    - Infrastructure (if you deploy to a cloud)
+    - AI API usage, or use free local models via Ollama or vLLM
+    - Optional credit purchases on the hosted service at tesslate.com
   </Accordion>
 
-  <Accordion title="How is Tesslate Studio different from cloud-based alternatives?">
-    **Data Sovereignty:**
-    - Your code never leaves your infrastructure (when self-hosted)
-    - Complete control over data storage
-    - No vendor lock-in
+  <Accordion title="What is the difference between cloud, desktop, and self-hosted?">
+    | Path | Who runs it | Data location | When to pick |
+    |------|-------------|---------------|--------------|
+    | Cloud (tesslate.com) | Tesslate | Tesslate infrastructure | Zero setup, managed updates |
+    | Desktop | You, on your machine | Local disk under `OPENSAIL_HOME` | Single user, fully offline capable |
+    | Self-hosted | You, on your infra | Your servers | Team deployments, data sovereignty, air-gapped |
 
-    **Cost Control:**
-    - No per-seat pricing
-    - Pay only for infrastructure and AI APIs
-    - Use free local models via Ollama for zero AI costs
-
-    **Customization:**
-    - Fork and modify the entire platform
-    - Create custom agents with your own system prompts
-    - Add proprietary features and integrations
-
-    **Self-Hosting:**
-    - Deploy anywhere that runs Docker (laptop, cloud, on-prem)
-    - Works offline with local models
-    - No internet dependency for core features
+    The desktop app can also pair to a cloud instance (ours or your own self-hosted) to get remote sandboxed compute while keeping projects local.
   </Accordion>
 
-  <Accordion title="Do I need to pay for OpenAI/Claude API?">
-    **Not necessarily.** You have three options:
-
-    **1. Bring Your Own API Keys (BYOK)**
-    - Use OpenAI, Anthropic, Google Gemini, OpenRouter, and more
-    - Pay your provider directly
-
-    **2. Local Models (Free)**
-    - Install [Ollama](https://ollama.ai) or LM Studio
-    - Use free models like Llama, Mistral, CodeLlama
-    - 100% offline, zero AI costs
-
-    **3. Hybrid Approach**
-    - Use local models for quick iteration
-    - Use cloud models for complex tasks
-    - Switch models per conversation
-  </Accordion>
-
-  <Accordion title="Can I use this commercially?">
-    **Yes.** The Apache 2.0 license allows:
-    - Commercial use
-    - Building paid products with it
-    - Using it for client work
-    - Selling hosting services
-    - Creating proprietary extensions
-
-    **No restrictions on:**
-    - Number of users
-    - Revenue generated
-    - Type of business
+  <Accordion title="Can I use OpenSail commercially?">
+    Yes. Apache 2.0 allows commercial use, paid products, client work, selling hosting services, and proprietary extensions. No restrictions on users, revenue, or business type.
   </Accordion>
 </AccordionGroup>
 
-## Technical Questions
+## Models and AI
 
 <AccordionGroup>
-  <Accordion title="What technologies does Tesslate Studio use?">
-    **Frontend:**
-    - React 19, TypeScript, Vite 7
-    - Tailwind CSS for styling
-    - Monaco Editor (the same engine as VS Code)
-    - XYFlow for architecture diagrams
+  <Accordion title="What models are supported?">
+    All model calls route through LiteLLM, so anything LiteLLM supports works out of the box. That includes:
 
-    **Backend:**
-    - FastAPI (Python 3.11)
-    - PostgreSQL with asyncpg
-    - SQLAlchemy ORM with Pydantic schemas
-    - LiteLLM for AI model routing
+    - Anthropic (Claude Sonnet, Opus, Haiku)
+    - OpenAI (GPT-4, GPT-4o, reasoning models)
+    - Google (Gemini Pro, Flash)
+    - DeepSeek, Qwen, Mistral, Meta, Moonshot, MiniMax, Z.AI, xAI
+    - OpenRouter as a meta-provider
+    - Self-hosted via Ollama, vLLM, or any OpenAI-compatible endpoint
 
-    **Infrastructure:**
-    - Docker / Docker Compose (development)
-    - Kubernetes with Kustomize (production)
-    - Traefik (reverse proxy in Docker mode)
-    - NGINX Ingress (routing in Kubernetes mode)
-    - AWS S3 / MinIO for project storage
-    - Terraform for infrastructure as code
+    Configure available models with `LITELLM_DEFAULT_MODELS`. See the [model management guide](/guides/model-management).
   </Accordion>
 
-  <Accordion title="What are the system requirements?">
-    **Minimum (Docker mode):**
-    - 8GB RAM
-    - 10GB disk space
-    - Docker Desktop (or Docker Engine on Linux)
-    - Modern browser (Chrome, Firefox, Safari, Edge)
+  <Accordion title="Do I need to pay for an API key?">
+    Not necessarily. Three options:
 
-    **Recommended:**
-    - 16GB RAM
-    - 20GB disk space
-    - Fast internet (for cloud AI API calls)
-
-    **For Kubernetes production:**
-    - 2+ nodes with 4 vCPUs and 8GB RAM each
-    - Persistent volume provisioner (e.g., AWS EBS)
-    - NGINX Ingress Controller
-
-    **Supported Operating Systems:**
-    - Windows 10/11 (with Docker Desktop or WSL2)
-    - macOS 12+
-    - Linux (Ubuntu, Debian, Fedora, etc.)
+    1. BYOK: attach your own key from OpenAI, Anthropic, OpenRouter, Groq, Together, DeepSeek, Fireworks, or anyone else. Pay your provider directly.
+    2. Local models: run Ollama or vLLM for zero AI cost and full offline operation.
+    3. Hosted credits on tesslate.com.
   </Accordion>
 
-  <Accordion title="Can I run this without Docker?">
-    **Not recommended, but possible.** Docker provides:
-    - Easy setup with a single `docker compose up` command
-    - Container isolation for user projects
-    - Consistent environments across machines
-    - Simplified networking with Traefik
+  <Accordion title="Can I run offline or air-gapped?">
+    Yes. Two supported paths:
 
-    **Without Docker, you need to manually:**
-    - Install and configure PostgreSQL
-    - Set up Traefik or NGINX as a reverse proxy
-    - Run Node.js dev servers for each project
-    - Manage project isolation yourself
+    - Desktop with Ollama: the Tauri app talks to a local model server over HTTP. No network required.
+    - Self-hosted with a local LiteLLM pointed at vLLM, Ollama, or any OpenAI-compatible endpoint.
 
-    For most users, Docker is much simpler. See the [local development guide](/development/guide) if you need native setup.
-  </Accordion>
-
-  <Accordion title="What AI models are supported?">
-    Tesslate Studio supports 100+ AI models through [LiteLLM](https://github.com/BerriAI/litellm):
-
-    **Cloud Providers:**
-    - OpenAI (GPT-4o, GPT-4, GPT-3.5)
-    - Anthropic (Claude Sonnet, Claude Haiku, Claude Opus)
-    - Google (Gemini Pro, Gemini Flash)
-    - Azure OpenAI
-    - OpenRouter (access to dozens of models)
-    - Cohere, Together AI, and many more
-
-    **Local Models:**
-    - Ollama (Llama, Mistral, CodeLlama, Qwen, etc.)
-    - LM Studio
-    - Any OpenAI-compatible API endpoint
-
-    You can configure which models are available, set per-model pricing, and even add custom OpenRouter models.
-  </Accordion>
-
-  <Accordion title="Is my code/data sent to Tesslate's servers?">
-    **No (when self-hosted).** Everything runs on your infrastructure:
-    - Code stays on your machine/server
-    - Database is local to your instance
-    - No telemetry or tracking
-    - No external dependencies except AI APIs (if you choose to use them)
-
-    **On the hosted platform (tesslate.com):**
-    - Your projects are stored on our infrastructure
-    - AI prompts go to the configured AI provider
-    - We do not share or sell your data
-  </Accordion>
-
-  <Accordion title="What are the four agent types?">
-    Tesslate Studio includes four AI agent types, each designed for different workflows:
-
-    | Agent | Best For | How It Works |
-    |-------|----------|-------------|
-    | **StreamAgent** | Quick UI tasks, fast iteration | Single LLM call with streaming response |
-    | **IterativeAgent** | Multi-step tasks, complex logic | Loop of LLM calls with tool execution between each |
-    | **ReActAgent** | Reasoning-heavy tasks | Explicit Reason then Act cycle for each step |
-    | **TesslateAgent** | General purpose (default) | Full-featured agent with native function calling, planning mode, subagents, and context compaction |
-
-    You can switch agents per conversation based on what you are working on.
+    Features that require network (marketplace, cloud pairing, external deploys) are gracefully degraded when offline.
   </Accordion>
 </AccordionGroup>
 
-## Deployment Questions
+## Deployment
 
 <AccordionGroup>
-  <Accordion title="Where can I deploy Tesslate Studio?">
-    **Anywhere that runs Docker:**
+  <Accordion title="Do I need Kubernetes?">
+    No. Three supported modes selected by `DEPLOYMENT_MODE`:
 
-    **Local:**
-    - Your laptop/desktop
-    - Home server
-    - Development machines
+    - `desktop`: SQLite + local subprocess or Docker runtime. Best for single users.
+    - `docker`: Docker Compose with Postgres, Redis, Traefik. Best for single-server installs and dev.
+    - `kubernetes`: per-project namespaces, btrfs CSI, Volume Hub. Best for multi-tenant production.
 
-    **Cloud:**
-    - AWS (EC2, EKS, ECS)
-    - Google Cloud (GKE, Compute Engine)
-    - Azure (AKS, Virtual Machines)
-    - DigitalOcean, Hetzner, Linode, etc.
-
-    **On-Premises:**
-    - Company datacenter
-    - Private cloud
-    - Air-gapped networks (with local AI models via Ollama)
-
-    **Production (Kubernetes):**
-    - AWS EKS with EBS persistent volumes
-    - Minikube for local Kubernetes development
-    - Any managed Kubernetes service
+    Start on Docker, migrate to Kubernetes when you need isolation, hibernation, or horizontal scaling.
   </Accordion>
 
-  <Accordion title="What is the difference between Docker mode and Kubernetes mode?">
-    Tesslate supports two deployment modes controlled by the `DEPLOYMENT_MODE` environment variable:
+  <Accordion title="Where can I deploy OpenSail?">
+    Anywhere that can run Docker or Kubernetes. Tested paths:
 
-    | Feature | Docker Mode | Kubernetes Mode |
-    |---------|------------|----------------|
-    | **Use case** | Local development, small teams | Production, scaling |
-    | **Routing** | Traefik (`*.localhost`) | NGINX Ingress (`*.yourdomain.com`) |
-    | **Isolation** | Docker networks | Per-project Kubernetes namespaces |
-    | **Storage** | Local filesystem | Persistent Volume Claims (PVC) |
-    | **Snapshots** | Not available | EBS VolumeSnapshots for project versioning |
-    | **Setup** | `docker compose up` | `kubectl apply -k` |
+    - Local: laptop, home server, dev box
+    - Cloud: AWS (EC2/EKS), GCP (GCE/GKE), Azure (VM/AKS), DigitalOcean, Hetzner, Linode
+    - On-prem: company datacenter, private cloud, air-gapped networks
+
+    See [AWS production](/guides/aws-production) and [Kubernetes on Minikube](/guides/kubernetes-local).
   </Accordion>
 
   <Accordion title="Can I use a custom domain?">
-    **Yes.** Configure in your environment:
+    Yes. Set `APP_DOMAIN=opensail.example.com`, `APP_PROTOCOL=https`, `COOKIE_DOMAIN=.opensail.example.com`. Projects become `{container}.{project-slug}.opensail.example.com` under Kubernetes and `{container}.localhost` under Docker.
 
-    ```env
-    APP_DOMAIN=studio.yourcompany.com
-    APP_PROTOCOL=https
-    ```
-
-    Projects will be available at:
-    - `studio.yourcompany.com` (main app)
-    - `container.project-slug.studio.yourcompany.com` (user projects in K8s mode)
-
-    See the [Deployment Guide](/self-hosting/deployment) for SSL setup with Traefik (Docker) or cert-manager (Kubernetes).
+    TLS is handled by Traefik + Let's Encrypt (Docker) or cert-manager + Cloudflare DNS (Kubernetes).
   </Accordion>
 
-  <Accordion title="Can I use an external database?">
-    **Yes.** Set `DATABASE_URL` in your environment:
+  <Accordion title="What are the system requirements?">
+    Minimum (Docker): 8 GB RAM, 10 GB disk, Docker Engine + Compose v2.
 
-    ```env
-    DATABASE_URL=postgresql+asyncpg://user:pass@your-db-host:5432/tesslate
-    ```
+    Recommended dev: 16 GB RAM, 20 GB disk.
 
-    **Supported:**
-    - AWS RDS PostgreSQL
-    - Google Cloud SQL
-    - Azure Database for PostgreSQL
-    - Any managed or self-hosted PostgreSQL 13+
-  </Accordion>
+    Production Kubernetes: two or more btrfs-capable nodes with 4 vCPU / 8 GB RAM each, NGINX Ingress, managed Postgres, managed Redis, S3 bucket.
 
-  <Accordion title="What is the S3 Sandwich pattern?">
-    In Kubernetes mode, Tesslate uses the S3 Sandwich pattern for cost-efficient project storage:
-
-    1. **Hydration**: When a project starts, files are downloaded from S3 to a local PVC
-    2. **Runtime**: The dev server uses fast local disk I/O
-    3. **Dehydration**: When a project hibernates, files are uploaded back to S3
-
-    With EBS VolumeSnapshots (on AWS EKS), projects can also keep persistent block storage that survives pod restarts, with up to 5 snapshots per project for version history.
-  </Accordion>
-
-  <Accordion title="What hardware do I need for production?">
-    **Small Team (1-10 users):**
-    - 2 vCPUs, 8GB RAM, 50GB SSD
-    - Estimated cloud cost: $40-80/month
-
-    **Medium Team (10-50 users):**
-    - 4 vCPUs, 16GB RAM, 100GB SSD
-    - Estimated cloud cost: $80-160/month
-
-    **Large Team (50+ users):**
-    - 8+ vCPUs, 32GB+ RAM, 200GB+ SSD
-    - Consider multi-node Kubernetes with load balancing
-    - Estimated cloud cost: $200+/month
-
-    Costs vary by cloud provider and region.
+    Desktop: 4 GB RAM, 2 GB disk, macOS 12+, Windows 10+, or modern Linux.
   </Accordion>
 </AccordionGroup>
 
-## Usage Questions
+## Storage and workspaces
 
 <AccordionGroup>
-  <Accordion title="What programming languages does it support?">
-    **Primary Focus:**
-    - React + TypeScript (frontend)
-    - JavaScript/TypeScript (full-stack)
+  <Accordion title="How does the btrfs workspace layer work?">
+    Each project lives on a btrfs subvolume managed by the OpenSail btrfs CSI driver and the Volume Hub orchestrator. Subvolumes support instant snapshot-clone, which enables:
 
-    **Backend Options (via multi-container projects):**
-    - Python (FastAPI, Flask, Django)
-    - Go
-    - Node.js (Express, Next.js)
-    - Rust, Ruby, PHP, and more through community bases
+    - Fork a running workspace in seconds
+    - Roll back to any snapshot in the per-project timeline (up to 5)
+    - Hibernate and restore a full multi-container project atomically
 
-    AI agents can generate code in any language. Templates and bases provide pre-configured stacks for the most popular combinations.
+    Object persistence uses content-addressed storage on S3 (or MinIO in dev). See the [architecture page](/self-hosting/architecture).
   </Accordion>
 
-  <Accordion title="Can I import existing projects?">
-    **Yes.** Multiple methods:
+  <Accordion title="How does hibernation work?">
+    Projects auto-hibernate after `K8S_HIBERNATION_IDLE_MINUTES` of inactivity (default 10). The Volume Hub triggers an S3 CAS sync, then the pods are torn down. On next use, `EnsureCached` brings the volume back: fast path if still cached on a node, otherwise peer-transfer from another node, otherwise restore from S3.
 
-    **1. GitHub/GitLab/Bitbucket Import**
-    - Connect your Git provider account
-    - Import any public or private repository
-    - Tesslate creates an isolated container and installs dependencies
-
-    **2. From a Base Template**
-    - Choose from 60+ community bases (Next.js, Go, Rust, Django, Laravel, Rails, Flutter, .NET, etc.)
-    - Start with a configured stack and customize from there
-
-    **3. Git Clone via Terminal**
-    - Create a blank project
-    - Use the integrated terminal to `git clone` any repository
+    Multi-container projects hibernate and restore atomically because they share a volume and pod affinity pins them to one node.
   </Accordion>
 
-  <Accordion title="Can I collaborate with others?">
-    **Currently:** Tesslate Studio is designed for individual users with isolated projects.
+  <Accordion title="Can I export my projects?">
+    Yes. Every project is a git repo inside its workspace. Push to any remote, clone elsewhere, or `kubectl cp`/`docker cp` the files out. Apps can also be exported as a CAS bundle via the publish pipeline.
+  </Accordion>
+</AccordionGroup>
 
-    **Workaround:**
-    - Use GitHub for collaboration
-    - Each team member uses their own Tesslate instance
-    - Share work via Git commits and pull requests
+## Privacy and security
 
-    **Planned Features:**
-    - Real-time collaboration
-    - Team workspaces
-    - Shared projects
+<AccordionGroup>
+  <Accordion title="Is my data private?">
+    When self-hosted: everything stays on your infrastructure. No telemetry. The only network calls are to AI providers you configure and to marketplaces or deployment targets you connect.
+
+    On tesslate.com: projects live on Tesslate infrastructure. Prompts go to the configured AI provider. We do not sell or share customer data.
   </Accordion>
 
-  <Accordion title="How do I export/download my projects?">
-    **Multiple options:**
+  <Accordion title="Can agents access my host file system?">
+    No. Agents are sandboxed:
 
-    **1. GitHub Integration** (recommended)
-    - Push to a GitHub repository
-    - Clone the repository anywhere else
-
-    **2. Git Clone**
-    - Projects are Git repositories inside their containers
-    - Use the Git panel to push to a remote
-
-    **3. Container File Copy**
-    ```bash
-    docker cp <container-id>:/app ./my-project
-    ```
-    Or in Kubernetes:
-    ```bash
-    kubectl cp proj-<uuid>/<pod-name>:/app ./my-project
-    ```
+    - Docker/K8s: agents run inside the project container and can only see files in that container
+    - Desktop `local` runtime: agents see only the project directory under `OPENSAIL_HOME` (or a symlinked adopted folder)
+    - Shell commands run in the project container
+    - Tools gated by `.tesslate/permissions.json` require approval for sensitive actions
   </Accordion>
 
-  <Accordion title="What happens if I delete a project?">
-    When you delete a project:
-    1. The database record is removed
-    2. The container (Docker or Kubernetes pod/namespace) is stopped and deleted
-    3. All project files are removed from local storage and S3
+  <Accordion title="Where are credentials stored?">
+    - Passwords: bcrypt hashed in Postgres
+    - OAuth tokens, API keys, channel credentials, deployment credentials: Fernet encrypted at rest
+    - 2FA codes: Argon2 hashed, 5-attempt cap, short TTL
+    - Desktop `tsk_` keys: Tauri Stronghold vault (encrypted on disk)
 
-    **This is permanent** and cannot be undone.
-
-    **Best practices:**
-    - Push to GitHub before deleting
-    - Download important files locally
-    - In Kubernetes mode, snapshots are soft-deleted and retained for 30 days before permanent removal
+    See [Authentication](/authentication).
   </Accordion>
 
-  <Accordion title="Can I use Tesslate Studio offline?">
-    **Partially:**
+  <Accordion title="Is OpenSail SOC 2 or HIPAA compliant?">
+    Self-hosted is neutral: compliance depends on your infrastructure. The hosted service at tesslate.com follows SOC 2 Type II controls. Contact support@tesslate.com for a compliance pack.
+  </Accordion>
+</AccordionGroup>
 
-    **What works offline:**
-    - Core application UI
-    - Code editor (Monaco)
-    - Live preview
-    - Project management
-    - AI generation (if using Ollama with local models)
+## Pricing and billing
 
-    **What requires internet:**
-    - Cloud AI models (OpenAI, Anthropic, etc.)
-    - GitHub/GitLab/Bitbucket integration
-    - npm/pip package installs
-    - External deployments (Vercel, Netlify)
+<AccordionGroup>
+  <Accordion title="How does billing work?">
+    Self-hosted: you pay your own cloud and AI bills. OpenSail itself is free.
 
-    **For full offline usage:** Install Ollama and use local models.
+    Hosted (tesslate.com): tiered subscriptions plus optional credit packs. Stripe handles checkout. Marketplace creators get paid via Stripe Connect on a configurable creator/platform revenue split.
+
+    For self-hosted Stripe setup, configure `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and tier price IDs. See the [billing guide](/guides/billing).
+  </Accordion>
+
+  <Accordion title="Are there usage limits?">
+    Agent runs are bounded by `AGENT_MAX_COST`, `AGENT_MAX_COST_PER_RUN`, and `AGENT_MAX_ITERATIONS`. Container tiers are bounded by `COMPUTE_MAX_CONCURRENT_PODS`. MCP installs per user cap at `MCP_MAX_SERVERS_PER_USER`. All are configurable.
+  </Accordion>
+</AccordionGroup>
+
+## Building and publishing
+
+<AccordionGroup>
+  <Accordion title="How do I publish an app?">
+    Build your project in a workspace, then publish via the Architecture Panel. The publisher:
+
+    1. Serializes the workspace to a manifest and CAS bundle
+    2. Runs the staged approval pipeline (stage0 to stage3) for public listings
+    3. Creates an immutable `AppVersion`
+
+    Private and team installs skip the public listing gate. See [Publishing apps](/guides/publishing-apps).
+  </Accordion>
+
+  <Accordion title="How do I deploy agents to Slack or Telegram?">
+    Configure a channel under `Settings -> Channels`. Each channel (Slack, Telegram, Discord, WhatsApp, Signal) stores Fernet-encrypted credentials. The Gateway v2 runner maintains a persistent connection, routes messages to the right agent, and delivers responses back to the platform.
+
+    Schedules can fire at cron intervals with per-schedule delivery targets. See [Communication gateways](/guides/communication-gateways).
+  </Accordion>
+
+  <Accordion title="What programming languages does OpenSail support?">
+    The platform ships React/TypeScript bases, plus community bases for Next.js, Vite + FastAPI, Vite + Go, Django, Rails, Laravel, .NET, Flutter, Expo, and more. Agents can generate code in any language; containers run whatever the base specifies.
+  </Accordion>
+
+  <Accordion title="Can I import an existing project?">
+    Yes. Options:
+
+    - Git import: paste a GitHub/GitLab/Bitbucket URL
+    - Base template: pick a pre-wired stack
+    - Describe: let the agent scaffold the stack
+    - Desktop: adopt any existing folder via symlink or marker file
   </Accordion>
 </AccordionGroup>
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="Preview not updating?">
-    **Try these steps:**
-
-    1. **Refresh the preview:** Click the refresh button in the preview panel
-    2. **Check for errors:** Open browser console (F12) and look for errors
-    3. **Restart the dev server:** Go to Settings and restart the development server
-    4. **Check container logs:**
-       - Docker: `docker compose logs <container-name>`
-       - Kubernetes: `kubectl logs -n proj-<uuid> <pod-name> -c dev-server`
-    5. **Clear browser cache:** Hard refresh with Ctrl+Shift+R (or Cmd+Shift+R on Mac)
+  <Accordion title="Preview not updating">
+    Refresh the preview panel. Check the dev server container logs (`docker compose logs <container>` or `kubectl logs -n proj-<uuid> <pod>`). If hot reload is broken on mounted volumes, set `CHOKIDAR_USEPOLLING=true`.
   </Accordion>
 
-  <Accordion title="AI agent not responding?">
-    **Common causes:**
-
-    **1. Invalid API key**
-    - Check your API key configuration in Settings
-    - Verify the key with your AI provider
-    - For self-hosted: check the `LITELLM_API_BASE` and related environment variables
-
-    **2. Rate limiting**
-    - You have hit API rate limits from your provider
-    - Wait a moment and try again, or switch to a different model
-
-    **3. Model not available**
-    - The selected model might be deprecated or unavailable
-    - Try a different model from the chat selector
-    - Check LiteLLM compatibility
-
-    **4. Insufficient credits**
-    - Check your credit balance in the billing page
-    - Purchase additional credits or switch to a BYOK model
+  <Accordion title="Agent not responding">
+    Verify `LITELLM_API_BASE` is reachable and `LITELLM_MASTER_KEY` is correct. Check the model selector shows valid entries. Look at the orchestrator logs for LiteLLM errors and per-user budget rejections.
   </Accordion>
 
-  <Accordion title="Can't access studio.localhost?">
-    **Solutions:**
-
-    1. **Check Docker is running:** Open Docker Desktop and verify status
-    2. **Check containers are up:** `docker compose ps` (all should show "Up")
-    3. **Add hosts entry if needed:**
-       - Mac/Linux: Add `127.0.0.1 studio.localhost` to `/etc/hosts`
-       - Windows: Add the same line to `C:\Windows\System32\drivers\etc\hosts`
-    4. **Restart everything:** `docker compose down && docker compose up -d`
-    5. **Check Traefik:** Verify Traefik is running and routing correctly
+  <Accordion title="Cannot reach studio.localhost (Docker)">
+    Check Traefik is running (`docker compose ps`). On systems that do not auto-resolve `*.localhost`, add `127.0.0.1 studio.localhost` to your hosts file.
   </Accordion>
 
-  <Accordion title="Container fails to start?">
-    **For user project containers:**
-
-    1. **Check the devserver image exists:**
-       - Docker: `docker images | grep tesslate-devserver`
-       - Minikube: `minikube -p tesslate ssh -- docker images | grep tesslate-devserver`
-    2. **Check pod events (Kubernetes):** `kubectl describe pod -n proj-<uuid>`
-    3. **Check PVC is bound (Kubernetes):** `kubectl get pvc -n proj-<uuid>`
-    4. **ImagePullBackOff:** The devserver image is not available. Build and load it.
-    5. **Check environment variables:** Ensure `K8S_DEVSERVER_IMAGE` is set correctly
+  <Accordion title="Container fails to start (Kubernetes)">
+    Run `kubectl describe pod -n proj-<uuid>` and check events. Common causes: missing `K8S_DEVSERVER_IMAGE`, PVC still provisioning, image pull secret wrong. Verify the Volume Hub is healthy in `kube-system`.
   </Accordion>
 </AccordionGroup>
 
-## Security and Privacy
-
-<AccordionGroup>
-  <Accordion title="Is Tesslate Studio secure?">
-    **Security features:**
-    - JWT authentication with short-lived access tokens and refresh tokens
-    - Bcrypt password hashing
-    - Fernet symmetric encryption for stored credentials (OAuth tokens, API keys)
-    - CSRF protection on all state-changing requests
-    - Container isolation per project (Docker networks or Kubernetes namespaces with NetworkPolicy)
-    - Agent command validation and audit logging
-    - HTTPS/TLS support in production (Traefik with Let's Encrypt or cert-manager)
-    - Optional email-based two-factor authentication
-
-    **Best practices:**
-    - Use strong passwords and a strong `SECRET_KEY`
-    - Enable HTTPS in production
-    - Keep Docker and Kubernetes updated
-    - Perform regular database backups
-    - Use separate credentials for development and production
-  </Accordion>
-
-  <Accordion title="Can AI agents access my file system?">
-    **No.** AI agents are sandboxed:
-    - Can only access files within the project's container
-    - Cannot access the host file system
-    - Cannot access other project containers
-    - Shell commands execute inside the project container only
-    - Dangerous operations require user approval before execution
-  </Accordion>
-
-  <Accordion title="Where are my credentials stored?">
-    **Database (PostgreSQL):**
-    - User passwords: bcrypt hashed
-    - Git provider tokens: Fernet encrypted
-    - Deployment credentials: Fernet encrypted
-    - API keys: Fernet encrypted
-    - 2FA codes: argon2 hashed, limited attempts, auto-expire
-
-    **Environment variables (.env):**
-    - `SECRET_KEY`: Used for JWT signing (keep secure, never commit)
-    - `ENCRYPTION_KEY`: Used for Fernet encryption of stored credentials
-    - AI provider keys: Stored in environment, not in database
-
-    **Best practices:**
-    - Use strong, random values for SECRET_KEY and ENCRYPTION_KEY
-    - Never commit .env files to Git
-    - Rotate keys regularly
-    - Use different keys for development and production
-  </Accordion>
-</AccordionGroup>
-
-## Getting Help
+## Getting help
 
 <CardGroup cols={2}>
-  <Card title="Documentation" icon="book" href="https://docs.tesslate.com">
-    Browse the full documentation
+  <Card title="Docs" icon="book" href="https://docs.tesslate.com">
+    Full documentation.
   </Card>
 
-  <Card title="GitHub Discussions" icon="comments" href="https://github.com/TesslateAI/Studio/discussions">
-    Ask questions and share ideas
+  <Card title="GitHub" icon="github" href="https://github.com/TesslateAI/opensail">
+    Source and issue tracker.
   </Card>
 
-  <Card title="GitHub Issues" icon="bug" href="https://github.com/TesslateAI/Studio/issues">
-    Report bugs and request features
+  <Card title="Discord" icon="discord" href="https://discord.gg/qmrcHGNch7">
+    Community support.
   </Card>
 
-  <Card title="Email Support" icon="envelope" href="mailto:support@tesslate.com">
-    Direct support for urgent issues
+  <Card title="Email" icon="envelope" href="mailto:support@tesslate.com">
+    Direct support.
   </Card>
 </CardGroup>
-
-## Still Have Questions?
-
-<Card title="Ask in Discussions" icon="comments" href="https://github.com/TesslateAI/Studio/discussions">
-  Can't find your answer? Ask the community in GitHub Discussions.
-</Card>

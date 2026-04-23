@@ -1,322 +1,122 @@
 ---
 title: 'Live Preview'
-description: 'Real-time application preview powered by containerized dev servers with hot module replacement'
+description: 'Iframe preview with hot module reload per project. Preview nodes on the Architecture Panel, responsive breakpoints, and per-container URLs for multi-service apps.'
 ---
 
-## What is Live Preview?
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-The Live Preview shows your running application inside an iframe embedded in the Tesslate Studio workspace. Every change you make in the code editor or through an AI agent appears in the preview within milliseconds, thanks to Hot Module Replacement (HMR).
+## How it works
 
-The preview is not a simulation. It is your actual application running inside a real container, accessed through a reverse proxy that routes traffic to the correct dev server.
+The live preview is an iframe rendered next to the code editor and the Design canvas. The iframe points at your running dev server. Every save triggers hot module reload (HMR) inside the container, the dev server pushes the update, and the iframe repaints.
+
+No polling, no refresh buttons. Save, see it.
 
 <CardGroup cols={2}>
-  <Card title="Hot Module Replacement" icon="bolt">
-    Changed modules are swapped in place without a full page reload. Component state is preserved.
+  <Card title="HMR built in" icon="bolt">
+    Your framework's hot reload flows straight into the preview iframe.
   </Card>
-  <Card title="Real-Time Updates" icon="clock">
-    See changes as you type in the editor or as AI agents generate code
+  <Card title="Per-container URL" icon="link">
+    Multi-service projects get a URL per container.
   </Card>
-  <Card title="Fully Interactive" icon="hand-pointer">
-    Click, scroll, navigate, fill out forms, and interact with your app exactly like a real user
+  <Card title="Preview nodes on canvas" icon="window">
+    The Architecture Panel renders live preview windows as graph nodes.
   </Card>
-  <Card title="Container-Powered" icon="cube">
-    Your app runs in a real Docker or Kubernetes container, not a sandbox
+  <Card title="Responsive breakpoints" icon="mobile">
+    Test 375px up to 1536px from a breakpoint switcher.
   </Card>
 </CardGroup>
 
-## How the Preview Works
+## URL pattern
 
-The preview is an iframe that loads a URL pointing to your project's dev server. The URL is generated differently depending on the deployment mode:
+Container URLs differ by runtime.
 
 <Tabs>
-  <Tab title="Docker Mode (Local Development)">
-    Tesslate uses **Traefik** as a reverse proxy. Each container gets a unique URL based on the project slug and container name:
-
-    ```
-    {project-slug}-{container-name}.localhost
-    ```
-
-    For example, if your project slug is `my-app-k3x8n2` and the container is named `frontend`, the preview URL would be:
-
-    ```
-    my-app-k3x8n2-frontend.localhost
-    ```
-
-    Traefik routing is configured through labels in the dynamically generated `docker-compose.yml` file.
+  <Tab title="Local (desktop)">
+    `http://127.0.0.1:{port}` direct loopback. No reverse proxy.
   </Tab>
-
-  <Tab title="Kubernetes Mode (Production)">
-    Tesslate uses **NGINX Ingress Controller** with TLS wildcard certificates. Each container gets a subdomain:
-
-    ```
-    {container-name}.{project-slug}.{domain}
-    ```
-
-    For example, on the production domain `saipriya.org`:
-
-    ```
-    https://frontend.my-app-k3x8n2.saipriya.org
-    ```
-
-    Ingress rules are created per container, and a wildcard TLS certificate covers all subdomains.
+  <Tab title="Docker">
+    `http://{container}.localhost` or `http://{container}.{slug}.localhost`. Traefik routes by hostname to the right container on a shared Docker network.
+  </Tab>
+  <Tab title="Kubernetes">
+    `https://{container}.{slug}.{domain}` in production (for example `https://frontend.my-app-k3x8n2.opensail.tesslate.com`). NGINX Ingress routes by hostname with a wildcard TLS certificate. Minikube uses `http://{container}.localhost` for local dev.
   </Tab>
 </Tabs>
 
-### Multi-Container Previews
+`GET /api/projects/{slug}/dev-server-url` returns the base URL the frontend uses to build per-container iframe URLs.
 
-In multi-container projects, you can preview different containers independently. The architecture graph includes BrowserPreview nodes that you can connect to specific containers. Each BrowserPreview stores its own URL path state, so you can have the frontend preview showing the login page while a second preview shows the API documentation.
+## The iframe
 
-## Preview Modes
+The preview iframe is wrapped in a mini-browser with:
 
-<Tabs>
-  <Tab title="Normal Mode">
-    **Single browser view** showing one container's output. This is the default mode and works best for most development tasks. The preview responds to HMR updates from the connected container.
-  </Tab>
+- **URL bar** showing the active container URL
+- **Back/forward/home/refresh** for navigating multi-page apps
+- **Copy link** for sharing or opening in a standalone tab
+- **Fullscreen** to dedicate the whole workspace to the preview
 
-  <Tab title="Browser Tabs Mode">
-    **Multiple tabs** within the preview panel, simulating a real browser's tabbed experience. Useful for testing multi-page navigation, opening links in new tabs, and verifying routing behavior. Enable this in Project Settings.
-  </Tab>
-</Tabs>
+If the dev server is not yet ready, the preview shows a startup overlay with pulsing grid spinner, progress bar, and streaming logs (`StartupLogViewer`). If the health check times out, an "Ask Agent" button kicks the agent off to diagnose and fix.
 
-## Browser Controls
+## Preview nodes on the canvas
 
-The preview panel includes a toolbar with browser-like controls:
+The Architecture Panel can host browser preview nodes alongside your containers. Drag the **Browser Preview** node from the Marketplace sidebar, drop it on the canvas, and connect it to a container with a `browser_preview` edge.
 
-<AccordionGroup>
-  <Accordion icon="arrow-left" title="Back / Forward">
-    Navigate through the page history, just like a browser's back and forward buttons. Useful for testing client-side routing.
-  </Accordion>
+What you get:
 
-  <Accordion icon="rotate-right" title="Refresh">
-    Force a full page reload. Use this when HMR fails to pick up a change, or when you need to clear client-side state.
-  </Accordion>
+- **Live iframe inside the canvas** with the same mini-browser chrome
+- **Resizable and repositionable** so you can arrange multi-viewport previews
+- **Drag to reposition** while the app keeps running
+- **One incoming connection** per preview node (enforced in `isValidConnection`)
 
-  <Accordion icon="external-link" title="Open in New Tab">
-    Opens the preview URL in a real browser tab. This lets you use browser DevTools for debugging, test in a different browser, or share the URL with someone on your network.
-  </Accordion>
+This is how you author multi-container apps while watching them run.
 
-  <Accordion icon="link" title="URL Bar">
-    Displays the current route. You can copy the full preview URL or manually enter a path to deep-link to a specific page.
-  </Accordion>
-</AccordionGroup>
+## Port picker for multi-container apps
 
-## Hot Module Replacement (HMR)
+When your project has more than one previewable container, the `PreviewPortPicker` dropdown appears. It lets you switch the active iframe between the frontend, API docs, worker dashboard, or any container that exposes a port.
 
-### How It Works
+Containers expose a port through the `effective_port` resolution chain: `internal_port` from config, then `port` column, then `3000` fallback. Always trust `effective_port`, never hardcode.
 
-HMR is a development feature provided by Vite (or your project's bundler) that updates the browser without a full page reload.
+## Responsive breakpoints
 
-<Steps>
-  <Step title="Code Changes">
-    You edit a file in the editor, or an AI agent writes to the filesystem.
-  </Step>
-  <Step title="Dev Server Detects Change">
-    The Vite dev server (or equivalent) watches the filesystem and detects the modified file.
-  </Step>
-  <Step title="Module Replacement">
-    Only the changed module is recompiled and sent to the browser via WebSocket.
-  </Step>
-  <Step title="State Preserved">
-    React component state, form inputs, and scroll position remain intact. Only the changed component re-renders.
-  </Step>
-  <Step title="Preview Updates">
-    The change appears in the preview within milliseconds.
-  </Step>
-</Steps>
+In Design view, the breakpoint switcher cycles through:
 
-### What Triggers HMR
+| Breakpoint | Width |
+|------------|-------|
+| **Fit** | Full canvas width |
+| **sm** | 640px |
+| **md** | 768px |
+| **lg** | 1024px |
+| **xl** | 1280px |
+| **2xl** | 1536px |
+| **Mobile** | 375px |
 
-- **Component changes**: Editing React, Vue, or Svelte components
-- **Style updates**: Modifying CSS, SCSS, or Tailwind classes
-- **Asset changes**: Updating images, fonts, or other static files
-- **Configuration changes**: Some config updates (these may require a full reload)
+The iframe width snaps to the chosen breakpoint and the canvas scales so the preview stays fully visible.
 
-<Info>
-  HMR is much faster than full page reloads because it only replaces the changed modules. This makes the edit-preview cycle nearly instant, which is especially valuable when iterating with AI agents.
-</Info>
+## Health checks
 
-### When HMR Falls Back to Full Reload
+Every container has a readiness probe that gates preview traffic. Until the dev server responds on the effective port, the iframe shows the startup overlay. When readiness passes, the iframe loads.
 
-Some changes cannot be hot-replaced and trigger a full page reload:
+On Kubernetes, readiness is HTTP-based (`GET /` on the port). Liveness is exec-based (tmux session health), so the pod stays alive even if the dev server crashes, giving the agent room to fix it.
 
-- Changes to the entry file (`main.tsx`)
-- Modifications to `vite.config.ts` or `tsconfig.json`
-- Adding or removing dependencies (requires a server restart)
-- Syntax errors that prevent the module from compiling
+## Manual reload
 
-## Responsive Design Testing
+Sometimes HMR does not cover every change (service workers, new env vars, infrastructure container restarts). Click the refresh button in the preview chrome for a hard reload. The design selection and canvas state persist across reloads.
 
-The preview panel can be resized to test different screen widths:
+## Preview security
 
-<Tabs>
-  <Tab title="Desktop">
-    Full-width preview showing the desktop layout. Drag the panel edge to adjust the width.
-  </Tab>
-  <Tab title="Tablet">
-    Resize the preview to tablet-range widths (768px to 1024px) to test medium breakpoints and touch-oriented layouts.
-  </Tab>
-  <Tab title="Mobile">
-    Narrow the preview to mobile widths (320px to 480px) to verify responsive behavior, mobile navigation, and touch-friendly elements.
-  </Tab>
-</Tabs>
+Preview URLs are authenticated. The dev server verifies the user's session through the `/auth/verify-access` endpoint before serving. Unauthenticated users hitting a preview URL get redirected to login. Team-visible projects also check team membership.
 
-For more precise testing, open the preview in a new browser tab and use your browser's built-in responsive design tools (for example, Chrome DevTools Device Mode).
-
-## Interacting with the Preview
-
-The preview is fully interactive:
-
-### User Interactions
-- Click buttons and links
-- Fill out forms and submit them
-- Scroll through content
-- Navigate between routes
-- Trigger hover states and animations
-
-### Form Testing
-- Type in input fields
-- Test form validation
-- Submit forms and verify responses
-- Test file upload components
-
-### Using Browser DevTools
-- Open the preview in a new tab
-- Press F12 to open DevTools
-- Inspect elements and computed styles
-- Monitor network requests
-- Debug JavaScript with breakpoints
-- Profile performance
-
-## Development Server Health
-
-The preview depends on a healthy dev server. The UI shows the container status:
+## Related
 
 <CardGroup cols={2}>
-  <Card title="Running (Green)" icon="check-circle">
-    Server is healthy. Preview is active and receiving updates.
+  <Card title="Code editor" icon="code" href="/guides/code-editor">
+    The editor that sits beside the preview.
   </Card>
-  <Card title="Starting (Yellow)" icon="spinner">
-    Server is booting up. Wait for initialization to complete.
+  <Card title="Design engineer" icon="pen-ruler" href="/guides/design-engineer">
+    Click-to-source editing on top of the iframe.
   </Card>
-  <Card title="Failed (Red)" icon="circle-xmark">
-    Server crashed or failed to start. Check logs or restart from settings.
+  <Card title="Architecture Panel" icon="diagram-project" href="/guides/architecture-panel">
+    Preview nodes on the canvas.
   </Card>
-  <Card title="Needs Setup (Orange)" icon="wrench">
-    Health check timed out. Use the "Ask Agent to start it" button for agent-assisted startup.
-  </Card>
-</CardGroup>
-
-### Server Controls
-
-From the project settings panel:
-
-- **Restart Container**: Stop and restart a specific container's dev server
-- **Restart All**: Stop and restart all containers in the project
-- **View Status**: See the current status of each container
-- **Port Info**: Check which port the dev server is listening on
-
-## Port Resolution
-
-The preview URL includes the correct port for each container. Tesslate determines the port using the `effective_port` property:
-
-1. `internal_port` (set from TESSLATE.md or framework detection)
-2. `port` (the mapped/exposed port)
-3. `3000` (fallback default)
-
-At container startup, the orchestrator also checks for a TESSLATE.md file that can override the port at runtime.
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion icon="circle-xmark" title="Preview Not Loading">
-    **Cause**: Dev server has not started yet, or the container is not running.
-
-    **What to try**:
-    - Wait 30 to 60 seconds for initial startup
-    - Check the container status indicator
-    - Restart the dev server from project settings
-    - Open the preview URL in a new tab and check the browser console
-    - For non-Node.js projects, try the "Ask Agent to start it" feature
-  </Accordion>
-
-  <Accordion icon="ban" title="Changes Not Appearing">
-    **Cause**: HMR connection lost, or a build error prevents module replacement.
-
-    **What to try**:
-    - Check if there are syntax errors in the editor (red underlines)
-    - Click the refresh button in the preview toolbar
-    - Check the browser console in the preview for error messages
-    - Ensure the file was saved (`Ctrl/Cmd + S`)
-    - Restart the dev server if HMR is completely unresponsive
-  </Accordion>
-
-  <Accordion icon="triangle-exclamation" title="Build Error Overlay">
-    **Cause**: A syntax error or type error prevents the application from compiling.
-
-    **What to try**:
-    - Read the error message shown in the overlay
-    - Check the file and line number referenced in the error
-    - Fix the error in the editor and save
-    - Ask an AI agent to debug the issue: paste the error message in the chat
-  </Accordion>
-
-  <Accordion icon="snail" title="Slow Preview">
-    **Cause**: Large bundle size, unoptimized images, or heavy computation in the render cycle.
-
-    **What to try**:
-    - Close other browser tabs to free resources
-    - Optimize large images (compress or resize)
-    - Check for infinite re-render loops in the browser console
-    - Profile the application using Chrome DevTools Performance tab
-  </Accordion>
-</AccordionGroup>
-
-## Best Practices
-
-<CardGroup cols={2}>
-  <Card title="Test After Each Change" icon="vial">
-    Check the preview after each code edit or AI generation. Catching issues early is much easier than debugging a series of accumulated changes.
-  </Card>
-  <Card title="Use DevTools Regularly" icon="browser">
-    Open the preview in a new tab periodically. Use Chrome DevTools to inspect elements, check network requests, and verify responsive layouts.
-  </Card>
-  <Card title="Monitor the Console" icon="terminal">
-    Keep an eye on the browser console for warnings and errors. Runtime issues often show up here before they become visible in the UI.
-  </Card>
-  <Card title="Refresh When State Gets Stale" icon="rotate-right">
-    If the preview looks wrong after many rapid changes, do a full refresh. HMR occasionally leaves stale state, especially after changes to context providers or routing.
-  </Card>
-</CardGroup>
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card
-    title="Code Editor"
-    icon="code"
-    href="/guides/code-editor"
-  >
-    Make manual code changes with full IntelliSense
-  </Card>
-  <Card
-    title="Chat Interface"
-    icon="comments"
-    href="/guides/chat-interface"
-  >
-    Generate and modify code through AI agents
-  </Card>
-  <Card
-    title="Git Integration"
-    icon="code-branch"
-    href="/guides/github-integration"
-  >
-    Save your changes to a remote repository
-  </Card>
-  <Card
-    title="Understanding Projects"
-    icon="folder"
-    href="/guides/projects"
-  >
-    Learn about container orchestration and project architecture
+  <Card title="Projects" icon="folder" href="/guides/projects">
+    Container lifecycle and URL patterns.
   </Card>
 </CardGroup>

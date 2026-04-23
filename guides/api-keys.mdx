@@ -1,414 +1,315 @@
 ---
-title: 'API Keys & Secrets'
-description: 'Manage API keys for AI models, configure environment variables, and understand secure storage'
+title: 'API Keys'
+description: 'Two kinds of keys in OpenSail: external keys for invoking agents from outside, and BYOK provider keys for model routing. Both encrypted at rest.'
 ---
 
-## Overview
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-Tesslate Studio provides encrypted storage for API keys, environment variables, and other sensitive data your projects need. Keys are encrypted at rest using Fernet symmetric encryption, decrypted only when needed for API calls, and never exposed in logs or exports.
+## Two kinds of keys
+
+OpenSail uses two distinct kinds of API keys, and it's important to know which one you need.
 
 <CardGroup cols={2}>
-  <Card title="Encrypted Storage" icon="lock">
-    All keys encrypted with Fernet symmetric encryption at rest
+  <Card title="External API keys" icon="key">
+    For calling OpenSail agents from outside the platform: Slack bots, CI pipelines, cron jobs, external integrations. `tsk_` prefixed. Created in Settings.
   </Card>
-  <Card title="Per-Project Scoping" icon="folder">
-    Set different keys for different projects, with user-level defaults as fallback
-  </Card>
-  <Card title="BYOK Support" icon="key">
-    Bring Your Own Key for AI models on Pro and Ultra tiers
-  </Card>
-  <Card title="CSRF Protection" icon="shield">
-    State-changing requests are protected by CSRF tokens
+  <Card title="BYOK provider keys" icon="microchip">
+    For using your own OpenAI, Anthropic, OpenRouter, or other provider keys instead of platform credits. Encrypted at rest. Pro and Ultra only.
   </Card>
 </CardGroup>
 
-## Types of Secrets
+This page covers both. If you're wiring up a Slack bot, you want external API keys. If you're trying to bypass platform credit costs by using your own OpenAI key, you want BYOK. For BYOK specifics, see `/guides/model-management`.
 
-<Tabs>
-  <Tab title="AI Provider Keys">
-    **For AI model access (BYOK)**
+## External API keys
 
-    Supported providers:
-    - **OpenAI**: GPT-4, GPT-3.5 Turbo (provider key: `openai`)
-    - **Anthropic**: Claude 3 Opus, Sonnet, Haiku (provider key: `anthropic`)
-    - **OpenRouter**: 100+ models via unified API (provider key: `openrouter`)
-    - **Google**: Gemini Pro (provider key: `google`)
+External keys let outside systems invoke OpenSail agents through a REST API. The canonical flow: a Slack bot mentions your agent, a CI job kicks off a code review, a cron schedule fires a weekly report, an external coding agent (Cursor, Claude Code) reaches into your OpenSail instance for sandboxed compute.
 
-    When you add your own API key, requests for that provider route through your key instead of platform credits. This is called BYOK (Bring Your Own Key), available on Pro and Ultra tiers.
-  </Tab>
+### Key format
 
-  <Tab title="Deployment Credentials">
-    **For external hosting platforms**
+- Prefix: `tsk_`
+- Body: 32 random hex characters
+- Example: `tsk_8f3a1b2c4d5e6f7a8b9c0d1e2f3a4b5c`
 
-    - Vercel OAuth tokens
-    - Netlify OAuth tokens
-    - Cloudflare API tokens with account ID
-    - Supabase service role keys
+### How storage works
 
-    These are stored in the `DeploymentCredential` model with encrypted `access_token_encrypted` and a `provider_metadata` JSON field for account IDs and team IDs.
-  </Tab>
+Raw keys are never stored. When you create a key:
 
-  <Tab title="Git Provider Tokens">
-    **For version control integration**
+1. The server generates 32 random hex characters
+2. Prepends `tsk_` to form the full token
+3. Computes SHA-256 of the full token
+4. Stores only the hash plus a 4-character prefix for identification
+5. Returns the raw key to you **once**
 
-    - GitHub OAuth (scopes: `repo`, `user:email`, `read:user`)
-    - GitLab OAuth (scopes: `api`, `read_user`)
-    - Bitbucket OAuth (scopes: `repository`, `account`)
+You cannot retrieve the raw key later. If you lose it, rotate it.
 
-    Stored in the `GitProviderCredential` model with automatic token refresh support.
-  </Tab>
-
-  <Tab title="Project Environment Variables">
-    **For your application code**
-
-    - Database connection strings
-    - Third-party API keys (Stripe, SendGrid, etc.)
-    - JWT secrets
-    - Any custom configuration
-
-    These are injected into your project containers as environment variables.
-  </Tab>
-</Tabs>
-
-## Managing AI Provider Keys
-
-### Adding Your Keys
+### Creating a key
 
 <Steps>
   <Step title="Open Settings">
-    Click your profile icon, then **Settings**. Navigate to the **API Keys** section.
+    Settings, then the API Keys section. You'll see tabs for external keys and BYOK keys.
   </Step>
 
-  <Step title="Select Provider">
-    Choose from: OpenAI, Anthropic, OpenRouter, Google, or GitHub.
+  <Step title="Create External Key">
+    Click Create Key. Give it a human-readable name ("Slack Bot", "CI Deploy Hook").
   </Step>
 
-  <Step title="Enter Your Key">
-    Paste your API key from the provider's dashboard. You can optionally give it a friendly name (e.g., "Production Key").
+  <Step title="Set scope (optional)">
+    Optionally restrict the key to a single project by setting a `project_id`. Scoped keys can only invoke agents on that project. Unscoped keys can access any project you own.
+  </Step>
+
+  <Step title="Set expiration (optional)">
+    Optionally set `expires_at`. After that timestamp, the key stops authenticating.
+  </Step>
+
+  <Step title="Copy the key">
+    The raw key is shown one time. Copy it into your secret manager or the integration you're wiring up. You cannot view it again.
+  </Step>
+</Steps>
+
+<Warning>
+  Treat `tsk_` keys like passwords. Never commit them to git. Use your platform's secret store (env vars, Vault, AWS Secrets Manager, etc.).
+</Warning>
+
+### Using a key
+
+Pass the raw key as a Bearer token:
+
+```
+Authorization: Bearer tsk_8f3a1b2c4d5e6f7a8b9c0d1e2f3a4b5c
+```
+
+The most common endpoint is the agent invoke endpoint:
+
+```bash
+curl -X POST https://your-opensail.example.com/api/external/agent/invoke \
+  -H "Authorization: Bearer tsk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "550e8400-e29b-41d4-a716-446655440000",
+    "message": "Review the open PR and post a summary in Slack",
+    "webhook_url": "https://my-service.example.com/hooks/opensail"
+  }'
+```
+
+The response comes back immediately:
+
+```json
+{
+  "task_id": "arq:task:abc123",
+  "chat_id": "660e8400-e29b-41d4-a716-446655440000",
+  "events_url": "/api/external/agent/events/arq:task:abc123",
+  "status": "queued"
+}
+```
+
+### Reading results
+
+Three options, pick whichever fits your integration.
+
+<Tabs>
+  <Tab title="SSE stream (recommended)">
+    Open a Server-Sent Events connection to `events_url`. You get live tool calls, text, and the final response as the agent works.
+
+    ```bash
+    curl -N -H "Authorization: Bearer tsk_..." \
+      https://your-opensail.example.com/api/external/agent/events/arq:task:abc123
+    ```
+
+    If the connection drops, reconnect with `?last_event_id=evt_002` to replay missed events before resuming live stream.
+  </Tab>
+
+  <Tab title="Polling">
+    For simple webhooks and CI pipelines where SSE is impractical:
+
+    ```bash
+    curl -H "Authorization: Bearer tsk_..." \
+      https://your-opensail.example.com/api/external/agent/status/arq:task:abc123
+    ```
+
+    Response:
+
+    ```json
+    {
+      "status": "completed",
+      "response": "I reviewed the PR and posted a summary to #engineering.",
+      "iterations": 3,
+      "tool_calls": 5,
+      "started_at": "2026-04-23T10:00:01Z",
+      "completed_at": "2026-04-23T10:00:15Z"
+    }
+    ```
+
+    Statuses: `queued`, `running`, `completed`, `failed`, `cancelled`.
+  </Tab>
+
+  <Tab title="Webhook callback">
+    Pass `webhook_url` in the invoke payload. When the task completes, OpenSail POSTs the final status to your URL. Your endpoint receives the same payload shape as the polling response.
+
+    Good for: CI pipelines, serverless workflows, systems that can't hold an open connection.
+  </Tab>
+</Tabs>
+
+### Scopes and rate limits
+
+| Setting | Behavior |
+|---------|----------|
+| `project_id` scope | Key can only invoke agents on the named project |
+| `expires_at` | Key stops authenticating after this timestamp |
+| Active keys per user | Capped at 10 |
+| `is_active` | Soft-delete; revoked keys cannot be reactivated |
+
+Rate limits apply per key to prevent runaway loops. Defaults are generous but enforced.
+
+### Rotation and revocation
+
+<Steps>
+  <Step title="Create a replacement">
+    Generate a new key in Settings. Copy the raw value.
+  </Step>
+
+  <Step title="Deploy the new key">
+    Update your integration to use the new key. Verify calls succeed.
+  </Step>
+
+  <Step title="Revoke the old key">
+    Back in Settings, click Revoke on the old key. `is_active` flips to false; the key stops authenticating immediately.
+  </Step>
+</Steps>
+
+Keys can also be revoked via `DELETE /api/external/keys/{key_id}`.
+
+## BYOK provider keys
+
+BYOK (Bring Your Own Key) lets you route AI calls through your own provider key instead of paying platform credits. Available on Pro and Ultra subscription tiers.
+
+<Tabs>
+  <Tab title="How it works">
+    When the agent picks a model whose provider matches a key you have stored, LiteLLM routes the call through your key. Cost is zero in platform credits; you pay the upstream provider directly. The `UsageLog` row is still created for your analytics with `is_byok=True` and `billed_status="exempt"`.
+  </Tab>
+
+  <Tab title="Providers">
+    Supported: OpenAI, Anthropic, OpenRouter (covers 100+ models), Google, DeepSeek, Groq, Together, Fireworks, or any OpenAI-compatible endpoint. See `/guides/model-management` for the full list and self-hosted options.
+  </Tab>
+</Tabs>
+
+### Adding a provider key
+
+<Steps>
+  <Step title="Get the key from the provider">
+    Sign in at the provider console (platform.openai.com, console.anthropic.com, openrouter.ai, etc.) and generate an API key.
+  </Step>
+
+  <Step title="Open Settings, API Keys, BYOK tab">
+    The BYOK tab lists every provider key you have stored (values masked).
+  </Step>
+
+  <Step title="Add the key">
+    Pick the provider, paste the key, optionally name it.
   </Step>
 
   <Step title="Save">
-    Click **Save**. The key is encrypted using Fernet encryption and stored in the `UserAPIKey` table. The raw key is never stored in plaintext.
+    The key is Fernet-encrypted at rest. Raw keys are never logged or cached.
   </Step>
 
   <Step title="Verify">
-    Test by using an AI agent. If you have a valid key for the model's provider, requests will use your key (BYOK) and cost zero platform credits.
+    Start an agent session with a matching model. The model selector shows a BYOK badge and the session does not deduct platform credits.
   </Step>
 </Steps>
 
-### How BYOK Detection Works
+### Where keys are stored
 
-When you send a message to an AI agent, the credit system checks if the selected model uses a BYOK provider:
+Each BYOK key is a `UserAPIKey` row:
 
-1. The `is_byok_model(model_name)` function checks against the `BUILTIN_PROVIDERS` list
-2. If the model provider matches one of your stored API keys, it is treated as BYOK
-3. BYOK requests cost **$0 in platform credits** (a `UsageLog` entry is still created with `is_byok=True` for analytics)
-4. Adding a new provider to `BUILTIN_PROVIDERS` automatically makes it recognized as BYOK
+| Field | Purpose |
+|-------|---------|
+| `provider` | Provider identifier (`openai`, `anthropic`, `openrouter`, etc.) |
+| `auth_type` | `api_key`, `oauth_token`, `bearer_token`, or `personal_access_token` |
+| `key_name` | Your label |
+| `encrypted_value` | Fernet-encrypted raw key |
+| `is_active` | Soft-deleted keys remain in the table for audit |
+| `last_used_at` | Timestamp of most recent use |
+
+### BYOK detection
+
+When you invoke a model, `is_byok_model(model_name)` checks the provider prefix against `BUILTIN_PROVIDERS`. If the prefix matches one of your stored keys, the call runs BYOK. Adding a new provider to the registry automatically enables BYOK routing for its models.
 
 <Info>
-  BYOK is available on **Pro** and **Ultra** subscription tiers. Free and Basic tiers use platform credits for all AI requests.
+  BYOK only applies when a matching key exists for your user. If you have an Anthropic key but pick a DeepSeek model, the DeepSeek call uses platform credits. Keys don't cross providers.
 </Info>
 
-### Getting API Keys
+## Security
 
 <AccordionGroup>
-  <Accordion icon="brain" title="OpenAI">
-    1. Go to [platform.openai.com](https://platform.openai.com)
-    2. Sign up or log in
-    3. Navigate to **API Keys**
-    4. Click **Create new secret key**
-    5. Copy the key immediately (it is shown only once)
-
-    **Models available:** GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
+  <Accordion icon="lock" title="At-rest encryption">
+    External key hashes are SHA-256. BYOK keys are encrypted with Fernet using a server-held key (`ENCRYPTION_KEY`). Raw values are never persisted in plaintext.
   </Accordion>
 
-  <Accordion icon="brain" title="Anthropic (Claude)">
-    1. Go to [console.anthropic.com](https://console.anthropic.com)
-    2. Sign up or log in
-    3. Navigate to **API Keys**
-    4. Click **Create Key**
-    5. Copy the key immediately
-
-    **Models available:** Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku
+  <Accordion icon="eye-slash" title="No plaintext in logs">
+    Tool outputs are scrubbed for high-entropy strings before being returned to the model. Your keys never leak into the transcript or an exported trajectory.
   </Accordion>
 
-  <Accordion icon="route" title="OpenRouter">
-    1. Go to [openrouter.ai](https://openrouter.ai)
-    2. Sign up and go to **Keys**
-    3. Generate an API key
-    4. Copy the key
-
-    **Models available:** 100+ models including OpenAI, Anthropic, Qwen, DeepSeek, Mistral, Gemini, and open-source models
+  <Accordion icon="clock-rotate-left" title="Rotation policy">
+    Rotate external keys whenever a team member changes roles. Rotate BYOK keys on any suspicion of compromise and whenever the provider recommends it.
   </Accordion>
 
-  <Accordion icon="cloud" title="Google (Gemini)">
-    1. Go to [aistudio.google.dev](https://aistudio.google.dev)
-    2. Sign in with your Google account
-    3. Navigate to API keys
-    4. Create and copy your key
-
-    **Models available:** Gemini Pro
+  <Accordion icon="user-gear" title="Separation of duties">
+    External keys bind to a user, not to a service account. If a user leaves, revoke their external keys. Plan for handover: critical integrations should use service-owned user accounts.
   </Accordion>
 </AccordionGroup>
 
-<Warning>
-  API keys are like passwords. Never share them publicly, commit them to Git, or paste them in chat messages.
-</Warning>
-
-## The Secrets API
-
-Tesslate provides a dedicated Secrets API for managing your keys programmatically:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/secrets/api-keys` | GET | List all your API keys (values hidden) |
-| `/api/secrets/api-keys` | POST | Add a new API key |
-| `/api/secrets/api-keys/{id}` | PUT | Update an existing key |
-| `/api/secrets/api-keys/{id}` | DELETE | Remove a key |
-| `/api/secrets/api-keys/{id}?reveal=true` | GET | Reveal the decrypted key value |
-| `/api/secrets/providers` | GET | List supported providers |
-
-### Key Storage Model
-
-Each API key is stored in the `UserAPIKey` table:
-
-| Field | Description |
-|-------|-------------|
-| `provider` | Provider identifier: `openrouter`, `anthropic`, `openai`, `google`, `github` |
-| `auth_type` | Type of credential: `api_key`, `oauth_token`, `bearer_token`, `personal_access_token` |
-| `key_name` | Optional user-friendly label |
-| `encrypted_value` | The actual key, encrypted with Fernet |
-| `is_active` | Whether the key is currently in use |
-| `last_used_at` | Timestamp of last usage |
-
-## Authentication and CSRF Protection
-
-Tesslate uses a dual authentication system with CSRF protection for cookie-based sessions.
-
-### Authentication Methods
+## Common patterns
 
 <Tabs>
-  <Tab title="JWT Token Auth">
-    The primary authentication method. After login, a JWT token is stored in `localStorage` and sent as a `Bearer` token in the `Authorization` header on every request.
-
-    ```
-    Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-    ```
+  <Tab title="Slack bot">
+    Generate an external key scoped to one project. Configure your Slack app to POST mentions to a worker. The worker calls `/api/external/agent/invoke` with the mention text. Use the webhook callback to post the agent's response back into Slack.
   </Tab>
 
-  <Tab title="Cookie-Based OAuth Auth">
-    When you log in via Google or GitHub OAuth, authentication uses HTTP-only cookies. The `withCredentials: true` setting on the Axios client ensures cookies are sent with every request.
-  </Tab>
-</Tabs>
-
-### CSRF Token Flow
-
-For cookie-based authentication, Tesslate includes CSRF (Cross-Site Request Forgery) protection:
-
-<Steps>
-  <Step title="Token Fetch">
-    On app load, the frontend calls `GET /api/auth/csrf` to obtain a CSRF token. The token is stored in memory (not localStorage).
-  </Step>
-
-  <Step title="Automatic Injection">
-    For all state-changing requests (`POST`, `PUT`, `DELETE`, `PATCH`), the Axios interceptor automatically adds the `X-CSRF-Token` header when using cookie-based auth (no Bearer token present).
-  </Step>
-
-  <Step title="Server Validation">
-    The `CSRFProtectionMiddleware` on the backend validates the token for all non-safe HTTP methods.
-  </Step>
-
-  <Step title="Automatic Retry">
-    If a 403 response includes a CSRF error, the frontend automatically re-fetches the CSRF token and retries the request once.
-  </Step>
-</Steps>
-
-<Info>
-  CSRF tokens are only required for cookie-based OAuth sessions. If you use JWT (email/password login), the Bearer token in the Authorization header provides equivalent protection.
-</Info>
-
-## Project Environment Variables
-
-### Adding Variables
-
-<Steps>
-  <Step title="Open Project Settings">
-    In your project, click the Settings icon
-  </Step>
-
-  <Step title="Go to Environment">
-    Navigate to the **Environment Variables** tab
-  </Step>
-
-  <Step title="Add Variable">
-    Click **Add New Variable**
-  </Step>
-
-  <Step title="Enter Details">
-    Provide a variable name (e.g., `STRIPE_KEY`) and its value
-  </Step>
-
-  <Step title="Save and Restart">
-    Click **Save**. Restart the dev server to apply changes.
-  </Step>
-</Steps>
-
-### Using in Code
-
-```typescript
-// Client-side (must use VITE_ prefix)
-const apiUrl = import.meta.env.VITE_API_URL
-
-// Server-side (no prefix needed)
-const dbUrl = process.env.DATABASE_URL
-```
-
-<Warning>
-  Never use the `VITE_` prefix for secret keys. This exposes them to client-side JavaScript where anyone can read them in the browser.
-</Warning>
-
-### Naming Conventions
-
-<CardGroup cols={2}>
-  <Card title="Client-Side Variables" icon="browser">
-    **VITE_ prefix required**
-    - `VITE_API_URL`
-    - `VITE_STRIPE_PUBLIC_KEY`
-    - `VITE_FIREBASE_API_KEY`
-    - Accessible in the browser
-  </Card>
-
-  <Card title="Server-Side Variables" icon="server">
-    **No prefix needed**
-    - `DATABASE_URL`
-    - `STRIPE_SECRET_KEY`
-    - `JWT_SECRET`
-    - Backend and API routes only
-  </Card>
-</CardGroup>
-
-## Credential Scoping: User vs Project
-
-Deployment credentials support two scoping levels:
-
-<Tabs>
-  <Tab title="User-Level Defaults">
-    When `project_id` is NULL, the credential serves as your default for all projects. For example, your Vercel account token applies to any project you deploy unless overridden.
+  <Tab title="CI review bot">
+    Generate a short-lived external key (with `expires_at`). Use it in a GitHub Actions workflow to call `/api/external/agent/invoke` on PR events. Poll the status endpoint until complete, then post the agent's response as a PR comment.
   </Tab>
 
-  <Tab title="Project-Level Overrides">
-    When `project_id` is set, the credential applies only to that specific project. This is useful when you need a different Vercel team or Cloudflare account for a particular project.
+  <Tab title="Scheduled report">
+    Use OpenSail's built-in scheduler (see `/guides/using-agents`) instead of an external cron. The scheduler invokes agents on a cron expression with full context. External keys are for when you must trigger from outside.
+  </Tab>
 
-    The system checks for a project-specific credential first, then falls back to the user default.
+  <Tab title="External coding agent">
+    Cursor, Claude Code, or any MCP-capable agent can talk to OpenSail's MCP server using an external key. The agent gets sandboxed compute, access to your project tools, and can publish apps back to OpenSail.
   </Tab>
 </Tabs>
-
-## Security Best Practices
-
-<AccordionGroup>
-  <Accordion icon="shield" title="Never Commit Secrets">
-    - Do not put keys in code files
-    - Always use environment variables
-    - Add `.env` to `.gitignore`
-    - Commit only `.env.example` with placeholder values
-  </Accordion>
-
-  <Accordion icon="key" title="Rotate Keys Regularly">
-    - Change API keys periodically
-    - Rotate immediately if a team member leaves
-    - Update keys if potentially exposed
-    - Use different keys per environment (dev, staging, production)
-  </Accordion>
-
-  <Accordion icon="eye-slash" title="Limit Key Permissions">
-    - Use read-only keys when possible
-    - Restrict API key scopes to the minimum required
-    - Set usage limits on provider dashboards
-    - Monitor usage for unexpected spikes
-  </Accordion>
-
-  <Accordion icon="lock" title="Encryption Details">
-    All credentials use Fernet symmetric encryption:
-    - Encryption key stored in the `ENCRYPTION_KEY` environment variable on the server
-    - Keys are decrypted only at the moment of use (during API calls)
-    - Decrypted values are never logged or cached
-  </Accordion>
-</AccordionGroup>
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="circle-xmark" title="Variable Not Working">
-    **Problem:** Cannot access an environment variable in code
-
-    **Solutions:**
-    - Check the variable name spelling
-    - Ensure the `VITE_` prefix is present for client-side access
-    - Restart the development server after changes
-    - Verify the variable is saved in project settings
+  <Accordion icon="ban" title="401 Unauthorized on invoke">
+    Key expired, revoked, or mis-pasted. Check the raw value has no leading whitespace or trailing newline. Verify the key is still active in Settings.
   </Accordion>
 
-  <Accordion icon="key" title="API Key Invalid">
-    **Problem:** API key returns authentication errors
-
-    **Solutions:**
-    - Verify the key is correct with no extra spaces or newlines
-    - Check the key has not expired
-    - Ensure you have sufficient credits with the provider
-    - Verify the key has the correct scopes and permissions
-    - Try regenerating the key from the provider dashboard
+  <Accordion icon="shield-xmark" title="403 Forbidden on project access">
+    Key is scoped to a different project. Either create a new key for the target project or use an unscoped key.
   </Accordion>
 
-  <Accordion icon="shield" title="CSRF Token Error">
-    **Problem:** Receiving 403 errors with CSRF messages
-
-    **Solutions:**
-    - The app automatically retries once after re-fetching the token
-    - If persistent, try refreshing the page to get a new CSRF token
-    - Clear cookies and log in again
-    - Verify you are not making cross-origin requests without proper CORS headers
+  <Accordion icon="hourglass-half" title="Task stuck in queued">
+    ARQ worker pods may be saturated. Check worker health. For long queues, tune `worker_max_jobs` in the platform config.
   </Accordion>
 
-  <Accordion icon="ban" title="Accidentally Committed Secrets">
-    **Problem:** API keys pushed to a Git repository
-
-    **Solutions:**
-    - Immediately rotate all exposed keys with the provider
-    - Remove the secrets from Git history using `git filter-branch` or BFG Repo Cleaner
-    - Add `.env` to `.gitignore`
-    - Consider using the `git-secrets` tool to prevent future leaks
+  <Accordion icon="key-skeleton" title="BYOK call falls through to credits">
+    Verify the model's provider prefix matches your stored key's provider. A Claude model call only uses an Anthropic key, not an OpenAI key. Check BYOK is enabled for your tier (Pro or Ultra).
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card
-    title="Model Management"
-    icon="brain"
-    href="/guides/model-management"
-  >
-    Configure AI models and understand BYOK routing
+  <Card title="Model Management" icon="microchip" href="/guides/model-management">
+    BYOK routing, passthrough mode, self-hosted models
   </Card>
-  <Card
-    title="External Deployments"
-    icon="rocket"
-    href="/guides/external-deployments"
-  >
-    Set up deployment credentials for Vercel, Netlify, and Cloudflare
+  <Card title="Billing" icon="credit-card" href="/guides/billing">
+    How BYOK zeros your credit cost while keeping analytics
   </Card>
-  <Card
-    title="Billing"
-    icon="credit-card"
-    href="/guides/billing"
-  >
-    Understand how BYOK affects your credit usage
+  <Card title="Using Agents" icon="comments" href="/guides/using-agents">
+    Invoke an agent from the chat UI instead of the API
   </Card>
-  <Card
-    title="GitHub Integration"
-    icon="github"
-    href="/guides/github-integration"
-  >
-    Keep secrets out of your Git repositories
+  <Card title="Connectors (MCP)" icon="plug" href="/guides/connectors-mcp">
+    Wire Slack, Gmail, and more into the agent itself instead of bolting external callers on top
   </Card>
 </CardGroup>

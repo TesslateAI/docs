@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "name": "Tesslate Studio",
+  "name": "OpenSail",
   "logo": {
     "dark": "/logo-dark.svg",
     "light": "/logo-light.svg",
@@ -47,7 +47,7 @@
     {
       "name": "GitHub",
       "icon": "github",
-      "url": "https://github.com/TesslateAI/Studio"
+      "url": "https://github.com/TesslateAI/opensail"
     }
   ],
   "navigation": [
@@ -61,22 +61,22 @@
       ]
     },
     {
-      "group": "Self-Hosting",
+      "group": "Install and Run",
       "pages": [
-        "self-hosting/quickstart",
-        "self-hosting/configuration",
-        "self-hosting/deployment",
-        "self-hosting/architecture"
+        "guides/docker-setup",
+        "guides/desktop-install",
+        "guides/kubernetes-local",
+        "guides/aws-production"
       ]
     },
     {
       "group": "Core Concepts",
       "pages": [
         "guides/projects",
+        "guides/workspaces",
         "guides/agents",
-        "guides/bases",
         "guides/marketplace",
-        "guides/library"
+        "guides/architecture-panel"
       ]
     },
     {
@@ -86,28 +86,38 @@
         "guides/code-editor",
         "guides/live-preview",
         "guides/chat-interface",
-        "guides/github-integration"
+        "guides/design-engineer",
+        "guides/git-integration",
+        "guides/kanban-board"
       ]
     },
     {
-      "group": "AI Agents",
+      "group": "Agents and Skills",
       "pages": [
-        "guides/agent-types",
         "guides/using-agents",
         "guides/customizing-agents",
-        "guides/agent-marketplace"
+        "guides/skills",
+        "guides/connectors-mcp",
+        "guides/model-management"
       ]
     },
     {
-      "group": "Advanced Features",
+      "group": "Ship and Share",
       "pages": [
-        "guides/architecture-diagrams",
+        "guides/deployment-targets",
+        "guides/communication-gateways",
+        "guides/publishing-apps",
         "guides/api-keys",
-        "guides/model-management",
-        "guides/kanban-board",
-        "guides/assets",
-        "guides/external-deployments",
         "guides/billing"
+      ]
+    },
+    {
+      "group": "Self-Hosting",
+      "pages": [
+        "self-hosting/quickstart",
+        "self-hosting/configuration",
+        "self-hosting/deployment",
+        "self-hosting/architecture"
       ]
     },
     {
@@ -120,12 +130,6 @@
         "developer/api-reference",
         "developer/contributing",
         "developer/troubleshooting"
-      ]
-    },
-    {
-      "group": "Development",
-      "pages": [
-        "development/guide"
       ]
     }
   ],

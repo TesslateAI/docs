@@ -1,0 +1,565 @@
+---
+title: "AWS Production (EKS)"
+description: "Deploy Tesslate OpenSail to AWS EKS with ECR, S3, IAM roles, NGINX Ingress, cert-manager, Cloudflare DNS, the btrfs CSI driver, and Volume Hub."
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+This guide walks through a production deployment of OpenSail on AWS EKS. It covers the shared platform stack, per-environment provisioning, image builds, secrets, DNS and TLS, database seeding, scaling, observability, and rollbacks.
+
+<Info>
+If you have not yet run OpenSail on a local Kubernetes cluster, start with the [Local Kubernetes](/guides/kubernetes-local) guide first. The cloud topology is the same; AWS just adds managed nodes, ECR, and real TLS.
+</Info>
+
+<Warning>
+Every `kubectl` command in this guide includes `--context=tesslate-production-eks` or `--context=tesslate-beta-eks`. Never use `kubectl config use-context` or any context-switching helper: cronjobs and other processes can flip your active context mid-session, and an accidental `kubectl delete` against the wrong cluster is unrecoverable.
+</Warning>
+
+## 1. What you will deploy
+
+<CardGroup cols={2}>
+  <Card title="EKS cluster" icon="aws">
+    Kubernetes 1.35 on managed node groups (on-demand plus spot), OIDC provider for IRSA, control-plane logs to CloudWatch.
+  </Card>
+  <Card title="ECR" icon="box">
+    Repositories in account **859561299901** (us-east-1) for `tesslate-backend`, `tesslate-frontend`, `tesslate-devserver`, `tesslate-ast`, `tesslate-btrfs-csi`, and seeded app images.
+  </Card>
+  <Card title="S3 + IAM (IRSA)" icon="cloud">
+    Encrypted bucket for project hibernation and CAS. IRSA roles for backend, EBS CSI, cluster-autoscaler, external-dns, cert-manager.
+  </Card>
+  <Card title="NGINX Ingress + NLB" icon="route">
+    AWS Network Load Balancer fronts NGINX Ingress. All HTTP traffic terminates here before hitting workloads.
+  </Card>
+  <Card title="cert-manager + Cloudflare" icon="lock">
+    Let's Encrypt wildcard via DNS01 against Cloudflare. Terraform creates the apex and `*.domain` records on the NLB hostname.
+  </Card>
+  <Card title="btrfs CSI + Volume Hub" icon="database">
+    Per-project btrfs subvolumes with CAS sync to S3 and Volume Hub orchestration. Same stack as local minikube.
+  </Card>
+</CardGroup>
+
+Per-environment stacks additionally provision a VPC (`10.0.0.0/16`, three public plus three private subnets across three AZs), a NAT gateway, LiteLLM (with optional RDS backend), and the application workloads in the `tesslate` namespace (backend, frontend, worker, Redis, Postgres or external RDS, cleanup CronJobs).
+
+The **shared stack** (`k8s/terraform/shared/`) provisions cross-environment resources: ECR repos, a small `tesslate-platform-eks` cluster for internal tools (Headscale VPN and friends), and platform-level NGINX Ingress plus cert-manager plus Cloudflare DNS.
+
+## 2. Prerequisites
+
+<CardGroup cols={2}>
+  <Card title="AWS account + CLI" icon="aws">
+    AWS CLI v2. `aws sts get-caller-identity` must succeed against the target account.
+  </Card>
+  <Card title="Terraform >= 1.5" icon="terminal">
+    Provider pinning handled in `main.tf`. State is stored in S3, keyed per environment.
+  </Card>
+  <Card title="kubectl + Helm" icon="cube">
+    kubectl matching EKS 1.35. Helm v3 for running cert-manager or ingress charts manually.
+  </Card>
+  <Card title="Docker with buildx" icon="docker">
+    Needed for `linux/amd64` builds. Apple Silicon still works because buildx cross-compiles.
+  </Card>
+  <Card title="Cloudflare API token" icon="globe">
+    Token scoped to `Zone:DNS:Edit` and `Zone:Zone:Read` on the target zone.
+  </Card>
+  <Card title="ECR push access" icon="lock">
+    IAM user in `eks_admin_iam_arns`, or a named team role with push permissions.
+  </Card>
+</CardGroup>
+
+IAM requirements:
+
+- Ability to create VPC, EKS, IAM, S3, and ECR resources (direct or via assumed role).
+- An IAM user listed in `eks_admin_iam_arns` for the target environment, or membership in a team IAM group. See the [EKS access model](#4-eks-access) section for details.
+- AWS Secrets Manager access to `tesslate/terraform/{production,beta,shared}` for pulling tfvars.
+
+<Note>
+Windows / MSYS: prefix `kubectl` and `docker exec` with `MSYS_NO_PATHCONV=1` so Git Bash does not rewrite paths.
+</Note>
+
+## 3. First-time provisioning
+
+<Warning>
+Always apply the shared stack first. The per-environment stack references ECR image URLs built in the shared stack; without ECR, image pulls fail during the first rollout.
+</Warning>
+
+<Steps>
+  <Step title="Apply the shared stack">
+    ```bash
+    ./scripts/terraform/secrets.sh download shared
+
+    ./scripts/aws-deploy.sh init shared
+    ./scripts/aws-deploy.sh plan shared
+    ./scripts/aws-deploy.sh apply shared
+    ```
+
+    Creates ECR repositories, the platform EKS cluster, platform NGINX Ingress plus cert-manager, and Cloudflare DNS hosted zone wiring.
+  </Step>
+
+  <Step title="Apply beta first">
+    ```bash
+    ./scripts/terraform/secrets.sh download beta
+    ./scripts/aws-deploy.sh terraform beta   # init + plan + apply
+    ```
+
+    Exercise the full pipeline on beta before touching production. Per-environment applies take 15 to 20 minutes on the first run.
+  </Step>
+
+  <Step title="Apply production">
+    ```bash
+    ./scripts/terraform/secrets.sh download production
+    ./scripts/aws-deploy.sh terraform production
+    ```
+
+    Subsequent applies that only change secrets or Helm values complete in under two minutes.
+  </Step>
+</Steps>
+
+The `aws-deploy.sh` helper auto-detects backend drift: if your local `.terraform/terraform.tfstate` points at the wrong environment, it reinitializes with the correct backend HCL before running plan or apply.
+
+## 4. Environments: beta vs production
+
+<Tabs>
+  <Tab title="Beta">
+    | Field | Value |
+    |-------|-------|
+    | Terraform state key | `beta/terraform.tfstate` |
+    | Backend config | `backend-beta.hcl` |
+    | tfvars file | `terraform.beta.tfvars` |
+    | Secrets Manager entry | `tesslate/terraform/beta` |
+    | Kustomize overlay | `k8s/overlays/aws-beta/` |
+    | ECR tag | `:beta` |
+    | kubectl context | `tesslate-beta-eks` |
+  </Tab>
+  <Tab title="Production">
+    | Field | Value |
+    |-------|-------|
+    | Terraform state key | `production/terraform.tfstate` |
+    | Backend config | `backend-production.hcl` |
+    | tfvars file | `terraform.production.tfvars` |
+    | Secrets Manager entry | `tesslate/terraform/production` |
+    | Kustomize overlay | `k8s/overlays/aws-production/` |
+    | ECR tag | `:production` |
+    | kubectl context | `tesslate-production-eks` |
+  </Tab>
+</Tabs>
+
+The two environments are fully isolated: separate VPCs, EKS clusters, state files, and tfvars. Most access and day-two operations pivot on the kubectl context.
+
+## 5. Secrets management (envFrom auto-sync)
+
+Three Kubernetes secrets in the `tesslate` namespace are fully terraform-managed from `k8s/terraform/aws/kubernetes.tf`:
+
+- `tesslate-app-secrets`: app-level config (`APP_DOMAIN`, `LITELLM_MASTER_KEY`, OAuth client secrets, Stripe keys, SMTP, PostHog, etc.)
+- `postgres-secret`: Postgres credentials
+- `s3-credentials`: S3 bucket config (the backend pod uses IRSA for auth, so no static AWS keys land in the secret)
+
+The backend, frontend, and worker Deployments mount these via `envFrom`. This is the auto-sync half of the pattern: **every key added to a terraform-managed secret is available as a pod env var on the next rollout, with no kustomize edit required**.
+
+The other half is explicit `env` entries in `k8s/overlays/aws-base/backend-patch.yaml`. Those entries live under a `$patch: replace` directive so the base manifest's env array is wiped and only static values plus one alias (`K8S_INGRESS_DOMAIN` to `APP_DOMAIN`) remain. Without `$patch: replace`, stale base entries would merge back in.
+
+<Tip>
+**Decision rule.** Secret-managed value (domain, API key, OAuth client secret, Stripe key, SMTP password): add to terraform's `kubernetes.tf` secret. Static config (feature flag, class name, pod affinity toggle, replica count patch): add to the overlay in `k8s/overlays/aws-base/backend-patch.yaml` or an environment-specific patch.
+</Tip>
+
+### Rotating a secret
+
+```bash
+./scripts/terraform/secrets.sh download production
+# edit k8s/terraform/aws/terraform.production.tfvars
+./scripts/aws-deploy.sh plan production
+./scripts/aws-deploy.sh apply production
+./scripts/terraform/secrets.sh upload production
+./scripts/aws-deploy.sh reload production backend worker
+```
+
+The `reload` step rolls pods so they pick up the new secret values.
+
+## 6. EKS access
+
+EKS uses a **role-based model**. Regular humans assume one of four team roles. Terraform, CI, and a small list of named admins (`tesslate-terraform`, `tesslate-bigboss`) assume the `eks-deployer` role.
+
+| I want to... | Role | ARN pattern |
+|-------------|------|-------------|
+| `kubectl logs`, `get`, `describe`, read CloudWatch logs, browse ECR | **team-observer** | `arn:aws:iam::859561299901:role/tesslate-{env}-eks-team-observer` |
+| Above, plus `kubectl rollout`, restart/patch deployments, push to ECR | **team-deployer** | `arn:aws:iam::859561299901:role/tesslate-{env}-eks-team-deployer` |
+| Above, plus `kubectl exec`, shell into pods, run debug containers | **team-debugger** | `arn:aws:iam::859561299901:role/tesslate-{env}-eks-team-debugger` |
+| Above, plus Secrets Manager, RBAC, namespace mgmt, IAM team users | **team-admin** | `arn:aws:iam::859561299901:role/tesslate-{env}-eks-team-admin` |
+
+<Steps>
+  <Step title="Configure kubectl with the deployer role">
+    Run this once per machine. `--role-arn` bakes role assumption into the resulting kubeconfig, so every later `kubectl` call uses it.
+
+    ```bash
+    aws eks update-kubeconfig \
+      --region us-east-1 \
+      --name tesslate-production-eks \
+      --alias tesslate-production-eks \
+      --role-arn arn:aws:iam::859561299901:role/tesslate-production-eks-eks-deployer
+
+    aws eks update-kubeconfig \
+      --region us-east-1 \
+      --name tesslate-beta-eks \
+      --alias tesslate-beta-eks \
+      --role-arn arn:aws:iam::859561299901:role/tesslate-beta-eks-eks-deployer
+    ```
+  </Step>
+
+  <Step title="Verify access">
+    ```bash
+    kubectl --context=tesslate-production-eks get nodes
+    kubectl --context=tesslate-beta-eks get nodes
+    ```
+  </Step>
+</Steps>
+
+<Note>
+Team members who are not in `eks_admin_iam_arns` should use named AWS CLI profiles with `role_arn` entries for the team role they need. Full onboarding flow (IAM groups, `~/.aws/config` snippets, assume-role one-liner) lives in the [EKS Cluster Access](https://github.com/TesslateAI/opensail/blob/main/docs/guides/eks-cluster-access.md) guide.
+</Note>
+
+`aws-deploy.sh` invokes `aws eks update-kubeconfig` under the hood with `--role-arn arn:aws:iam::859561299901:role/tesslate-{env}-eks-eks-deployer` every time it touches the cluster, so you do not have to rerun the commands above for its subcommands.
+
+## 7. Build and push images
+
+Six images live in ECR under account **859561299901** in `us-east-1`:
+
+| Repository | Dockerfile | Purpose |
+|------------|-----------|---------|
+| `tesslate-backend` | `orchestrator/Dockerfile` | FastAPI + ARQ worker |
+| `tesslate-frontend` | `app/Dockerfile.prod` | React + Vite SPA behind NGINX |
+| `tesslate-devserver` | `orchestrator/Dockerfile.devserver` | User project container base |
+| `tesslate-ast` | `services/ast/Dockerfile` | AST parser sidecar of the backend pod |
+| `tesslate-btrfs-csi` | `services/btrfs-csi/Dockerfile` | CSI driver + Volume Hub |
+| `tesslate-markitdown`, `tesslate-deerflow` | `seeds/apps/.../Dockerfile` | Seeded Tesslate Apps |
+
+Tag convention: `:production` or `:beta` for first-class images; `:latest` for seeded app images.
+
+<CodeGroup>
+```bash Build and push via helper
+# All core images: build, push, apply manifests, roll deployments
+./scripts/aws-deploy.sh build production
+
+# Single image
+./scripts/aws-deploy.sh build production backend
+./scripts/aws-deploy.sh build beta frontend
+
+# Multiple images in parallel
+./scripts/aws-deploy.sh build beta backend frontend worker
+
+# Reuse Docker cache (default is --no-cache)
+./scripts/aws-deploy.sh build beta backend --cached
+
+# Volume Hub and CSI driver
+./scripts/aws-deploy.sh build production compute
+```
+
+```bash Manual build and push
+aws ecr get-login-password --region us-east-1 \
+  | docker login --username AWS --password-stdin 859561299901.dkr.ecr.us-east-1.amazonaws.com
+
+docker buildx build --platform linux/amd64 --no-cache \
+  -t 859561299901.dkr.ecr.us-east-1.amazonaws.com/tesslate-backend:production \
+  -f orchestrator/Dockerfile . --push
+```
+</CodeGroup>
+
+The `build` subcommand performs these steps:
+
+1. `git submodule update --init --recursive` (the agent runner in `packages/tesslate-agent` is copied into the backend image).
+2. `aws ecr get-login-password | docker login` against `859561299901.dkr.ecr.us-east-1.amazonaws.com`.
+3. `docker buildx build --platform linux/amd64 --push` in parallel across selected images.
+4. `aws eks update-kubeconfig` with the `eks-deployer` role for the target environment.
+5. `kubectl apply -k k8s/overlays/aws-{env}` to pick up any manifest changes.
+6. Rolling restart of the impacted Deployments plus a parallel `kubectl rollout status --timeout=300s`.
+7. If the backend was rebuilt, `python -m scripts.seed_apps` runs inside the backend pod to upsert the Tesslate Apps registry.
+
+<Warning>
+Always build with `--no-cache` for deploys, and buildx with `--platform linux/amd64`. Cached `pip`/`npm` layers, or an `arm64` build from Apple Silicon, cause pods to start with stale code or fail with `no match for platform in manifest`.
+</Warning>
+
+## 8. Deploy
+
+<CodeGroup>
+```bash Deploy via helper
+./scripts/aws-deploy.sh deploy-k8s production
+./scripts/aws-deploy.sh deploy-compute production   # btrfs CSI + Volume Hub
+```
+
+```bash Deploy via kubectl
+kubectl apply -k k8s/overlays/aws-production --context=tesslate-production-eks
+kubectl --context=tesslate-production-eks rollout status deployment/tesslate-backend  -n tesslate --timeout=300s
+kubectl --context=tesslate-production-eks rollout status deployment/tesslate-frontend -n tesslate --timeout=300s
+kubectl --context=tesslate-production-eks rollout status deployment/tesslate-worker   -n tesslate --timeout=300s
+```
+
+```bash Targeted restarts after a config change
+./scripts/aws-deploy.sh reload production                   # applies manifests, rolls backend/frontend/worker
+./scripts/aws-deploy.sh reload production backend worker    # rolls only those two
+./scripts/aws-deploy.sh reload production litellm           # syncs LiteLLM ConfigMap and rolls LiteLLM
+./scripts/aws-deploy.sh reload production volume-hub        # rolls Volume Hub in kube-system
+```
+</CodeGroup>
+
+## 9. Verify
+
+```bash
+# Cluster reachable, nodes Ready
+kubectl --context=tesslate-production-eks get nodes
+
+# Core pods Ready
+kubectl --context=tesslate-production-eks get pods -n tesslate -o wide
+
+# CSI driver and Volume Hub
+kubectl --context=tesslate-production-eks get pods -n kube-system \
+  -l 'app in (tesslate-btrfs-csi-node,tesslate-volume-hub)'
+
+# Ingress exposed through the NLB
+kubectl --context=tesslate-production-eks get ingress -A
+
+# NLB DNS hostname
+kubectl --context=tesslate-production-eks get svc -n ingress-nginx ingress-nginx-controller \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+# Public health probe
+curl -sI https://opensail.tesslate.com/api/health
+```
+
+<Check>
+Log in through the browser at `https://<your-domain>/` and confirm the dashboard loads and you can create a project.
+</Check>
+
+## 10. DNS and TLS
+
+DNS and certificates are fully managed by terraform plus in-cluster controllers:
+
+- **Cloudflare DNS records** (`dns.tf`) create CNAMEs for the apex domain and `*.domain` pointing at the NLB hostname, proxied through Cloudflare.
+- **external-dns** reconciles per-project subdomain records from Ingress annotations when users deploy preview projects.
+- **cert-manager** runs a `ClusterIssuer` that uses the Cloudflare API token for DNS01 challenges, minting a wildcard Let's Encrypt cert stored in the `tesslate-wildcard-tls` Secret. Ingress resources reference it via `K8S_WILDCARD_TLS_SECRET`.
+- **Cloudflare SSL mode** should be `Full (strict)` so browser to edge and edge to NLB are both encrypted.
+
+Check certificate state:
+
+```bash
+kubectl --context=tesslate-production-eks get certificate -n tesslate
+kubectl --context=tesslate-production-eks describe certificate tesslate-wildcard-tls -n tesslate
+kubectl --context=tesslate-production-eks logs -n cert-manager deploy/cert-manager --tail=100
+```
+
+The first issuance takes two to five minutes. If `Ready=False` for longer than ten minutes, check `kubectl describe certificaterequest` and cert-manager logs for Cloudflare API errors.
+
+<Warning>
+The frontend's `api-url` in the `frontend-config` ConfigMap (managed in terraform's `kubernetes.tf`) must be the base domain only, for example `https://opensail.tesslate.com`. `app/src/lib/api.ts` already prefixes `/api` to every path; putting `/api` in the base URL causes double `/api/api/` paths and universal 404s.
+</Warning>
+
+## 11. Seed the production database
+
+Run this once after the initial terraform apply. Seeds upsert by slug, so running twice is safe but wasteful.
+
+```bash
+CTX=tesslate-production-eks
+
+kubectl --context=$CTX exec -n tesslate deploy/tesslate-backend -- \
+  python -m scripts.seeds.seed_marketplace_bases
+
+kubectl --context=$CTX exec -n tesslate deploy/tesslate-backend -- \
+  python -m scripts.seeds.seed_marketplace_agents
+kubectl --context=$CTX exec -n tesslate deploy/tesslate-backend -- \
+  python -m scripts.seeds.seed_opensource_agents
+
+kubectl --context=$CTX exec -n tesslate deploy/tesslate-backend -- \
+  python -m scripts.seeds.seed_skills
+kubectl --context=$CTX exec -n tesslate deploy/tesslate-backend -- \
+  python -m scripts.seeds.seed_mcp_servers
+kubectl --context=$CTX exec -n tesslate deploy/tesslate-backend -- \
+  python -m scripts.seeds.seed_themes
+
+kubectl --context=$CTX exec -n tesslate deploy/tesslate-backend -- \
+  python -m scripts.seed_apps
+```
+
+Run database migrations before seeds on every version bump: `alembic upgrade head` inside the backend pod.
+
+## 12. Scaling
+
+Three independent layers:
+
+<CardGroup cols={3}>
+  <Card title="Pod replicas" icon="layer-group">
+    `k8s/overlays/aws-production/replicas-patch.yaml` sets backend, frontend, worker, and ingress controller replica counts. Hotfix scale: `kubectl --context=tesslate-production-eks scale deploy/tesslate-backend -n tesslate --replicas=4`.
+  </Card>
+  <Card title="HPA" icon="chart-line">
+    metrics-server is installed by default (`enable_metrics_server = true`). Add `HorizontalPodAutoscaler` per Deployment as needed.
+  </Card>
+  <Card title="Cluster autoscaler" icon="arrows-up-to-line">
+    Installed via IRSA. On-demand node group scales between `eks_node_min_size` and `eks_node_max_size`; spot up to `eks_spot_max_size`. User project workloads prefer the spot group.
+  </Card>
+</CardGroup>
+
+To add a dedicated node group (GPU, memory-optimized), set `additional_node_groups` in tfvars and apply. Schema lives in `variables.tf`.
+
+<Note>
+The worker Deployment defaults to a single replica because in-memory task state is still partially colocated with the process. Scale it cautiously and watch Redis queue depth via the worker logs.
+</Note>
+
+## 13. Observability
+
+- **Control plane logs** stream to CloudWatch at `/aws/eks/tesslate-{env}-eks/cluster`:
+
+  ```bash
+  aws logs tail /aws/eks/tesslate-production-eks/cluster --since 15m
+  ```
+
+- **Workload logs**: `kubectl --context=tesslate-production-eks logs -n tesslate deploy/tesslate-backend -f`.
+- **Metrics**: `kubectl --context=tesslate-production-eks top pods -n tesslate` and `kubectl top nodes`. For historical data, install `kube-prometheus-stack` via Helm or route metrics from the OpenTelemetry Collector to CloudWatch.
+- **Structured logs + OpenTelemetry**: see the [Enterprise observability guide](https://github.com/TesslateAI/opensail/blob/main/docs/guides/enterprise-observability.md) for deploying the OTel Collector, wiring exporters, and enabling the audit log stream.
+
+## 14. Updates and migrations
+
+<Steps>
+  <Step title="Merge to main">
+    Normal PR flow. CI runs tests and linters.
+  </Step>
+  <Step title="Trigger deploy">
+    Run the `Deploy Production` workflow (`.github/workflows/deploy-production.yml`) in GitHub Actions. It downloads `tesslate/terraform/production` from Secrets Manager, runs `terraform plan -detailed-exitcode`, applies, then runs `./scripts/aws-deploy.sh deploy-k8s production` followed by `./scripts/aws-deploy.sh build production`.
+
+    Or, from your workstation:
+
+    ```bash
+    ./scripts/aws-deploy.sh build production
+    ```
+  </Step>
+  <Step title="Run migrations if the schema changed">
+    ```bash
+    kubectl --context=tesslate-production-eks exec -n tesslate deploy/tesslate-backend -- \
+      alembic upgrade head
+    ```
+
+    Run this before the rolling restart finishes, otherwise new pods may crash on boot trying to use an older schema.
+  </Step>
+</Steps>
+
+Pods roll one at a time on `rollout restart`, so the Deployment is always serving traffic. For a hard cutover or a very large schema migration, drain traffic first using the safe shutdown procedure.
+
+## 15. Rollback and safe shutdown
+
+Rollback a single Deployment:
+
+```bash
+kubectl --context=tesslate-production-eks rollout history deploy/tesslate-backend -n tesslate
+kubectl --context=tesslate-production-eks rollout undo    deploy/tesslate-backend -n tesslate
+kubectl --context=tesslate-production-eks rollout status  deploy/tesslate-backend -n tesslate --timeout=300s
+```
+
+Rollback a bad image tag: repush the previous known-good digest as `:production`, or bump `newTag` in `k8s/overlays/aws-production/kustomization.yaml` to a specific SHA and reapply.
+
+For planned downtime, maintenance windows, or draining user pods cleanly, follow the safe shutdown procedure in `docs/guides/safe-shutdown-procedure.md` on GitHub: stop user containers, scale the worker and backend to zero, pause the task queue, and only then apply the risky change.
+
+## 16. Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="lock" title="AccessDenied: eks:DescribeCluster">
+    Your IAM user is not in a team IAM group or `eks_admin_iam_arns`. Assume a team role first (one-shot `aws sts assume-role`, or a named AWS profile with `role_arn`) before running any `aws eks` or `kubectl` command.
+  </Accordion>
+
+  <Accordion icon="key" title="error: You must be logged in to the server (Unauthorized)">
+    Your kubeconfig was written without `--role-arn`, so it resolves to your raw user, which has no EKS access entry. Re-run `aws eks update-kubeconfig --region us-east-1 --name tesslate-production-eks --alias tesslate-production-eks --role-arn arn:aws:iam::859561299901:role/tesslate-production-eks-eks-deployer` **while** the assumed role credentials are active in your shell. The resulting kubeconfig bakes in the role.
+  </Accordion>
+
+  <Accordion icon="image" title="ErrImagePull / unauthorized on a tesslate-* image">
+    ECR login expired, wrong region, or wrong account. Refresh login and retry:
+
+    ```bash
+    aws ecr get-login-password --region us-east-1 \
+      | docker login --username AWS --password-stdin 859561299901.dkr.ecr.us-east-1.amazonaws.com
+
+    ./scripts/aws-deploy.sh build production backend
+    ```
+  </Accordion>
+
+  <Accordion icon="microchip" title="no match for platform in manifest">
+    Image was built on arm64. Rebuild with `docker buildx build --platform linux/amd64 --push`. The `build` subcommand does this by default.
+  </Accordion>
+
+  <Accordion icon="route" title="Ingress returns 503">
+    Backend pod not Ready, or the ingress-nginx controller cache is stale after a backend restart.
+
+    ```bash
+    kubectl --context=tesslate-production-eks get pods -n tesslate
+    kubectl --context=tesslate-production-eks rollout restart deploy/ingress-nginx-controller -n ingress-nginx
+    ```
+  </Accordion>
+
+  <Accordion icon="lock" title="Certificate stuck Ready=False">
+    Cloudflare API token missing DNS edit permission, or the zone is wrong. Verify the token has `Zone:Zone:Read` and `Zone:DNS:Edit` on the correct zone, and check cert-manager logs:
+
+    ```bash
+    kubectl --context=tesslate-production-eks logs -n cert-manager deploy/cert-manager --tail=200
+    kubectl --context=tesslate-production-eks describe certificaterequest -n tesslate
+    ```
+  </Accordion>
+
+  <Accordion icon="bug" title="Frontend calls go to /api/api/...">
+    The `api-url` ConfigMap includes a trailing `/api`. Set `frontend_api_url = "https://opensail.tesslate.com"` in tfvars (no `/api`) and reapply.
+  </Accordion>
+
+  <Accordion icon="circle-exclamation" title="Backend CrashLoopBackOff immediately">
+    Secret rotation broke a required key, or `tesslate-app-secrets` is missing a key consumed via `envFrom`.
+
+    ```bash
+    kubectl --context=tesslate-production-eks describe pod -n tesslate -l app=tesslate-backend
+    kubectl --context=tesslate-production-eks logs -n tesslate -l app=tesslate-backend --previous
+    ```
+
+    Confirm the key exists in `k8s/terraform/aws/kubernetes.tf` and reapply.
+  </Accordion>
+
+  <Accordion icon="code-branch" title="No module named 'tesslate_agent' in the backend">
+    Git submodule was not initialized before `docker build`. Run `git submodule update --init --recursive`, then rebuild. The `build` script handles this automatically.
+  </Accordion>
+
+  <Accordion icon="database" title="Volume Hub pods stuck Terminating">
+    The CSI DaemonSet rolled at the same time as Hub. Wait for `tesslate-btrfs-csi-node` rollout to stabilize; `./scripts/aws-deploy.sh build compute` and `reload volume-hub` sequence these correctly.
+  </Accordion>
+
+  <Accordion icon="trash" title="Orphaned proj-* namespaces">
+    A project was deleted before its namespace drained.
+
+    ```bash
+    kubectl --context=tesslate-production-eks get ns | grep proj-
+    kubectl --context=tesslate-production-eks delete ns proj-<uuid>
+    ```
+  </Accordion>
+
+  <Accordion icon="gear" title="terraform apply times out on Helm resources">
+    cert-manager or external-dns is pending due to DNS. Apply with `-target=module.eks` first, then rerun the full apply once the cluster is Ready.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Local Kubernetes" icon="cube" href="/guides/kubernetes-local">
+    Reproduce production locally on minikube for debugging storage, ingress, or snapshot issues.
+  </Card>
+  <Card title="Docker Setup" icon="docker" href="/guides/docker-setup">
+    Fastest inner-loop dev flow. Useful when you do not need Kubernetes in the loop.
+  </Card>
+  <Card title="Publishing Apps" icon="box" href="/guides/publishing-apps">
+    Ship a Tesslate App to the marketplace from production.
+  </Card>
+  <Card title="Billing" icon="credit-card" href="/guides/billing">
+    Configure Stripe, tiers, and credit accounting for the hosted experience.
+  </Card>
+</CardGroup>
+
+## Getting help
+
+<CardGroup cols={3}>
+  <Card title="Discord" icon="discord" href="https://discord.gg/qmrcHGNch7">
+    Real-time help from the Tesslate community.
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/TesslateAI/opensail">
+    Source, issues, and release notes.
+  </Card>
+  <Card title="Email" icon="envelope" href="mailto:support@tesslate.com">
+    Direct support at `support@tesslate.com`.
+  </Card>
+</CardGroup>

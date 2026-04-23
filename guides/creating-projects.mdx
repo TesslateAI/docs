@@ -1,360 +1,175 @@
 ---
 title: 'Creating Projects'
-description: 'Step-by-step guide to creating projects from templates, Git repositories, and marketplace bases'
+description: 'Three paths to a new OpenSail project: pick a template, import a git repo, or describe what you want and let the agent scaffold it.'
 ---
 
-## Overview
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-Tesslate Studio offers three ways to create a project, each suited to different starting points:
+## Three ways to start
+
+OpenSail gives you three entry points. Pick the one that matches how you are starting.
 
 <CardGroup cols={3}>
   <Card title="Template" icon="file-code">
-    Blank React + Vite starter for building from scratch
+    Marketplace base with working code, containers, and config.
   </Card>
-  <Card title="Git Import" icon="code-branch">
-    Import from GitHub, GitLab, or Bitbucket
+  <Card title="Import" icon="code-branch">
+    GitHub, GitLab, or Bitbucket repo, including private with OAuth.
   </Card>
-  <Card title="Base" icon="layer-group">
-    Pre-built template from the Marketplace
+  <Card title="Describe" icon="wand-magic-sparkles">
+    Natural language. The agent scaffolds the project for you.
   </Card>
 </CardGroup>
 
-All three methods follow the same pattern: you submit a creation request, the server runs a background task to set up the project, and the frontend polls for completion before navigating you to the builder.
+All three run through the same `POST /api/projects` endpoint. A background task sets up the directory, seeds the workspace, and the frontend polls `GET /api/tasks/{task_id}` for progress. When the task completes, you land in the project builder.
 
-## Method 1: From Template
+## Method 1: From a template
 
-The template method gives you a clean React + Vite + TypeScript starter project. This is the best option when you want to start from scratch and let AI agents build out the features.
+The marketplace ships dozens of bases covering every popular framework. Pick one and you get working code, pre-wired containers, and a valid `.tesslate/config.json`.
 
 <Steps>
-  <Step title="Open the Dashboard">
-    Navigate to the Dashboard and click **Create New Project**.
+  <Step title="Open the dashboard">
+    Navigate to `/dashboard` and click **Create Project** or use the create button on `/home`.
   </Step>
-  <Step title="Select Template">
-    Choose **Template** as your project source.
+  <Step title="Pick a template">
+    The wizard shows the featured bases. Browse all of them from the marketplace browse route. Common picks:
+
+    - **Next.js 16** for full-stack React with App Router
+    - **Vite + FastAPI** for React frontend + Python API
+    - **Expo** for React Native mobile
+    - **Go API** for Go backends
+    - **Full-stack CRM** for multi-container starters
   </Step>
-  <Step title="Name Your Project">
-    Enter a descriptive name (for example, "My Landing Page"). Tesslate generates a unique slug automatically, such as `my-landing-page-k3x8n2`.
+  <Step title="Name and create">
+    Pick a project name. The slug auto-generates (`my-app-k3x8n2`). Create submits the request and the background task begins.
   </Step>
-  <Step title="Set Project Phase">
-    Choose an organizational label:
-    - **Idea**: Planning stage
-    - **Build**: Active development
-    - **Launch**: Ready for production
+  <Step title="Wait for setup">
+    The task clones the base repo, seeds the volume, and registers containers. Progress: 5% directory created, 10-90% clone and file sync, 100% done.
+  </Step>
+  <Step title="Land in the builder">
+    The frontend navigates to `/project/{slug}/builder` when setup completes. Containers are stopped; click Start to boot them.
+  </Step>
+</Steps>
+
+<Info>
+  Templates are just `MarketplaceAgent` rows with `item_type='base'` and a `git_repo_url`. Publishing your own base is covered in the marketplace docs.
+</Info>
+
+## Method 2: Import from git
+
+OpenSail supports GitHub, GitLab, and Bitbucket, including private repos via OAuth.
+
+<Steps>
+  <Step title="Connect your provider (first time only)">
+    The first import prompts OAuth with your git provider. Tokens are stored encrypted in `DeploymentCredential` and reused for future imports, push, pull, and commit.
+  </Step>
+  <Step title="Pick a repo">
+    The import modal lists your accessible repos (pulled from the provider's API). Filter by owner, search by name. Private repos are listed alongside public ones.
+  </Step>
+  <Step title="Select a branch">
+    Default branch is pre-selected. Override for feature branches or forks.
   </Step>
   <Step title="Create">
-    Click **Create Project**. A background task initializes the project, which typically takes 10 to 15 seconds.
+    Submit. The background task clones the repo, seeds the workspace, and runs the Librarian agent against the tree to generate `.tesslate/config.json`.
+  </Step>
+  <Step title="Review the generated config">
+    The setup wizard opens at `/project/{slug}/setup`. The Agent tab shows the LLM-generated graph; the Manual tab lets you hand-edit the same `ServiceConfigForm`. Confirm to save.
   </Step>
 </Steps>
 
-### What You Get
+<Info>
+  Deep-link imports work too. An external "Edit in OpenSail" button can link to `/import?repo=https://github.com/user/repo`. The auth-aware redirect sends signed-in users to the import flow and unauthenticated users to login while preserving the destination.
+</Info>
 
-The template includes a minimal, working React application:
+### Supported providers
 
-- React 18 with TypeScript
-- Vite for fast development and Hot Module Replacement (HMR)
-- Tailwind CSS pre-configured
-- A basic `App.tsx` component ready to customize
-- Development server configured to start automatically
+| Provider | OAuth | Private repos | Push/pull |
+|----------|-------|---------------|-----------|
+| **GitHub** | Yes | Yes | Yes |
+| **GitLab** | Yes | Yes | Yes |
+| **Bitbucket** | Yes | Yes | Yes |
 
-### API Details
+## Method 3: Describe what you want
 
-The frontend sends:
-
-```
-POST /api/projects/
-{
-  "name": "My Landing Page",
-  "source_type": "template"
-}
-```
-
-The server responds with a `task_id`. The frontend uses `tasksApi.pollUntilComplete(task_id)` to wait for setup, then navigates to `/project/{slug}/builder`.
-
-## Method 2: From Git Repository
-
-Import an existing repository from GitHub, GitLab, or Bitbucket. Tesslate clones the repository into a new project container and starts the dev server.
+The "describe" flow gives the agent a blank workspace and your prompt. The agent picks an appropriate base, adjusts it, and iterates until the scaffold matches your description.
 
 <Steps>
-  <Step title="Connect Your Provider">
-    If you have not connected a Git provider, click **Connect GitHub** (or GitLab, or Bitbucket) and complete the OAuth authorization flow.
+  <Step title="Open the describe flow">
+    From the dashboard, click **Describe your app** (or use the command palette).
   </Step>
-  <Step title="Select Import Source">
-    In the Create Project dialog, choose **GitHub**, **GitLab**, or **Bitbucket** as your project source.
+  <Step title="Write your prompt">
+    Be specific. "A Slack-style team chat app with channels, DMs, and search, built with Next.js and Postgres" gives the agent enough to scaffold. "An app" does not.
   </Step>
-  <Step title="Choose a Repository">
-    Browse your repositories or search by name. For organizations you belong to, you can filter by organization.
+  <Step title="Pick compute tier">
+    If you are on Kubernetes, choose the compute tier. Tier 0 scaffolds without a compute pod; tier 1 or 2 boot containers so the preview works immediately.
   </Step>
-  <Step title="Configure Import">
-    Set the project name and phase. Tesslate auto-detects the branch and framework where possible.
+  <Step title="Let the agent scaffold">
+    The agent picks a base, runs `apply_setup_config` to wire containers, installs dependencies, and writes an initial implementation. You watch progress in the chat panel.
   </Step>
-  <Step title="Import">
-    Click **Import**. The server clones the repository and starts the dev server. This may take longer than template projects, depending on the repository size and dependency count.
+  <Step title="Iterate">
+    When the agent stops, the preview is live. Ask for changes, review diffs, approve or reject.
   </Step>
 </Steps>
 
-### Multi-Provider Support
+<Info>
+  The describe flow uses the same agent loop as any chat session. Progressive persistence means you can close the tab, grab coffee, and come back to a finished scaffold.
+</Info>
 
-Tesslate supports three Git providers through a unified API:
+## What happens under the hood
 
-| Provider | Clone URL Format | OAuth Flow |
-|----------|-----------------|------------|
-| GitHub | `https://github.com/user/repo` | GitHub OAuth App |
-| GitLab | `https://gitlab.com/user/repo` | GitLab OAuth App |
-| Bitbucket | `https://bitbucket.org/user/repo` | Bitbucket OAuth App |
+All three methods produce the same end state: a `Project` row, a provisioned volume, container records, and a valid `.tesslate/config.json`.
 
-The backend automatically detects the provider from the URL and uses the appropriate credentials for cloning.
+<Steps>
+  <Step title="POST /api/projects">
+    Creates the Project row with status `creating`, assigns a unique slug, kicks off the background task, returns the project and a `task_id`.
+  </Step>
+  <Step title="_perform_project_setup">
+    Runs in the background. Creates the directory (Docker) or allocates the volume (K8s). Clones the source (base or git). Writes files to the volume.
+  </Step>
+  <Step title="Config resolution">
+    Reads `.tesslate/config.json` from disk. If absent, falls back to LLM analysis (Librarian agent), then to a minimal single-app fallback.
+  </Step>
+  <Step title="Container sync">
+    Upserts Container rows from the config. Creates ContainerConnection, DeploymentTarget, and BrowserPreview records as declared.
+  </Step>
+  <Step title="Task complete">
+    The frontend poll flips to 100%. Navigation to `/project/{slug}/builder`. Containers are stopped and ready to start.
+  </Step>
+</Steps>
 
-### API Details
+## Compute tier selection
 
-```
-POST /api/projects/
-{
-  "name": "My Existing App",
-  "source_type": "github",
-  "git_repo_url": "https://github.com/user/repo"
-}
-```
-
-For GitLab and Bitbucket, the `source_type` value changes to `"gitlab"` or `"bitbucket"` respectively.
-
-### Supported Project Types
+On Kubernetes projects, you can pick a compute tier at creation time:
 
 <Tabs>
-  <Tab title="React / Next.js">
-    - Create React App
-    - Vite + React
-    - Next.js (all modes)
-    - React + TypeScript
+  <Tab title="None">
+    No compute provisioning. The workspace exists, but nothing runs. Use when you just want source code and will run locally.
   </Tab>
-  <Tab title="Vue / Nuxt">
-    - Vue 3 + Vite
-    - Nuxt 3
-    - Vue + TypeScript
+  <Tab title="Ephemeral">
+    Tier 1 warm ephemeral pool. Shell and quick operations work; long-running dev servers do not. Cheap, fast.
   </Tab>
-  <Tab title="Other Frameworks">
-    - Svelte / SvelteKit
-    - Angular
-    - Astro
-    - Vanilla TypeScript / JavaScript
-    - Static HTML/CSS/JS sites
-  </Tab>
-  <Tab title="Backend Frameworks">
-    - FastAPI (Python)
-    - Django (Python)
-    - Express / Fastify (Node.js)
-    - Go (Gin, Fiber, Echo)
-    - Rust (Actix, Axum)
-    - Laravel (PHP)
-    - Rails (Ruby)
+  <Tab title="Environment">
+    Full Tier 2 namespace with live preview, persistent dev servers, and hibernation. What you want for active development.
   </Tab>
 </Tabs>
 
-<Info>
-  For non-Node.js projects, adding a `TESSLATE.md` file to the repository root helps Tesslate detect the correct startup command and port. Without this file, the platform defaults to `npm install && npm run dev` on port 3000.
-</Info>
+You can upgrade or downgrade later from the Project Overview page.
 
-## Method 3: From Base
+## After creation
 
-Bases are marketplace templates backed by Git repositories. This is the fastest way to start with a fully-configured project that includes a specific tech stack and working features.
-
-<Steps>
-  <Step title="Install a Base">
-    If you have not already, browse the [Marketplace](/guides/marketplace) and install the base you want to use. It will appear in your [Library](/guides/library).
-  </Step>
-  <Step title="Create New Project">
-    On the Dashboard, click **Create New Project** and select **Base** as the source.
-  </Step>
-  <Step title="Choose Your Base">
-    Pick from your installed bases. Each card shows the tech stack, category, and feature list.
-  </Step>
-  <Step title="Name and Create">
-    Enter a project name and click **Create**. The server clones the base repository and starts the dev server.
-  </Step>
-</Steps>
-
-### API Details
-
-```
-POST /api/projects/
-{
-  "name": "My SaaS Dashboard",
-  "source_type": "base",
-  "base_id": "<base-uuid>"
-}
-```
-
-### Popular Base Categories
-
-<AccordionGroup>
-  <Accordion icon="layer-group" title="Full-Stack Starters">
-    - **Vite + React + FastAPI**: React frontend with Python API backend and PostgreSQL
-    - **Next.js 16**: Server-side rendering, API routes, and database integration
-    - **Vite + React + Go**: React frontend with a Go API backend
-  </Accordion>
-
-  <Accordion icon="browser" title="Frontend Starters">
-    - React + Tailwind + shadcn/ui
-    - Vue 3 + Vite
-    - Svelte + SvelteKit
-    - Astro for content-heavy sites
-  </Accordion>
-
-  <Accordion icon="server" title="Backend and API">
-    - FastAPI with SQLAlchemy and Alembic
-    - Django with REST framework
-    - Go with Gin or Fiber
-    - Rust with Actix Web
-  </Accordion>
-
-  <Accordion icon="mobile" title="Mobile">
-    - Expo (React Native) starter
-    - Flutter cross-platform template
-  </Accordion>
-</AccordionGroup>
-
-## What Happens After Creation
-
-Regardless of which method you use, the same initialization process runs:
-
-<Steps>
-  <Step title="Background Task Starts">
-    The server creates a background task that sets up the project infrastructure.
-  </Step>
-  <Step title="Project Directory Created">
-    Files are either generated (template), cloned (Git import), or cloned from the base repository.
-  </Step>
-  <Step title="Container Configuration Generated">
-    **Docker mode**: A `docker-compose.yml` file is generated with the appropriate image, ports, volumes, and Traefik labels.
-
-    **Kubernetes mode**: A namespace is created (`proj-{uuid}`), along with a PVC for storage, a file-manager deployment, and service/ingress resources.
-  </Step>
-  <Step title="Dev Server Starts">
-    Dependencies are installed (typically `npm install`) and the development server launches. The container monitors health via startup probes.
-  </Step>
-  <Step title="Frontend Navigates to Builder">
-    Once the task polling reports completion, the frontend navigates to `/project/{slug}/builder` where you can start coding.
-  </Step>
-</Steps>
-
-### Task Polling
-
-The frontend polls the backend to check on the project setup progress:
-
-```typescript
-const { task_id } = await projectsApi.create({ name, source_type, ... });
-const result = await tasksApi.pollUntilComplete(task_id);
-// result.slug contains the project slug for navigation
-```
-
-This pattern ensures a non-blocking user experience. The UI shows a progress indicator while the container initializes in the background.
-
-### Agent-Assisted Startup
-
-Community bases (external repositories without a `TESSLATE.md` file) sometimes fail the default startup command. When this happens:
-
-1. The health check times out after approximately 120 seconds
-2. The UI shows a "Container needs setup" message
-3. An "Ask Agent to start it" button appears
-4. Clicking the button prefills the chat with: "Use the running tmux process to get this up and running. The port for the preview url is {port}."
-5. The AI agent reads the project files, determines the correct startup command, and runs it
-
-<Info>
-  This process works because the container stays alive even when the dev server is not running. In Kubernetes mode, startup probes check for a tmux session (not an HTTP response), so the container remains available for the agent to configure.
-</Info>
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion icon="clock" title="Project Stuck on Initializing">
-    **Cause**: The background task is still running, or it failed silently.
-
-    **What to try**:
-    - Wait up to 60 seconds (first-time initialization can be slow, especially for large repositories)
-    - Check your internet connection (Git cloning requires network access)
-    - Refresh the page and check if the project appears on your Dashboard
-    - If the project shows up but the container is not running, try starting it manually from the project settings
-  </Accordion>
-
-  <Accordion icon="triangle-exclamation" title="Git Import Failed">
-    **Cause**: The repository URL is invalid, private without proper credentials, or the provider OAuth token has expired.
-
-    **What to try**:
-    - Verify the repository is accessible (public, or you have been granted access)
-    - Re-authorize your Git provider connection in Settings
-    - Confirm the repository contains a valid project (for example, a `package.json` for Node.js projects)
-  </Accordion>
-
-  <Accordion icon="circle-xmark" title="Preview Not Loading After Creation">
-    **Cause**: The dev server failed to start, or the health check has not completed yet.
-
-    **What to try**:
-    - Wait 30 to 60 seconds for the initial build
-    - Check the container status in project settings
-    - If the container status shows "failed," try restarting it
-    - For community bases, use the "Ask Agent to start it" feature to let the AI configure the correct startup command
-  </Accordion>
-
-  <Accordion icon="server" title="Wrong Port or Startup Command">
-    **Cause**: The base or imported project uses a different port or startup command than the default.
-
-    **What to try**:
-    - Add a `TESSLATE.md` file to the project root specifying the correct port and startup command
-    - Use the agent-assisted startup feature to have the AI detect and run the correct command
-    - Manually configure the port in the container settings
-  </Accordion>
-</AccordionGroup>
-
-## Best Practices
+Once the project is ready, the usual surfaces are available:
 
 <CardGroup cols={2}>
-  <Card title="Choose the Right Source" icon="compass">
-    - **Template**: When starting from scratch
-    - **Git Import**: When you have existing code
-    - **Base**: When you want a working starter with a specific tech stack
+  <Card title="Code editor" icon="code" href="/guides/code-editor">
+    Monaco with the project file tree.
   </Card>
-
-  <Card title="Name Projects Clearly" icon="tag">
-    Use descriptive names that reflect the application's purpose. Avoid special characters. The auto-generated slug will be URL-safe.
+  <Card title="Live preview" icon="eye" href="/guides/live-preview">
+    Iframe with hot module reload.
   </Card>
-
-  <Card title="Add TESSLATE.md" icon="file-lines">
-    For repositories that use non-standard startup commands or ports, include a `TESSLATE.md` file. This ensures reliable automatic startup for you and anyone who forks your project.
+  <Card title="Architecture Panel" icon="diagram-project" href="/guides/architecture-panel">
+    Visual graph editor for the config.
   </Card>
-
-  <Card title="Plan Before Building" icon="clipboard">
-    Know your tech stack requirements before choosing a creation method. If you need a full-stack project with a database, pick a base that includes those services rather than adding them manually later.
-  </Card>
-</CardGroup>
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card
-    title="Code Editor"
-    icon="code"
-    href="/guides/code-editor"
-  >
-    Start writing and editing code in your new project
-  </Card>
-  <Card
-    title="Chat Interface"
-    icon="comments"
-    href="/guides/chat-interface"
-  >
-    Use AI agents to build features
-  </Card>
-  <Card
-    title="Live Preview"
-    icon="eye"
-    href="/guides/live-preview"
-  >
-    See your application running in real time
-  </Card>
-  <Card
-    title="Git Integration"
-    icon="code-branch"
-    href="/guides/github-integration"
-  >
-    Connect your project to a Git repository
+  <Card title="Chat interface" icon="comments" href="/guides/chat-interface">
+    Talk to agents about your project.
   </Card>
 </CardGroup>

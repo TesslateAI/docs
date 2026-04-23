@@ -1,581 +1,240 @@
 ---
 title: 'Architecture'
-description: 'Understand Tesslate Studio internals: multi-tier design, component responsibilities, data flow, security model, and technology stack'
+description: 'How OpenSail is structured: orchestrator, agent runner, storage, three-tier compute, channels, and apps'
 ---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
 ## Overview
 
-Tesslate Studio is an AI-powered web application builder with a **multi-tier, container-based architecture**. Users describe what they want in natural language, an AI agent writes the code, and the platform handles isolated containerized deployment for each project.
+OpenSail is an AI-powered platform for building, running, and sharing agents, full-stack apps, scheduled jobs, webhook handlers, and MCP tools. The system is modular: the same orchestrator drives desktop, Docker, and Kubernetes modes by swapping task queue, pub/sub, database, and container backends behind protocols.
 
-This page explains how the system is structured, how data flows between components, how security is enforced, and what technologies power each layer. Whether you are evaluating the platform, planning a deployment, or troubleshooting an issue, this document gives you the full picture.
+This page explains how the components fit together, how data flows at runtime, and how the security model is enforced.
 
-## High-Level Architecture
+## High-level diagram
+
+```mermaid
+flowchart TB
+    D["Desktop (Tauri v2)"] --> API
+    B["Browser UI"] --> API
+    C["CLI / TUI"] --> API
+    G["Gateway API + MCP Server"] --> API
+
+    API{{"Orchestrator (FastAPI)"}}
+
+    API --> Q["Task Queue<br/>ARQ (cloud) or asyncio (desktop)"]
+    Q --> W["Worker"]
+    W --> AG["tesslate-agent runner"]
+
+    API --> DB[("Database<br/>Postgres or SQLite")]
+    API --> R[("Redis Streams<br/>pub/sub")]
+    API --> ORCH{{"Orchestration Factory"}}
+
+    ORCH --> DCK["DockerComposeOrchestrator"]
+    ORCH --> K8S["KubernetesOrchestrator"]
+    ORCH --> LOC["LocalOrchestrator (desktop)"]
+
+    K8S --> VH["Volume Hub (gRPC)"]
+    VH --> CSI["btrfs CSI driver"]
+    CSI --> S3[("S3 CAS")]
+
+    classDef surface fill:#eef2ff,stroke:#6366f1;
+    classDef core fill:#ecfdf5,stroke:#10b981;
+    classDef storage fill:#fff7ed,stroke:#f97316;
+    class D,B,C,G surface;
+    class API,Q,W,AG,ORCH,DCK,K8S,LOC core;
+    class DB,R,VH,CSI,S3 storage;
+```
+
+## Component layers
 
 <Tabs>
-  <Tab title="Docker Mode (Development)">
-    All services run on a single host machine via Docker Desktop.
-
-    **Request routing (Traefik reverse proxy):**
-
-    | Incoming Path | Routed To | Port |
-    |---------------|-----------|------|
-    | `/api/*`, `/ws/*` | Orchestrator | 8000 |
-    | `/*` (everything else) | App (React frontend) | 5173 |
-
-    **Running services:**
-
-    | Service | Port | Role |
-    |---------|------|------|
-    | Traefik | 80, 443, 8080 | Reverse proxy, `*.localhost` subdomain routing |
-    | App | 5173 | React frontend (Vite dev server) |
-    | Orchestrator | 8000 | FastAPI backend (business logic, AI agents) |
-    | PostgreSQL | 5432 | Database |
-    | User Projects | Dynamic | One container per project, created on demand |
-
-    **Storage:** Local filesystem at `orchestrator/users/{user_id}/{project_slug}/`
+  <Tab title="Frontend">
+    | Module | Source | Notes |
+    |--------|--------|-------|
+    | App shell | `app/src/App.tsx` | React 19 router |
+    | API client | `app/src/lib/api.ts` | SSE + fetch wrapper |
+    | Editor | Monaco | code + diff view |
+    | Chat | `app/src/components/chat/` | agent message stream |
+    | Architecture Panel | React Flow | authors `.tesslate/config.json` |
+    | Kanban | drag-and-drop board |
   </Tab>
 
-  <Tab title="Kubernetes Mode (Production)">
-    The cluster is organized into isolated namespaces.
+  <Tab title="Desktop shell">
+    Tauri v2 Rust shell wraps a PyInstaller-frozen FastAPI sidecar. See `desktop/src-tauri/` and `desktop/sidecar/`.
 
-    **Core namespace (`tesslate`):**
+    - Per-launch bearer token minted on startup
+    - SQLite database under `OPENSAIL_HOME`
+    - System tray keeps the sidecar alive when the window closes
+    - Stronghold stores long-lived `tsk_` pairing keys
+    - Deep-link handler for OAuth pairing callbacks
+  </Tab>
 
-    | Pod | Role |
-    |-----|------|
-    | Frontend | React app served via NGINX |
-    | Orchestrator | FastAPI backend |
-    | PostgreSQL | Database |
+  <Tab title="Orchestrator">
+    | Module | Purpose |
+    |--------|---------|
+    | `main.py` | Middleware, router mounting, CORS, CSRF |
+    | `config.py` | Pydantic settings (env reader) |
+    | `models.py` | 45+ SQLAlchemy models |
+    | `routers/` | REST endpoints (projects, chat, billing, apps, etc.) |
+    | `services/` | Business logic |
+    | `agent/` | Legacy inline agent (still used in cloud path) |
+    | `worker.py` | ARQ worker entrypoint |
+  </Tab>
 
-    **Per-project namespaces (`proj-{uuid}`):**
+  <Tab title="Agent runner">
+    `packages/tesslate-agent` is the primary agent runner used by both desktop and cloud workers. It provides:
 
-    Each project gets a dedicated namespace containing:
-    - File Manager Pod (always running, handles file ops and git)
-    - Dev Container Pod(s) (frontend, backend, database services)
-    - PVC (10Gi EBS block storage, shared across pods)
-    - NetworkPolicy (zero cross-project communication)
-    - Ingress (subdomain routing)
-
-    **Ingress namespace (`ingress-nginx`):**
-
-    | Component | Role |
-    |-----------|------|
-    | NGINX Ingress Controller | Routes `*.yourdomain.com` to project namespaces |
-    | cert-manager | Wildcard SSL via Let's Encrypt + Cloudflare DNS |
-
-    **Storage:** EBS VolumeSnapshots for persistence across sessions
+    - A tool registry (read/write, edit, bash, session, web search, fetch, skill loader, kanban, schedule, project control)
+    - Progressive persistence: every `AgentStep` is written as it happens
+    - Context compaction: older messages roll up via a cheap summarizer
+    - Approval gates: tools can require human approval via permission policies
+    - Cost and iteration caps (`AGENT_MAX_COST`, `AGENT_MAX_ITERATIONS`)
   </Tab>
 </Tabs>
 
-## Core Components
+## Deployment modes
 
-### Orchestrator (FastAPI Backend)
+| Mode | Database | Queue | Pub/sub | Containers | Best for |
+|------|----------|-------|---------|------------|----------|
+| Desktop | SQLite (aiosqlite) | asyncio + apscheduler | in-process | subprocess / docker / remote k8s | Single user |
+| Docker | Postgres | ARQ on Redis | Redis Streams | Docker Compose | Dev, small teams |
+| Kubernetes | Postgres (cloud: RDS) | ARQ on Redis | Redis Streams | per-project namespaces | Multi-tenant prod |
 
-The orchestrator is the central brain of Tesslate Studio. It handles all business logic, coordinates between the frontend and containers, and manages the AI agent system.
+All three are selected by `DEPLOYMENT_MODE` and wired via factories in `orchestrator/app/services/`.
 
-**Responsibilities:**
+## Three-tier compute model
 
-| Area | Details |
-|------|---------|
-| Authentication | JWT tokens (7-day access, 14-day refresh), OAuth 2.0 (GitHub, Google), HTTP-only cookies with CSRF protection |
-| Project Management | CRUD operations, file tree navigation, project metadata |
-| Container Orchestration | Start/stop containers, health checks, log streaming, namespace lifecycle |
-| AI Agent System | Agent instantiation, tool execution, LLM calls via LiteLLM, streaming responses |
-| File Operations | Read/write/edit files in project containers (local filesystem in Docker, pod exec in K8s) |
-| Git Operations | Clone, commit, push, pull, branch management |
-| External Deployment | Build and deploy to Vercel, Netlify, Cloudflare |
-| Billing | Stripe subscriptions, usage tracking, creator payouts |
+The AI agent does not need a full Kubernetes pod every time it reads a file. OpenSail separates operations by cost:
 
-**Technology stack:**
+| Tier | What runs here | Backend | Wake time |
+|------|----------------|---------|-----------|
+| Tier 0 | File ops, web calls, agent reasoning | In-process in the worker (FileOps gRPC to CSI) | Near zero |
+| Tier 1 | Shell commands | Warm ephemeral containers from a pool | Sub-second |
+| Tier 2 | Full dev environment: multi-container project, live preview, deploys | K8s namespace with multiple Deployments | On demand, hibernates when idle |
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Framework | FastAPI | Modern async Python web framework |
-| Language | Python 3.11 | Backend programming language |
-| ORM | SQLAlchemy 2.x | Database ORM with async support |
-| DB Driver | asyncpg | Async PostgreSQL driver |
-| Authentication | fastapi-users | User auth and OAuth integration |
-| AI Gateway | LiteLLM | Multi-model AI proxy (OpenAI, Anthropic, custom) |
-| K8s Client | kubernetes (Python) | Kubernetes API interaction |
-| S3 Client | boto3 | Object storage (AWS S3, MinIO, DO Spaces) |
-| Payments | Stripe SDK | Subscription billing |
+About 99% of agent operations run on Tier 0 or Tier 1. Tier 2 is only needed when the user is actively working in the workspace or the agent needs to run the full stack.
 
-### Frontend (React Application)
+Hibernation is volume-level: a project snapshot captures the entire btrfs subvolume, then the namespace is torn down. Restore re-hydrates from CAS and brings all containers back together.
 
-The frontend is a single-page application that provides the development workspace: code editor, live preview, chat interface, file browser, and project dashboard.
+## Storage: btrfs CSI and Volume Hub
 
-**Technology stack:**
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Framework | React 19 | UI component library |
-| Language | TypeScript 5.x | Type-safe JavaScript |
-| Build Tool | Vite 5.x | Fast dev server and bundler |
-| Styling | Tailwind CSS 3.x | Utility-first CSS framework |
-| Code Editor | Monaco Editor | VSCode-based code editing |
-| State | React Context | Auth, project, and agent state |
-| Routing | React Router 6.x | Client-side navigation |
-| HTTP Client | Axios | API communication |
-| Streaming | EventSource (SSE) | Real-time agent responses |
-
-**Key features:**
-- **Monaco Editor** with IntelliSense, syntax highlighting, and multi-file support
-- **Live Preview** via embedded iframe showing user project output in real time
-- **Chat UI** for conversational interaction with AI agents, with streamed responses
-- **File Browser** for navigating, creating, renaming, and deleting project files
-- **Marketplace** for browsing and installing agents and templates
-
-### Database (PostgreSQL)
-
-PostgreSQL stores all persistent application data. Schema management is handled by Alembic migrations that run automatically on startup.
-
-**Key tables:**
-
-| Table | Purpose |
-|-------|---------|
-| `users` | User accounts, OAuth tokens, subscriptions |
-| `projects` | Project metadata, owner, slug, settings |
-| `project_snapshots` | EBS VolumeSnapshot records for versioning/timeline |
-| `containers` | Individual services per project (frontend, backend, db) |
-| `container_connections` | Dependency graph between containers |
-| `chats` | Chat sessions with AI agents |
-| `messages` | Individual chat messages |
-| `marketplace_agents` | Pre-built AI agents |
-| `deployments` | External deployment records |
-| `deployment_credentials` | OAuth tokens for Vercel/Netlify/Cloudflare |
-| `shell_sessions` | Persistent bash sessions |
-| `kanban_tasks` | Project task management |
-
-**Optimization strategies:**
-- Async connection pooling via SQLAlchemy
-- Indexed foreign keys (`project_id`, `user_id`)
-- Lazy loading for related objects
-- No blocking on database I/O (fully async)
-
-### Container Runtime
-
-The container runtime provides isolated development environments for each user project. The orchestrator automatically selects the correct backend based on `DEPLOYMENT_MODE`.
+User project data lives on btrfs subvolumes managed by a two-layer system.
 
 <Tabs>
-  <Tab title="Docker Mode (Local Development)">
-    | Component | Technology | Purpose |
-    |-----------|-----------|---------|
-    | Runtime | Docker Desktop | Run containers on local machine |
-    | Orchestration | Docker Compose | Multi-container project management |
-    | Routing | Traefik | Reverse proxy with `*.localhost` routing |
-    | Storage | Local filesystem | Direct volume mounts to `orchestrator/users/` |
+  <Tab title="btrfs CSI driver">
+    Location: `services/btrfs-csi/`.
 
-    **Storage structure:**
-    ```
-    orchestrator/users/
-      {user_id}/
-        {project_slug}/
-          frontend/
-            src/
-            package.json
-          backend/
-            main.py
-          tesslate.json
-    ```
+    Runs as a DaemonSet. Responsibilities:
+
+    - Create btrfs subvolumes (instant snapshot-clone from templates)
+    - FileOps gRPC for agent Tier 0 file operations
+    - NodeOps gRPC for template builds
+    - S3 sync via CAS (content-addressed storage)
+    - Per-node garbage collection
   </Tab>
 
-  <Tab title="Kubernetes Mode (Production)">
-    | Component | Technology | Purpose |
-    |-----------|-----------|---------|
-    | Cluster | Kubernetes (EKS) | Container orchestration |
-    | Ingress | NGINX Ingress Controller | HTTP routing and SSL termination |
-    | Storage | EBS + VolumeSnapshots | Fast block storage with snapshot-based persistence |
-    | Networking | NetworkPolicy | Zero cross-project communication |
-    | Certificates | cert-manager | Automatic SSL via Let's Encrypt + Cloudflare DNS |
+  <Tab title="Volume Hub">
+    Location: `services/btrfs-csi/pkg/volumehub/`.
 
-    **Per-project namespace resources:**
-    - Namespace: `proj-{uuid}`
-    - PVC: 10Gi EBS block storage (shared by all pods)
-    - File Manager Deployment (always running)
-    - Dev Container Deployment(s) with pod affinity
-    - Service(s) with ClusterIP
-    - Ingress for subdomain routing
-    - NetworkPolicy for isolation
+    Single-pod storageless orchestrator. Responsibilities:
+
+    - Track volume ownership and cache placement
+    - Pick the best node for each project
+    - Coordinate peer-transfer when a volume migrates nodes
+    - Trigger S3 sync on hibernation
+    - Expose gRPC (`CreateVolume`, `DeleteVolume`, `EnsureCached`, `TriggerSync`, `CreateServiceVolume`, `VolumeStatus`)
+  </Tab>
+
+  <Tab title="Orchestrator client">
+    Thin async client at `orchestrator/app/services/volume_manager.py` (calls hub via `hub_client.py`). The orchestrator never touches btrfs directly.
+
+    Lifecycle:
+
+    - Create: Hub picks a node, driver creates the subvolume
+    - Compute: pod scheduled on `cache_node`, hostPath-mount
+    - Hibernate: S3 sync triggered, pod removed, volume cached on node
+    - Restore: `EnsureCached` tries fast local path, then peer-transfer, then S3 restore
+    - Timeline: up to 5 K8s VolumeSnapshots per project
   </Tab>
 </Tabs>
 
-### AI Agent System
+## Agent runner integration
 
-The agent system enables AI-driven code generation within user projects. Agents receive user requests, call LLMs, execute tools (file operations, shell commands), and stream results back to the frontend.
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| LLM Gateway | LiteLLM | Unified interface for multiple AI model providers |
-| Streaming | Server-Sent Events | Real-time agent responses to the frontend |
-| Tool System | Custom Python tools | File ops, bash, sessions, web fetch, task tracking |
-| Agent Loop | Custom streaming agent | Iterative tool-calling loop with LLM |
-
-**Supported models** (via LiteLLM):
-- **OpenAI:** GPT-4, GPT-3.5
-- **Anthropic:** Claude 3.5 Sonnet, Claude 3 Opus
-- **Custom:** Qwen, DeepSeek, any LiteLLM-compatible endpoint
-
-**Agent tools:**
-
-| Tool | Purpose |
-|------|---------|
-| `read_write.py` | Read/write files in the project |
-| `edit.py` | Edit specific sections of a file |
-| `bash.py` | Execute shell commands in the project container |
-| `session.py` | Persistent shell sessions |
-| `fetch.py` | HTTP requests for web content |
-| `todos.py` | Task planning and tracking |
-| `metadata.py` | Query project information |
-
-## Data Flow
-
-### User Request Lifecycle
-
-```
-1. User interacts with the frontend UI
-   |
-2. Frontend sends HTTP or WebSocket request to the orchestrator
-   |
-3. Orchestrator validates authentication (JWT / cookie)
-   |
-4. Orchestrator queries or updates the database
-   |
-5. Orchestrator performs the requested operation:
-   +-- File operation    --> Container filesystem (local or pod exec)
-   +-- Container action  --> Docker API or Kubernetes API
-   +-- AI chat           --> LiteLLM --> OpenAI / Anthropic
-   +-- Deployment        --> Vercel / Netlify / Cloudflare API
-   |
-6. Orchestrator returns response to the frontend
-   |
-7. Frontend updates the UI
-```
-
-### Agent Chat Flow
+The orchestrator enqueues an `AgentTaskPayload` built from project state, chat history, git status, and `TESSLATE.md`. The ARQ worker picks up the task and runs the `tesslate-agent` loop.
 
 <Steps>
-  <Step title="User sends a message">
-    The user types a request in the chat UI (for example, "Add a dark mode toggle").
+  <Step title="Acquire lock">
+    Redis-based distributed lock prevents concurrent runs on the same project.
   </Step>
 
-  <Step title="Frontend opens SSE connection">
-    The frontend sends `POST /api/chat/stream` with the message and agent ID. The response is a Server-Sent Events stream.
+  <Step title="Loop">
+    Each iteration: run the agent, persist `AgentStep` rows, publish events to the Redis Stream, check for a cancellation signal.
   </Step>
 
-  <Step title="Orchestrator creates the agent">
-    The `agent/factory.py` module loads the agent configuration (system prompt, tools, model) from the database.
+  <Step title="Stream to client">
+    The API router subscribes to the stream and forwards events over SSE or WebSocket. The client renders steps in real time.
   </Step>
 
-  <Step title="Agent loop executes">
-    The `agent/stream_agent.py` runs an iterative loop:
-    1. Call the LLM with the system prompt, conversation history, and available tools
-    2. If the LLM returns tool calls (e.g., `write_file`, `bash`), execute them in the project container
-    3. Stream tool execution events to the frontend in real time
-    4. Call the LLM again with tool results
-    5. Repeat until the LLM produces a final response
-  </Step>
-
-  <Step title="Frontend renders results">
-    The chat UI displays streamed events: thinking indicators, tool executions (file writes, command output), and the final response. The live preview updates automatically via Vite HMR.
+  <Step title="Finalize">
+    On completion: write the final Message, release the lock, optionally fire a webhook for external agent callers.
   </Step>
 </Steps>
 
-### Container Start Flow (Kubernetes)
+Progressive persistence means pods can die, browsers can close, and the session is resumable.
 
-<Steps>
-  <Step title="User clicks Start">
-    Frontend sends `POST /api/projects/{id}/start`.
-  </Step>
+## Apps subsystem
 
-  <Step title="Orchestrator creates namespace">
-    A new namespace `proj-{uuid}` is created with labels for the project and user.
-  </Step>
+An app on OpenSail is a versioned, immutable, manifest-described bundle produced from a workspace. Models:
 
-  <Step title="PVC is provisioned">
-    A 10Gi PVC is created. If a VolumeSnapshot exists from a previous session, the PVC is created from the snapshot (EBS lazy-loads data on access).
-  </Step>
+| Model | Role |
+|-------|------|
+| `MarketplaceApp` | Identity anchor (slug, creator, category, state) |
+| `AppVersion` | Immutable version with manifest, CAS bundle address, approval state |
+| `AppInstance` | Per-user install with wallet mix and update policy |
+| `AppSubmission` | Staged approval pipeline row (stage0 → stage3 → approved) |
+| `YankRequest` | Unpublish flow; critical severity requires two admins |
+| `AppBundle` | Curated pack of AppVersions |
 
-  <Step title="File manager pod starts">
-    A file manager pod starts immediately (under 10 seconds). It handles file operations and git commands.
-  </Step>
+Services: `installer.py`, `publisher.py`, `submissions.py`, `yanks.py`, `runtime.py`, `stage1_scanner.py`, `stage2_sandbox.py`. See the [Publishing Apps guide](/guides/publishing-apps).
 
-  <Step title="Dev containers start">
-    Dev container Deployments, Services, and Ingress resources are created. Pod affinity ensures all containers land on the same node to share the RWO PVC.
-  </Step>
+## Channels and gateway
 
-  <Step title="Frontend polls for status">
-    The frontend polls `GET /api/projects/{id}/status`. When all containers report healthy, the project is marked as running, and the user can access it at the subdomain URL.
-  </Step>
-</Steps>
+Messaging integrations live under `orchestrator/app/services/channels/` with the Gateway v2 runner at `services/gateway/runner.py`. Platforms: Telegram, Slack, Discord, WhatsApp, Signal, CLI. Identity pairing links platform accounts to OpenSail users. Schedules (cron + timezone) deliver agent output to any configured channel.
 
-## Security Architecture
+See [Communication gateways](/guides/communication-gateways).
 
-### Authentication and Authorization
+## Security model
 
-**Mechanisms:**
+| Layer | Enforcement |
+|-------|-------------|
+| Transport | HTTPS in production; Traefik or NGINX Ingress |
+| Session | JWT with short-lived access + refresh rotation |
+| CSRF | Double-submit cookie with `X-CSRF-Token` header |
+| Passwords | bcrypt |
+| Secrets at rest | Fernet encryption via `SECRET_KEY`-derived key (`CHANNEL_ENCRYPTION_KEY`, `DEPLOYMENT_ENCRYPTION_KEY`) |
+| RBAC | `Team`, `TeamMembership` (admin/editor/viewer), `ProjectMembership` override, `AuditLog` |
+| Network isolation (K8s) | `NamespacePerProject` + `NetworkPolicy` enforcing zero cross-project traffic |
+| Agent capabilities | `.tesslate/permissions.json` gates shell, network, git push, file writes; approval prompts for `ask` policies |
 
-1. **JWT Tokens** (Bearer authentication)
-   - Access tokens: 7-day expiry
-   - Refresh tokens: 14-day expiry
-   - Sent in `Authorization: Bearer {token}` header
+Every significant action writes to the append-only `AuditLog`, keyed by team and project.
 
-2. **HTTP-Only Cookies** (Session authentication)
-   - Secure, HttpOnly, SameSite=Lax
-   - Domain-scoped for subdomain access
-   - CSRF protection via double-submit cookie pattern
-
-3. **OAuth 2.0** (Third-party login)
-   - GitHub and Google providers
-   - Authorization Code Grant flow
-   - State token validation to prevent CSRF
-
-### CORS and Content Security Policy
-
-**CORS** (Dynamic middleware):
-- Allowed origins: `localhost:*`, `*.localhost`, `APP_DOMAIN`, `*.APP_DOMAIN`
-- Credentials enabled (cookies, auth headers)
-- Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS
-
-### Credential Encryption
-
-| Data | Encryption Method |
-|------|------------------|
-| GitHub tokens | Fernet encryption (derived from `SECRET_KEY`) |
-| Deployment OAuth tokens | Fernet encryption (`DEPLOYMENT_ENCRYPTION_KEY`) |
-| User passwords | bcrypt hashing (via fastapi-users) |
-
-### Container Isolation (Kubernetes)
-
-<Tabs>
-  <Tab title="Namespace Isolation">
-    Each project gets a dedicated namespace (`proj-{uuid}`) with:
-    - Resource quotas per namespace (CPU, memory, storage)
-    - RBAC rules preventing cross-namespace access
-    - Automatic cleanup on project deletion (delete namespace cascades to all resources)
-  </Tab>
-
-  <Tab title="NetworkPolicy">
-    Default deny all ingress and egress, with explicit allow rules:
-    - **Ingress:** Only from the `ingress-nginx` namespace (NGINX controller)
-    - **Egress:** Cluster DNS + public internet (for npm install, pip install, API calls)
-    - **Result:** Zero cross-project communication
-
-    ```yaml
-    apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: project-isolation
-    spec:
-      podSelector: {}
-      policyTypes: [Ingress, Egress]
-      ingress:
-      - from:
-        - namespaceSelector:
-            matchLabels:
-              name: ingress-nginx
-      egress:
-      - to:
-        - namespaceSelector: {}
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      - to:
-        - namespaceSelector: {}
-        ports:
-        - protocol: TCP
-          port: 443
-        - protocol: TCP
-          port: 80
-    ```
-  </Tab>
-
-  <Tab title="Pod Affinity">
-    All containers in a multi-container project are scheduled on the same node via pod affinity. This allows sharing a ReadWriteOnce (RWO) EBS PVC and improves inter-container communication latency.
-
-    ```yaml
-    affinity:
-      podAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchLabels:
-              app: file-manager
-          topologyKey: kubernetes.io/hostname
-    ```
-  </Tab>
-</Tabs>
-
-### SSL/TLS
-
-| Environment | Method |
-|-------------|--------|
-| Docker (local) | HTTP only (`*.localhost`); no SSL needed |
-| Kubernetes (Minikube) | HTTP only; no TLS configured |
-| Kubernetes (AWS EKS) | Wildcard certificate (`*.yourdomain.com`) via cert-manager + Let's Encrypt, DNS-01 challenge through Cloudflare |
-
-### Secrets Management
-
-**Kubernetes secrets:**
-- `tesslate-app-secrets`: API keys, OAuth credentials, domain config
-- `postgres-secret`: Database credentials
-- `s3-credentials`: S3/MinIO access keys
-
-**Best practices:**
-- Secrets are never stored in Git
-- Minikube: generated from `.env.minikube` via `generate-secrets.sh`
-- AWS EKS: created via `kubectl create secret` or managed by Terraform
-
-## Scalability
-
-### Horizontal Scaling
-
-| Component | Scalable? | Notes |
-|-----------|-----------|-------|
-| Orchestrator (backend) | Yes | Stateless design; all state is in PostgreSQL. Multiple replicas supported via K8s Deployment. |
-| Frontend | Yes | Static build served by NGINX; easily replicated or served via CDN. |
-| PostgreSQL | Partially | Single instance by default. Read replicas planned for the future. Connection pooling handles high concurrency. |
-| User project pods | Yes | Each project runs in its own namespace; cluster autoscaler adds nodes as needed. |
-
-### Non-Blocking Design
-
-All long-running operations are designed to be non-blocking:
-
-- **Project creation:** Background task for container setup; the API returns immediately.
-- **Deployments:** Async build process; webhook on completion.
-- **Agent chat:** Streaming responses (no wait for full LLM completion).
-- **File operations:** Async I/O throughout.
-- **Snapshots:** VolumeSnapshot creation returns immediately; frontend polls for ready status.
-
-### Load Balancing
-
-- **Kubernetes:** NGINX Ingress Controller with round-robin distribution. Session affinity is not required because the backend is stateless.
-- **Docker:** Traefik automatically discovers and routes to containers.
-
-## Container Images
-
-| Image | Dockerfile | Base | Purpose | Approximate Size |
-|-------|-----------|------|---------|-----------------|
-| `tesslate-backend` | `orchestrator/Dockerfile` | `python:3.11-slim` | FastAPI orchestrator | ~1.5 GB |
-| `tesslate-frontend` | `app/Dockerfile.prod` | `node:20-alpine` (build), `nginx:alpine` (runtime) | React UI served via NGINX | ~200 MB |
-| `tesslate-devserver` | `orchestrator/Dockerfile.devserver` | `node:20-alpine` | Universal dev environment for user projects | ~1.2 GB |
-
-**Devserver includes:**
-- Node.js 20 + npm + Bun
-- Python 3 + pip
-- Go + Air (hot reload)
-- Git, git-lfs, curl, bash, tmux
-- Pre-cached npm packages (Vite, React, TypeScript, ESLint, Tailwind)
-
-## External Integrations
-
-### Authentication Providers
-
-| Provider | Purpose | Flow |
-|----------|---------|------|
-| GitHub | User login, repository import | OAuth Authorization Code Grant |
-| Google | User login | OAuth Authorization Code Grant |
-| GitLab | Repository import | OAuth Authorization Code Grant |
-| Bitbucket | Repository import | OAuth Authorization Code Grant |
-
-### Deployment Providers
-
-| Provider | Purpose |
-|----------|---------|
-| Vercel | Frontend hosting (OAuth + API, git push auto-deploy) |
-| Netlify | Frontend hosting (OAuth + API, git push auto-deploy) |
-| Cloudflare Pages | Frontend hosting (direct upload API) |
-| Cloudflare Workers | Serverless backend (wrangler CLI) |
-
-### Payment Provider
-
-| Provider | Features |
-|----------|---------|
-| Stripe | Recurring subscriptions, one-time credit purchases, creator payouts (Stripe Connect), usage-based billing |
-
-### Storage Providers
-
-| Provider | Use Case | Protocol |
-|----------|----------|----------|
-| AWS S3 | Production project storage | S3 API (boto3) |
-| DigitalOcean Spaces | Production project storage | S3 API (boto3) |
-| MinIO | Local/development S3-compatible storage | S3 API (boto3) |
-
-## Architecture Principles
-
-<AccordionGroup>
-  <Accordion title="Container-per-project isolation">
-    Every project runs in its own isolated environment (Docker container or Kubernetes namespace). This ensures no conflicts between projects, independent dependency management, resource limits, and clean teardown (deleting a container or namespace removes everything).
-  </Accordion>
-
-  <Accordion title="Non-blocking operations">
-    User requests never block on long-running tasks. Project creation, deployments, and agent chat all run asynchronously. The frontend polls for status or receives streamed updates.
-  </Accordion>
-
-  <Accordion title="Bring your own models">
-    Tesslate Studio uses LiteLLM as a universal AI gateway, supporting 100+ providers. You can use OpenAI, Anthropic, Google, self-hosted open-source models, or any LiteLLM-compatible endpoint. There is no vendor lock-in.
-  </Accordion>
-
-  <Accordion title="Self-hosted, data sovereign">
-    When self-hosted, all data stays on your infrastructure. The only external calls are to AI model providers (if you choose cloud models) and optional OAuth/deployment providers. You have complete control over your data.
-  </Accordion>
-
-  <Accordion title="Stateless backend">
-    The orchestrator is fully stateless. All persistent state lives in PostgreSQL or the container runtime. This means you can run multiple orchestrator replicas behind a load balancer without any special coordination.
-  </Accordion>
-
-  <Accordion title="Infrastructure as Code">
-    All Kubernetes manifests use Kustomize with base/overlay separation. AWS infrastructure is provisioned with Terraform. Every resource is reproducible and version-controlled.
-  </Accordion>
-</AccordionGroup>
-
-## Health Checks and Monitoring
-
-### Endpoints
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /health` | Backend liveness (returns 200 if alive) |
-| `GET /api/config` | Public configuration (deployment mode, app domain) |
-
-### Kubernetes Probes
-
-| Probe | Path | Interval | Purpose |
-|-------|------|----------|---------|
-| Startup | `/health` | 5s (24 failures = 2 min max) | Allow time for boot and migrations |
-| Liveness | `/health` | 10s | Restart pod if it becomes unresponsive |
-| Readiness | `/health` | 5s | Remove from load balancer if unhealthy |
-
-### Application Logging
-
-- **Format:** `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
-- **Level:** Configurable via `LOG_LEVEL` environment variable
-- **Key loggers:** `app.main`, `app.services.orchestration.kubernetes_orchestrator`, `app.agent.stream_agent`, `app.routers.*`
-
-## Future Enhancements
-
-| Enhancement | Description |
-|-------------|-------------|
-| Distributed task queue | Move background tasks to Celery + Redis for reliability |
-| Prometheus + Grafana | Metrics collection, dashboards, and alerting |
-| PostgreSQL read replicas | Improved read performance and high availability |
-| CDN integration | CloudFlare CDN for frontend assets; faster global access |
-| Multi-region deployment | K8s clusters in multiple regions with geo-routing |
-| Cluster autoscaler | HPA for backend pods; node autoscaler for K8s nodes |
-
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/self-hosting/quickstart">
-    Get running locally with Docker Compose in minutes
+  <Card title="Configuration" icon="gear" href="/self-hosting/configuration">
+    All environment variables with defaults.
   </Card>
 
-  <Card title="Configuration Reference" icon="gear" href="/self-hosting/configuration">
-    Every environment variable, explained and categorized
+  <Card title="Deployment" icon="server" href="/self-hosting/deployment">
+    Path-by-path production guides.
   </Card>
 
-  <Card title="Deployment Guide" icon="server" href="/self-hosting/deployment">
-    Deploy to production with Docker Compose, Kubernetes, or AWS EKS
+  <Card title="Data flow" icon="arrow-right-arrow-left" href="/developer/data-flow">
+    Request lifecycle, agent execution, container lifecycle.
   </Card>
 
-  <Card title="Developer Guide" icon="book" href="/developer/system-overview">
-    Explore the system internals and API reference
+  <Card title="Container orchestration" icon="cubes" href="/developer/container-orchestration">
+    Three-tier compute, PVC lifecycle, snapshots.
   </Card>
 </CardGroup>

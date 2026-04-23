@@ -1,0 +1,217 @@
+---
+title: 'Design Engineer'
+description: 'Click any element in the live preview and jump to the exact line of source code that rendered it. Two-way sync between the preview, the editor, and the agent. CSS inspector, Insert palette, visual-first iteration.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## What it is
+
+Design Engineer turns the Live Preview into a first-class editor. Click any element and the code that renders it opens, highlighted, in Monaco. Inspect the element's computed CSS, tweak props visually, insert new components from a palette, and let the agent keep track of what changed. No context-switching from browser to editor.
+
+<CardGroup cols={2}>
+  <Card title="Click to source" icon="crosshairs">
+    Click any rendered element, land on the exact file and line that produced it.
+  </Card>
+  <Card title="Two-way sync" icon="arrows-rotate">
+    Changes in the editor update the preview. Edits on the preview update the source.
+  </Card>
+  <Card title="CSS inspector" icon="magnifying-glass">
+    Inspect any element's computed styles, classes, and Tailwind utilities.
+  </Card>
+  <Card title="Insert palette" icon="plus">
+    Drop pre-built sections, components, or primitives into the running app.
+  </Card>
+</CardGroup>
+
+## How click-to-source works
+
+OpenSail's dev server injects a `data-oid` attribute on every JSX element it compiles. The attribute encodes the file path and the AST location. When you click an element in the preview iframe, the overlay reads `data-oid` and tells Monaco to jump to the exact line.
+
+```html
+<div data-oid="oid:src/components/Hero.tsx:42:7">
+  <!-- rendered hero section -->
+</div>
+```
+
+The OID index is kept in memory on the backend and rebuilt incrementally as the agent or you edit files. No custom build step on your end.
+
+<Info>
+  The `data-oid` attribute is only added in dev mode. Production builds strip it automatically. Your shipped app never leaks source paths.
+</Info>
+
+## The workflow
+
+<Steps>
+  <Step title="Enable Design mode">
+    Toggle the Design tab in the builder. The preview iframe gets a transparent selection overlay that tracks hover and click.
+  </Step>
+  <Step title="Click anything">
+    Hover to highlight an element's bounding box. Click to select. The editor jumps to the source and highlights the matching JSX block.
+  </Step>
+  <Step title="Inspect">
+    The CSS inspector panel opens beside the preview with computed styles, applied classes, parent chain, and bounding box metrics.
+  </Step>
+  <Step title="Edit">
+    Change a class, a prop, or the tree structure. Save. The preview hot-reloads with the change in place.
+  </Step>
+  <Step title="Or ask the agent">
+    Select an element and ask in chat: "make this card use a subtle gradient". The agent already knows which file and block you mean.
+  </Step>
+</Steps>
+
+## The CSS inspector
+
+<Tabs>
+  <Tab title="Computed">
+    Every computed CSS property resolved at the browser layer. Useful for understanding cascade conflicts or unexpected values.
+  </Tab>
+  <Tab title="Classes">
+    The Tailwind utility classes currently applied, with their resolved values. Click any class to remove it. Click the plus button to add a new class with autocomplete.
+  </Tab>
+  <Tab title="Layout">
+    Bounding box, margin, padding, flex/grid parent info. Same model the browser devtools use, embedded in the studio.
+  </Tab>
+  <Tab title="Source">
+    The JSX block that rendered the element, with the prop values it received. Jump to the component definition to see the source.
+  </Tab>
+</Tabs>
+
+## Two-way sync
+
+Every edit source roundtrips both directions.
+
+| You do | What updates |
+|--------|--------------|
+| Save a file in Monaco | Preview hot-reloads via Vite HMR |
+| Click an element in the preview | Editor jumps to the source block |
+| Change a class in the inspector | File is patched and saved atomically |
+| Drag a block from the Insert palette | JSX is inserted at the chosen position; file saves |
+| Agent runs `apply_patch` | Preview hot-reloads; any selected element re-highlights |
+
+<Info>
+  The inspector's class edits go through `patch_file` under the hood, so they produce clean diffs the agent can see and you can commit. Nothing is edited in memory only.
+</Info>
+
+## The Insert palette
+
+The Insert palette is a grid of pre-built sections, components, and primitives keyed to your project's framework and design system. It ships with curated content for Vite React and Next.js projects and picks up custom entries from your project's `.tesslate/components.json`.
+
+<Steps>
+  <Step title="Open the palette">
+    Click Insert or press `I` with the preview focused.
+  </Step>
+  <Step title="Pick a block">
+    Browse by category (Hero, Pricing, Feature Grid, Nav, Footer, Form, Table). Every block is a live preview itself.
+  </Step>
+  <Step title="Drop it in">
+    Drag the block onto the preview. A drop indicator shows the insertion point. Release to insert.
+  </Step>
+  <Step title="Customize">
+    The block is now source code in your project. Edit props, swap content, restyle through the inspector or chat.
+  </Step>
+</Steps>
+
+## Agent + Design Engineer together
+
+The visual layer is complementary to the agent. Typical patterns:
+
+<AccordionGroup>
+  <Accordion icon="cursor" title="Point and tell">
+    Select an element and say "this is too cramped". The agent sees the element OID, reads the surrounding code, and suggests spacing changes with a preview diff.
+  </Accordion>
+
+  <Accordion icon="brush" title="Theme, batch-apply">
+    Select one card. Ask: "apply this pattern to every card on this page". The agent finds all matching elements and applies the update consistently.
+  </Accordion>
+
+  <Accordion icon="arrows-split-up-and-left" title="Refactor from the preview">
+    Select a block. Ask: "extract this into a reusable component". The agent creates the file, replaces the inline block with a call, and the preview stays identical.
+  </Accordion>
+
+  <Accordion icon="pen-ruler" title="Build from a sketch">
+    Drop a screenshot into chat. Say "rebuild the hero section to match this". The agent generates the JSX, you refine the spacing and colors visually.
+  </Accordion>
+</AccordionGroup>
+
+## Frameworks supported
+
+Design Engineer is framework-aware:
+
+| Framework | OID injection | Insert palette | Inspector |
+|-----------|---------------|----------------|-----------|
+| Vite + React (TSX/JSX) | Yes | Yes | Full |
+| Next.js (App Router, Pages Router) | Yes | Yes | Full |
+| Astro (`.astro` components) | Yes | Limited | Full |
+| SvelteKit | Roadmap | Roadmap | Basic |
+| Vue (Vite) | Roadmap | Roadmap | Basic |
+
+For frameworks without OID support yet, you still get the CSS inspector and HMR-backed preview; click-to-source falls back to DOM-path heuristics.
+
+## Performance
+
+Click-to-source resolves in under 50 ms on normal page sizes. The overlay is a single absolutely-positioned React tree that only re-renders on hover or selection change. Classes applied via the inspector write through the same file-patch pipeline as the agent, so no special handling needed.
+
+<Warning>
+  Design mode runs only in dev. The OID attributes, overlay, and inspector are stripped from production builds automatically by the dev-server plugin.
+</Warning>
+
+## Keyboard
+
+| Shortcut | Action |
+|----------|--------|
+| `I` | Open Insert palette |
+| `Esc` | Clear selection |
+| `Shift + click` | Select parent element |
+| `Alt + click` | Inspect without selecting |
+| `Cmd/Ctrl + click` | Jump to source, keep preview focused |
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Start with the palette" icon="grid">
+    Drop a hero or a pricing table, then customize. Faster than building from zero.
+  </Card>
+  <Card title="Iterate visually, commit in code" icon="code-branch">
+    Every inspector tweak is a real file edit. Review diffs and commit when you like what you see.
+  </Card>
+  <Card title="Pair with the agent" icon="robot">
+    Selection context gives the agent a head start. "Fix this" with an element selected beats "fix the hero section".
+  </Card>
+  <Card title="Use typed components" icon="shield">
+    TypeScript props light up better in the inspector. Use `interface` or `type` declarations on every component.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-xmark" title="Click does not jump to source">
+    The dev server may not have injected OIDs yet. Hard-refresh the preview. If it persists, restart the dev container; the OID plugin picks up on Vite's next boot.
+  </Accordion>
+
+  <Accordion icon="triangle-exclamation" title="Inspector shows stale classes">
+    Wait for the HMR patch to land. If the file was just edited and the inspector shows old values, click the element again to re-query the DOM.
+  </Accordion>
+
+  <Accordion icon="ban" title="Insert palette is empty">
+    The palette indexes from your framework and from `.tesslate/components.json`. Make sure your project runtime is supported or the custom catalog file exists.
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Live Preview" icon="eye" href="/guides/live-preview">
+    The iframe the overlay runs on top of.
+  </Card>
+  <Card title="Code Editor" icon="code" href="/guides/code-editor">
+    Monaco's end of the click-to-source jump.
+  </Card>
+  <Card title="Architecture Panel" icon="diagram-project" href="/guides/architecture-panel">
+    Canvas-level structure; Design Engineer handles the rendered output.
+  </Card>
+  <Card title="Using Agents" icon="robot" href="/guides/using-agents">
+    Pair selections with chat for visual-first development.
+  </Card>
+</CardGroup>

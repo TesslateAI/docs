@@ -1,0 +1,142 @@
+---
+title: 'Architecture Panel'
+description: 'One canvas, one config file, two authors. The Architecture Panel is a React Flow graph that renders .tesslate/config.json. Humans and agents edit the same source of truth.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## What it is
+
+The Architecture Panel is a visual node-graph canvas where you design, wire, and manage the full topology of a project. Every project has one. It is the single source of truth for what your app is: which containers run, how they connect, where secrets flow, where it deploys.
+
+Under the hood it is a React Flow canvas backed by `.tesslate/config.json`. Both humans and agents read and write the same file. When the agent adds a Postgres container and wires its `DATABASE_URL` into the backend, new nodes and edges appear on the canvas in real time. When you drag a new service onto the canvas, the agent sees the updated graph on its next iteration. One file, two authors, no drift.
+
+<CardGroup cols={2}>
+  <Card title="Visual authoring" icon="diagram-project">
+    Drag, drop, connect. No docker-compose YAML to hand-edit.
+  </Card>
+  <Card title="Agent co-author" icon="robot">
+    Agents call `apply_setup_config` to mutate the graph through the same schema.
+  </Card>
+  <Card title="Typed graph" icon="code">
+    Parseable, roundtrippable, versionable. Agents reason over structure, not prose.
+  </Card>
+  <Card title="Publish-ready" icon="box-archive">
+    The manifest you publish as an app is a serialized snapshot of this graph.
+  </Card>
+</CardGroup>
+
+## Node types
+
+Every node on the canvas is one of four types.
+
+<Tabs>
+  <Tab title="Container nodes">
+    Your app containers (frontend, backend, workers). Color-coded by role:
+
+    - **Green** base (user application code)
+    - **Blue** service (Postgres, Redis, MySQL, Mongo, MinIO)
+    - **Purple** external (Supabase, Stripe, SendGrid)
+    - **Cyan** hybrid
+
+    Each shows status (running, stopped, starting, error), port, and tech stack. Click to open the properties panel. Double-click to jump into the code editor.
+  </Tab>
+  <Tab title="Browser preview nodes">
+    Live iframe windows rendered directly on the canvas. Resizable, draggable, with back/forward/home/refresh buttons and a URL bar. You can watch your running app while you wire its architecture.
+
+    Preview nodes accept at most one incoming connection (the container they mirror).
+  </Tab>
+  <Tab title="Deployment target nodes">
+    Branded cards for each provider (Vercel, Netlify, Cloudflare, AWS, 22 total). Shows environment tags (production, staging, preview), connected containers, deployment history, and the live URL after a successful deploy.
+
+    Click the env tag to cycle production/staging/preview. A/B deployments work naturally: connect the same container to two targets.
+  </Tab>
+  <Tab title="Hosted agent nodes">
+    The TesslateLLM proxy node. Represents an agent contained inside an app: the creator configures the system prompt, bound tools, bound MCPs, and model preference.
+
+    At runtime the node resolves to a shared worker pool with per-session keys tied to the installer's wallet. Used heavily in app authoring.
+  </Tab>
+</Tabs>
+
+## Edge types
+
+Edges express different kinds of dependency. Each has its own color and animation so the graph stays readable as it grows.
+
+| Edge type | Color | Style | Meaning |
+|-----------|-------|-------|---------|
+| `env_injection` | Orange | Dashed | Source container's exports become target's env vars |
+| `http_api` | Blue | Solid, animated | HTTP service dependency |
+| `database` | Green | Solid | Persistence dependency |
+| `cache` | Red | Dashed | Redis or memcached |
+| `browser_preview` | Purple | Dashed | Container to preview window |
+| `deployment` | Orange | Dashed with arrow | Container to deployment target |
+| `agent_invokes` | Gray | Solid | Hosted agent to service dependency |
+
+Draw an edge by dragging from any of a node's four handles to another node. The canvas validates connection compatibility (preview nodes accept one incoming, deployment targets accept only static and server containers, and so on).
+
+## Why a graph
+
+The AI agent needs a structured, parseable, roundtrippable target. If "what are the containers and how do they connect" lives as free-form prose in chat, every edit requires re-inferring state.
+
+The panel gives both humans and agents a typed graph they can read and write. Benefits stack up:
+
+- **Credentials and secrets are visible as env_injection edges**, not buried in `.env` files
+- **Multi-container topology is first-class** instead of hidden inside docker-compose YAML
+- **Previews are explicit nodes** so you always know what the iframe is pointing at
+- **Deployments are explicit nodes** so A/B deploys are a drawing, not a config change
+- **Publishing serializes the graph into the app manifest** so install restores the same graph into a new project
+
+## Editing
+
+Three surfaces mutate the graph:
+
+<Steps>
+  <Step title="Drag and drop on the canvas">
+    Pull a node from the Marketplace sidebar. Draw edges with the mouse. Reposition nodes. All changes persist to `.tesslate/config.json` through the `sync_project_config` pipeline.
+  </Step>
+  <Step title="Container Properties Panel">
+    Click any container node. The right-side panel opens with name, image, port, env vars, and startup command. Save and the graph updates.
+  </Step>
+  <Step title="Agent calls">
+    Agents mutate the graph with the `apply_setup_config` tool. This validates every startup command, upserts Container rows, full-replaces ContainerConnection, DeploymentTarget, and BrowserPreview records, and writes the file. All in one transaction.
+  </Step>
+</Steps>
+
+<Warning>
+  Never edit `.tesslate/config.json` through `write_file`. Writes through `write_file` skip container sync, swallow validation errors, and drift the database out of sync with the file. Always use `apply_setup_config`.
+</Warning>
+
+## Auto-layout
+
+The canvas auto-lays nodes on initial load using Dagre (left-to-right). Click **Auto Layout** to re-apply after big changes. Node sizes are hinted: containers 180x100, browser previews 320x280, deployment targets 220x120.
+
+## Canvas powers
+
+- **Pan and zoom** with cursor-anchored math so the point under the cursor stays fixed
+- **Snap guides** auto-align nodes as you drag
+- **Lock toggle** prevents accidental edits while navigating
+- **Theme-aware** styling uses `var(--surface)`, `var(--text)` so the graph adapts to dark/light and custom themes
+- **Memoized nodes and edges** keep rendering smooth even on 50+ node graphs
+
+## Relationship to apps
+
+When you publish a workspace as an app, the Architecture Panel's graph becomes the app's manifest. Containers, connections, deployment targets, and hosted agents all ship together.
+
+When someone installs your app, the install saga restores the graph into a new project with their volume, their credentials, and their billing configuration. One edit to the canvas in the source workspace is one diff in the next version.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Projects" icon="folder" href="/guides/projects">
+    The project that owns the graph.
+  </Card>
+  <Card title="Live preview" icon="eye" href="/guides/live-preview">
+    Preview nodes on the canvas.
+  </Card>
+  <Card title="Deployment targets" icon="rocket" href="/guides/deployment-targets">
+    All 22 supported targets.
+  </Card>
+  <Card title="Publishing apps" icon="box-archive" href="/guides/publishing-apps">
+    Serialize the graph into a manifest.
+  </Card>
+</CardGroup>

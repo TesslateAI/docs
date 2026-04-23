@@ -1,488 +1,202 @@
 ---
 title: 'Self-Hosting Quickstart'
-description: 'Get Tesslate Studio running on your own machine with Docker Compose in under 10 minutes'
+description: 'Pick the right path to self-host OpenSail: Docker, Desktop, Kubernetes on Minikube, or AWS EKS'
 ---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
 ## Overview
 
-This guide walks you through setting up Tesslate Studio locally using Docker Compose. By the end, you will have a fully functional AI-powered app builder running on your machine, complete with a code editor, live preview, AI chat, and project templates.
-
-You do not need Node.js or Python installed on your host machine. Everything runs inside Docker containers.
+OpenSail is Apache 2.0 and self-hosts cleanly. There are four supported install paths. This page is a router. Pick the path that fits your goal, then follow the dedicated guide.
 
 <Info>
-  **Looking for the cloud version?** Check out [tesslate.com](https://tesslate.com) for our hosted offering with zero setup required.
+  Prefer a managed experience? [tesslate.com](https://tesslate.com) runs OpenSail as a hosted service with zero setup.
 </Info>
 
-## Prerequisites
+## Pick your path
 
 <CardGroup cols={2}>
-  <Card title="Docker Desktop" icon="docker">
-    **Windows/Mac:** [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
-
-    **Linux:** `curl -fsSL https://get.docker.com | sh`
-
-    Make sure Docker Compose v2 is included (it ships with Docker Desktop by default).
+  <Card title="Docker Compose" icon="docker" href="/guides/docker-setup">
+    One command brings up the full stack on your laptop or a single VM. The fastest way to kick the tires. Best for local development and small teams.
   </Card>
 
-  <Card title="System Requirements" icon="server">
-    - **RAM:** 8 GB minimum (16 GB recommended)
-    - **Disk:** 10 GB free space (Docker images and volumes)
-    - **OS:** Windows (WSL 2 backend), macOS, or Linux
+  <Card title="Desktop App" icon="laptop" href="/guides/desktop-install">
+    Native Tauri v2 app with a built-in FastAPI sidecar and SQLite. No Docker, no cluster. Runs fully offline against local models.
   </Card>
 
-  <Card title="AI Provider Key" icon="key">
-    You need a LiteLLM endpoint or at least one AI provider API key:
-    - OpenAI (GPT-4, GPT-3.5)
-    - Anthropic (Claude 3.5 Sonnet, Claude 3 Opus)
-    - Or a self-hosted LiteLLM proxy
+  <Card title="Kubernetes (Minikube)" icon="cube" href="/guides/kubernetes-local">
+    Full K8s pipeline on your machine: per-project namespaces, btrfs CSI volumes, Volume Hub, snapshots. Test the production path end to end.
   </Card>
 
-  <Card title="Git" icon="github">
-    Download from [git-scm.com](https://git-scm.com/downloads)
+  <Card title="AWS EKS" icon="cloud" href="/guides/aws-production">
+    Production deployment via Terraform. EKS, ECR, managed Postgres, S3-backed CAS, wildcard TLS via cert-manager.
   </Card>
 </CardGroup>
 
-## Installation
-
-<Steps>
-  <Step title="Clone the Repository">
-    ```bash
-    git clone https://github.com/TesslateAI/Studio.git
-    cd Studio
-    ```
-  </Step>
-
-  <Step title="Create Your Environment File">
-    Copy the example configuration and open it for editing:
-
-    ```bash
-    cp .env.example .env
-    ```
-  </Step>
-
-  <Step title="Configure Required Variables">
-    Open `.env` in your editor and set these **required** values:
-
-    ```env
-    # REQUIRED: A random secret used for JWT signing and encryption.
-    # Generate one with: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-    SECRET_KEY=your-secret-key-here-change-this
-
-    # REQUIRED: LiteLLM configuration for AI features.
-    # Point this at your LiteLLM proxy or compatible endpoint.
-    LITELLM_API_BASE=https://your-litellm-url.com/v1
-    LITELLM_MASTER_KEY=your-litellm-master-key
-
-    # OPTIONAL but recommended: comma-separated list of models to offer users.
-    LITELLM_DEFAULT_MODELS=gpt-4o-mini,claude-3-5-sonnet-20241022
-    ```
-
-    Everything else has sensible defaults for local development. See the full [Configuration Reference](/self-hosting/configuration) for all available options.
-
-    <Accordion title="How to generate a secure SECRET_KEY">
-      Run one of these commands and paste the output into your `.env` file:
-
-      ```bash
-      # Python (works on all platforms)
-      python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-
-      # OpenSSL (Linux/Mac)
-      openssl rand -base64 32
-      ```
-    </Accordion>
-  </Step>
-
-  <Step title="Build and Start All Services">
-    ```bash
-    docker compose up --build -d
-    ```
-
-    This builds two images from source and pulls two from Docker Hub:
-
-    | Service | Image Source | Description |
-    |---------|-------------|-------------|
-    | `orchestrator` | Built from `orchestrator/Dockerfile` | FastAPI backend (Python 3.11) |
-    | `app` | Built from `app/Dockerfile` | React frontend (Vite dev server) |
-    | `postgres` | `postgres:15-alpine` (pulled) | PostgreSQL database |
-    | `traefik` | `traefik:v3.1` (pulled) | Reverse proxy for routing |
-
-    The first build takes about 1 to 2 minutes. Subsequent starts are much faster.
-  </Step>
-
-  <Step title="Build the Devserver Image">
-    The devserver image powers **user project containers** (the isolated environments that run your app code). It is not part of `docker-compose.yml`, so you must build it separately:
-
-    ```bash
-    docker build -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
-    ```
-
-    <Warning>
-      Without this image, creating or starting any user project will fail with a `pull access denied for tesslate-devserver` error.
-    </Warning>
-  </Step>
-
-  <Step title="Verify Everything Is Running">
-    ```bash
-    docker compose ps
-    ```
-
-    You should see output similar to:
-
-    ```
-    NAME                    IMAGE                          STATUS                  PORTS
-    tesslate-app            tesslate-studio-app            Up (healthy)            0.0.0.0:5173->5173/tcp
-    tesslate-orchestrator   tesslate-studio-orchestrator   Up (healthy)            0.0.0.0:8000->8000/tcp
-    tesslate-postgres-dev   postgres:15-alpine             Up (healthy)            0.0.0.0:5432->5432/tcp
-    tesslate-traefik        traefik:v3.1                   Up                      0.0.0.0:80->80/tcp
-    ```
-
-    All services should show **Up** (and **healthy** where applicable). The orchestrator may show `health: starting` for up to 30 seconds while it runs database migrations.
-  </Step>
-
-  <Step title="Access the Application">
-    Open your browser and navigate to:
-
-    | URL | Description |
-    |-----|-------------|
-    | http://localhost | Frontend via Traefik (recommended) |
-    | http://localhost:5173 | Vite dev server directly |
-    | http://localhost:8000/docs | Swagger API documentation |
-    | http://localhost:8080 | Traefik admin dashboard |
-
-    The database is auto-initialized on first startup (tables created via Alembic migrations).
-  </Step>
-
-  <Step title="Seed the Database">
-    After the first startup, seed marketplace data (project templates, AI agents, themes):
-
-    ```bash
-    # Copy seed scripts into the backend container
-    docker cp scripts/seed/seed_marketplace_bases.py tesslate-orchestrator:/tmp/
-    docker cp scripts/seed/seed_marketplace_agents.py tesslate-orchestrator:/tmp/
-    docker cp scripts/seed/seed_opensource_agents.py tesslate-orchestrator:/tmp/
-    docker cp scripts/seed/seed_themes.py tesslate-orchestrator:/tmp/
-    docker exec tesslate-orchestrator mkdir -p /tmp/themes
-    docker cp scripts/themes/. tesslate-orchestrator:/tmp/themes/
-
-    # Run seed scripts (order matters: bases first, then agents, then themes)
-    docker exec -e PYTHONPATH=/app tesslate-orchestrator python /tmp/seed_marketplace_bases.py
-    docker exec -e PYTHONPATH=/app tesslate-orchestrator python /tmp/seed_marketplace_agents.py
-    docker exec -e PYTHONPATH=/app tesslate-orchestrator python /tmp/seed_opensource_agents.py
-    ```
-
-    All seed scripts are idempotent, so it is safe to re-run them without duplicating data.
-
-    <Accordion title="What gets seeded?">
-      | Data | Count | Examples |
-      |------|-------|---------|
-      | **Project templates** | 4 | Next.js 16, Vite+React+FastAPI, Vite+React+Go, Expo |
-      | **Official agents** | 5 | Stream Builder, Tesslate Agent, React Component Builder, API Integration, ReAct Agent |
-      | **Open-source agents** | 6 | Code Analyzer, Doc Writer, Refactoring Assistant, Test Generator, API Designer, DB Schema Designer |
-      | **Themes** | 7 | default-dark, default-light, midnight, ocean, forest, rose, sunset |
-    </Accordion>
-  </Step>
-
-  <Step title="Create Your First Project">
-    1. Click **"Sign Up"** to create your account (the first user gets admin privileges)
-    2. Click **"New Project"** on the dashboard
-    3. Choose a starter template (for example, **Vite + React + FastAPI**)
-    4. Give your project a name and click **"Create"**
-    5. Try typing in the chat: `Create a simple todo app with add, delete, and mark complete functionality`
-  </Step>
-</Steps>
-
-<Check>
-  **Your self-hosted Tesslate Studio is now running.** You have a code editor, live preview, AI chat, and file browser all in your browser.
-</Check>
-
-## What Gets Created
-
-### Docker Resources
-
-| Resource | Name | Purpose |
-|----------|------|---------|
-| **Image** | `tesslate-studio-orchestrator` | FastAPI backend (~870 MB) |
-| **Image** | `tesslate-studio-app` | React frontend (~760 MB) |
-| **Image** | `tesslate-devserver` | User project runtime (~1.2 GB) |
-| **Volume** | `tesslate-postgres-dev-data` | PostgreSQL data (persists between restarts) |
-| **Volume** | `tesslate-base-cache` | Pre-installed marketplace templates |
-| **Volume** | `tesslate-projects-data` | All user project source code |
-| **Network** | `tesslate-network` | Bridge network connecting all services |
-
-### Routing (Traefik)
-
-| Path Pattern | Destination | Priority |
-|-------------|-------------|----------|
-| `/api/*` | `orchestrator:8000` | 100 |
-| `/ws/*` | `orchestrator:8000` | 100 |
-| `/*` (everything else) | `app:5173` | 10 |
-| `*.localhost` | User project containers | Auto-discovered |
-
-## Development Workflow
-
-### Hot Reload
-
-Both backend and frontend support automatic reloading via volume mounts:
-
-- **Backend:** Edit files in `orchestrator/app/`. Uvicorn detects changes and reloads automatically.
-- **Frontend:** Edit files in `app/src/`. Vite HMR updates the browser instantly.
-
-No rebuild is needed for code changes.
-
-### When to Rebuild
-
-Rebuild only when **dependencies** change (new packages added to `pyproject.toml` or `package.json`):
-
-```bash
-# Rebuild a specific service
-docker compose up -d --build orchestrator
-docker compose up -d --build app
-
-# Rebuild everything
-docker compose up -d --build
-```
-
-### Viewing Logs
-
-```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f orchestrator
-docker compose logs -f app
-docker compose logs -f postgres
-```
-
-### Shell Access
-
-```bash
-# Backend container (Python/bash)
-docker compose exec orchestrator bash
-
-# Frontend container (Alpine sh)
-docker compose exec app sh
-
-# Database (psql)
-docker compose exec postgres psql -U tesslate_user -d tesslate_dev
-```
-
-### Database Migrations
-
-```bash
-# Apply pending migrations
-docker compose exec orchestrator alembic upgrade head
-
-# Create a new migration
-docker compose exec orchestrator alembic revision --autogenerate -m "description"
-
-# Roll back one migration
-docker compose exec orchestrator alembic downgrade -1
-```
-
-## Clean Slate Reset
-
-To completely reset everything (database, images, volumes) and start fresh:
-
-```bash
-# 1. Stop and remove containers, volumes, and orphans
-docker compose down --volumes --remove-orphans
-
-# 2. Remove all Tesslate images
-docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}" | grep -i tesslate | awk '{print $2}' | sort -u | xargs docker rmi -f
-
-# 3. Rebuild and start fresh
-docker compose up --build -d
-```
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion icon="globe" title="Cannot access localhost or studio.localhost">
-    **Symptoms:** The browser shows "connection refused" or "site can't be reached."
-
-    **Steps to resolve:**
-
-    1. **Verify Docker is running:** Open Docker Desktop and confirm it says "Docker is running."
-    2. **Check container status:**
-       ```bash
-       docker compose ps
-       ```
-       All services should show `Up`.
-    3. **Check orchestrator logs for startup errors:**
-       ```bash
-       docker compose logs orchestrator
-       ```
-    4. **Try the direct ports:** Access `http://localhost:5173` (frontend) or `http://localhost:8000/docs` (API docs) to bypass Traefik.
-    5. **Restart everything:**
-       ```bash
-       docker compose down
-       docker compose up -d
-       ```
-  </Accordion>
-
-  <Accordion icon="plug" title="Port already in use">
-    **Symptom:** `bind: address already in use` when starting containers.
-
-    **Solution:** Change the conflicting port in your `.env` file:
-
-    ```env
-    APP_PORT=8081        # default: 80
-    BACKEND_PORT=8001    # default: 8000
-    FRONTEND_PORT=5174   # default: 5173
-    POSTGRES_PORT=5433   # default: 5432
-    ```
-
-    Then restart: `docker compose up -d`
-  </Accordion>
-
-  <Accordion icon="heartbeat" title="Orchestrator fails health check (shows 'unhealthy')">
-    **Common causes:**
-
-    1. **Database not ready yet.** The orchestrator waits for PostgreSQL. Give it 30 seconds.
-    2. **Missing required environment variables.** Check that `SECRET_KEY` and `LITELLM_API_BASE` are set in `.env`.
-    3. **Port conflict on 8000.** Another process may be using that port.
-
-    **Check logs for details:**
-    ```bash
-    docker compose logs orchestrator
-    ```
-  </Accordion>
-
-  <Accordion icon="rotate" title="Hot reload not working">
-    **Backend (Uvicorn):**
-    - Confirm `WATCHFILES_FORCE_POLLING=true` is set (already in docker-compose.yml by default).
-    - Check logs: `docker compose logs -f orchestrator` and look for "Reloading..."
-
-    **Frontend (Vite):**
-    - Confirm `CHOKIDAR_USEPOLLING=true` is set (already in docker-compose.yml by default).
-    - Check your browser console for HMR connection errors.
-    - Try a hard refresh: `Ctrl+Shift+R`.
-  </Accordion>
-
-  <Accordion icon="server" title="User project container not starting">
-    **Symptom:** Creating a project fails with `pull access denied for tesslate-devserver`.
-
-    **Cause:** You have not built the devserver image.
-
-    **Fix:**
-    ```bash
-    docker build -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
-    ```
-  </Accordion>
-
-  <Accordion icon="database" title="Database connection errors">
-    ```bash
-    # Check if PostgreSQL is running
-    docker compose ps postgres
-
-    # Test connection from inside the container
-    docker compose exec postgres pg_isready -U tesslate_user -d tesslate_dev
-    ```
-
-    If the database is corrupted, reset it:
-    ```bash
-    docker compose down
-    docker volume rm tesslate-postgres-dev-data
-    docker compose up -d
-    ```
-
-    <Warning>
-      Removing the database volume deletes all existing data.
-    </Warning>
-  </Accordion>
-
-  <Accordion icon="comment" title="LITELLM_DEFAULT_MODELS warning">
-    If you see `The "LITELLM_DEFAULT_MODELS" variable is not set. Defaulting to a blank string.`, this is harmless. Suppress it by adding to `.env`:
-
-    ```env
-    LITELLM_DEFAULT_MODELS=gpt-4o-mini
-    ```
-  </Accordion>
-</AccordionGroup>
-
-## Advanced: Hybrid Development Mode
-
-For faster iteration during development, you can run the backend and frontend natively on your host while keeping infrastructure in Docker:
+## Decision matrix
 
 <Tabs>
-  <Tab title="Full Docker (Recommended for most users)">
-    ```bash
-    docker compose up -d
-    ```
-    Everything runs in containers. Simple and fully isolated.
+  <Tab title="By use case">
+    | You want to... | Pick |
+    |----------------|------|
+    | Kick the tires in 10 minutes | Docker Compose |
+    | Build on a single machine with no containers | Desktop |
+    | Air-gapped install with Ollama | Desktop or Docker |
+    | Serve a small team on one VM | Docker Compose |
+    | Multi-tenant production with isolation and snapshots | AWS EKS |
+    | Validate the K8s pipeline before prod | Minikube |
+    | Pair a local app to your own self-hosted cloud | Desktop + AWS EKS |
   </Tab>
 
-  <Tab title="Hybrid Mode (Native backend and frontend)">
-    ```bash
-    # Terminal 1: Start infrastructure only
-    docker compose up -d traefik postgres
+  <Tab title="By capability">
+    | Capability | Docker | Desktop | Minikube | AWS EKS |
+    |------------|:------:|:-------:|:--------:|:-------:|
+    | AI agent runs (`tesslate-agent`) | Yes | Yes | Yes | Yes |
+    | Live preview and Monaco editor | Yes | Yes | Yes | Yes |
+    | Multi-container projects | Yes | docker runtime | Yes | Yes |
+    | Per-project namespace isolation | No | No | Yes | Yes |
+    | btrfs CSI and Volume Hub | No | No | Yes | Yes |
+    | Snapshot timeline (up to 5 per project) | No | No | Yes | Yes |
+    | Hibernation with CAS restore | No | No | Yes | Yes |
+    | Three-tier compute (0 / 1 / 2) | Partial | Partial | Yes | Yes |
+    | Wildcard TLS via cert-manager | No | No | No | Yes |
+    | SQLite (no Postgres) | No | Yes | No | No |
+    | No Redis required | No | Yes | No | No |
+    | Horizontal scaling | No | No | No | Yes |
+  </Tab>
 
-    # Terminal 2: Run backend with hot reload
-    cd orchestrator
-    uv run uvicorn app.main:app --reload --port 8000
-
-    # Terminal 3: Run frontend with hot reload
-    cd app
-    npm run dev
-    ```
-
-    Frontend at `http://localhost:5173`, backend at `http://localhost:8000`.
+  <Tab title="By operator effort">
+    | Path | Setup | Moving parts | Ongoing ops |
+    |------|-------|--------------|-------------|
+    | Docker Compose | 10 min | Postgres, Redis, Traefik, orchestrator, app, devserver image | Restart, rotate backups |
+    | Desktop | 2 min | Tauri binary, sidecar, SQLite | Installer auto-updates |
+    | Minikube | 30 min | Cluster, kustomize, local images, btrfs CSI, Volume Hub | Rebuilds, manifest rollouts |
+    | AWS EKS | 2 to 4 hr | Terraform, EKS, ECR, RDS, S3, Cloudflare, wildcard TLS | Cluster upgrades, cost monitoring |
   </Tab>
 </Tabs>
 
-## Stopping and Restarting
+## Prerequisites by path
 
-<CodeGroup>
-```bash Stop all services (keep data)
-docker compose down
+<Tabs>
+  <Tab title="Docker">
+    | Requirement | Notes |
+    |-------------|-------|
+    | Docker Engine + Compose v2 | Docker Desktop on macOS and Windows |
+    | 8 GB RAM minimum | 16 GB recommended |
+    | 10 GB free disk | For images and volumes |
+    | A model key or LiteLLM endpoint | BYOK OpenAI, Anthropic, OpenRouter, or point at local Ollama |
+    | Git | For cloning the repo |
+  </Tab>
+
+  <Tab title="Desktop">
+    | Requirement | Notes |
+    |-------------|-------|
+    | macOS 12+, Windows 10+, or Linux | Tauri v2 builds for all three |
+    | 4 GB RAM minimum | SQLite and sidecar are lightweight |
+    | 2 GB free disk | Grows with projects |
+    | A model key | BYOK or Ollama for fully offline use |
+    | Optional: Docker | Enables the `docker` per-project runtime |
+    | Optional: `tsk_` API key | Unlocks marketplace, sync, remote K8s runtime |
+  </Tab>
+
+  <Tab title="Minikube">
+    | Requirement | Notes |
+    |-------------|-------|
+    | Minikube | With the Docker or KVM driver |
+    | kubectl + kustomize | Kustomize ships with kubectl 1.14+ |
+    | btrfs-capable node | Required for the btrfs CSI driver |
+    | Local Docker registry | Minikube loads images by name |
+    | A model key or LiteLLM endpoint | BYOK or proxy |
+  </Tab>
+
+  <Tab title="AWS EKS">
+    | Requirement | Notes |
+    |-------------|-------|
+    | AWS account with admin | EKS, ECR, RDS, S3, IAM |
+    | Terraform | `k8s/terraform/aws/` |
+    | Cloudflare DNS | For apex and wildcard certs |
+    | Managed Postgres | RDS recommended |
+    | ElastiCache Redis | For ARQ and pub/sub |
+    | btrfs-capable nodegroup | Required for CSI driver and Volume Hub |
+    | LiteLLM deployment | Or direct provider keys on the proxy |
+  </Tab>
+</Tabs>
+
+## Core environment variables
+
+Every path reads the same core variables. The full reference lives in [Configuration](/self-hosting/configuration).
+
+| Variable | Why it matters |
+|----------|----------------|
+| `SECRET_KEY` | JWT signing and Fernet encryption for stored credentials |
+| `DEPLOYMENT_MODE` | `docker`, `kubernetes`, or `desktop`. Selects orchestrator, DB driver, queue, pub/sub |
+| `DATABASE_URL` | Postgres (cloud) or resolved SQLite (desktop) |
+| `LITELLM_API_BASE` + `LITELLM_MASTER_KEY` | AI gateway that fans out to providers |
+| `APP_DOMAIN` | Apex domain for routing, cookies, and OAuth redirects |
+| `OPENSAIL_HOME` | Desktop only. Data directory for `opensail.db`, projects, and cache |
+
+Generate a secure `SECRET_KEY`:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-```bash Stop and remove ALL data (volumes)
-docker compose down --volumes
-```
+## What you get after install
 
-```bash Restart services
-docker compose restart
-```
-</CodeGroup>
+| Component | Source path | Purpose |
+|-----------|-------------|---------|
+| Orchestrator | `orchestrator/app/main.py` | FastAPI backend, router registration, middleware |
+| Agent runner | `packages/tesslate-agent/` | Agent loop, tool registry, context compaction, approval gates |
+| Task queue | `orchestrator/app/services/task_queue/` | ARQ on Redis (cloud) or asyncio + apscheduler (desktop) |
+| Pub/sub | `orchestrator/app/services/pubsub/` | Redis Streams (cloud) or in-process (desktop) |
+| Orchestration | `orchestrator/app/services/orchestration/` | Per-project `factory.py` resolves Docker, Kubernetes, or local backends |
+| Volume Hub client | `orchestrator/app/services/volume_manager.py` | gRPC client to the Hub (K8s only) |
+| Frontend | `app/src/App.tsx` | React 19, Vite, Monaco |
 
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Configuration Reference" icon="gear" href="/self-hosting/configuration">
-    All environment variables, grouped by category, with examples
+  <Card title="Docker setup" icon="docker" href="/guides/docker-setup">
+    Full Docker Compose install with seeds and clean-slate reset.
   </Card>
 
-  <Card title="Production Deployment" icon="server" href="/self-hosting/deployment">
-    Deploy to production with Docker Compose, Kubernetes, or AWS EKS
+  <Card title="Desktop install" icon="laptop" href="/guides/desktop-install">
+    Installers, cloud pairing, permission system, runtime selection.
   </Card>
 
-  <Card title="Architecture Overview" icon="diagram-project" href="/self-hosting/architecture">
-    Understand the multi-tier design, data flow, and security model
+  <Card title="Kubernetes on Minikube" icon="cube" href="/guides/kubernetes-local">
+    End-to-end K8s locally including btrfs CSI and Volume Hub.
   </Card>
 
-  <Card title="API Documentation" icon="book" href="/api-reference/introduction">
-    Explore the REST API with Swagger
+  <Card title="AWS production" icon="cloud" href="/guides/aws-production">
+    Terraform, EKS, ECR, wildcard TLS, S3 CAS, managed Postgres.
+  </Card>
+
+  <Card title="Configuration reference" icon="gear" href="/self-hosting/configuration">
+    Every environment variable, grouped by subsystem.
+  </Card>
+
+  <Card title="Architecture" icon="diagram-project" href="/self-hosting/architecture">
+    Orchestrator, agent runner, storage, queue, compute tiers.
   </Card>
 </CardGroup>
 
-## Getting Help
+## Getting help
 
 <CardGroup cols={2}>
-  <Card title="GitHub Discussions" icon="comments" href="https://github.com/TesslateAI/Studio/discussions">
-    Ask questions and share ideas
+  <Card title="GitHub" icon="github" href="https://github.com/TesslateAI/opensail">
+    Source, releases, and issue tracker.
   </Card>
 
-  <Card title="GitHub Issues" icon="bug" href="https://github.com/TesslateAI/Studio/issues">
-    Report bugs and request features
+  <Card title="Discord" icon="discord" href="https://discord.gg/qmrcHGNch7">
+    Ask questions, share what you are building.
   </Card>
 
-  <Card title="Email Support" icon="envelope" href="mailto:support@tesslate.com">
-    Direct support (response within 24h)
+  <Card title="Agent runner" icon="book" href="https://github.com/TesslateAI/tesslate-agent">
+    Deep dive on the `tesslate-agent` package.
   </Card>
 
-  <Card title="Documentation" icon="book" href="https://docs.tesslate.com">
-    Browse the full documentation
+  <Card title="Email" icon="envelope" href="mailto:support@tesslate.com">
+    Direct support.
   </Card>
 </CardGroup>

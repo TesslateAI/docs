@@ -1,0 +1,232 @@
+---
+title: 'Skills'
+description: 'Teach an agent a reusable capability once and let any agent use it forever. Progressive loading keeps the context window lean.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## What a skill is
+
+A skill is a markdown document that teaches an agent a reusable capability. It has a name, a short description, and a body. The body can be anything that packages up working know-how: a code-review checklist, a research methodology, a data-analysis pipeline, a writing style, a report template, a step-by-step playbook for a recurring task.
+
+Skills are the unit of portable agent knowledge in OpenSail. Build a skill once, attach it to any agent, share it on the marketplace.
+
+<CardGroup cols={2}>
+  <Card title="Author once" icon="pen">
+    Capture an entire methodology in a markdown file
+  </Card>
+  <Card title="Reuse everywhere" icon="infinity">
+    Attach to any agent on any project
+  </Card>
+  <Card title="Progressive loading" icon="feather">
+    Only the name and description live in context; the body loads on demand
+  </Card>
+  <Card title="Shareable" icon="share-nodes">
+    Install open-source skills from the marketplace or publish your own
+  </Card>
+</CardGroup>
+
+## Progressive loading
+
+Context windows are finite. Injecting every skill body at session start wastes tokens on capabilities the agent never uses. OpenSail solves this with progressive disclosure:
+
+<Steps>
+  <Step title="Catalog injected at session start">
+    When a chat session opens, the orchestrator discovers every skill available to the agent and injects a lightweight catalog into the system context: name, one-line description, source tag. Full bodies are not loaded.
+  </Step>
+
+  <Step title="Agent decides when it needs one">
+    As the agent works, it scans the catalog for a relevant skill. When it finds one, it calls the `load_skill` tool with the skill slug.
+  </Step>
+
+  <Step title="Body loaded on demand">
+    The orchestrator fetches the full body, applies any live marker substitutions (so built-in skills always match current platform behavior), and returns it to the agent as a tool result.
+  </Step>
+
+  <Step title="Used in the next turn">
+    The agent now has the full skill body in context and can apply it. The body stays in context for the rest of the session or until compaction.
+  </Step>
+</Steps>
+
+<Info>
+  Progressive loading is automatic. Skill authors don't do anything special. Agents don't need special training. The `load_skill` tool and the catalog injection handle it transparently.
+</Info>
+
+## The three skill sources
+
+Every agent session merges skills from three independent sources into one catalog:
+
+| Source | Where it lives | Who sees it |
+|--------|----------------|-------------|
+| Built-in | Seeded by the platform (`is_builtin=True`) | Every agent, every user |
+| Database assignment | `AgentSkillAssignment` rows created when you install a skill on an agent | Only agents you've attached it to |
+| Project file | `.agents/skills/SKILL.md` inside the workspace | Any agent working in that project |
+
+Duplicates are de-duplicated. If a user has both a built-in skill and an explicit assignment to the same skill, it appears once, tagged built-in.
+
+## Browsing and installing skills
+
+<Steps>
+  <Step title="Open the marketplace">
+    Marketplace tab, then filter to Skills. Browse by category, tag, or creator.
+  </Step>
+
+  <Step title="Open a skill">
+    The detail page shows the skill body, the creator, the tags, and installation stats.
+  </Step>
+
+  <Step title="Install">
+    Click Install. The skill lands in your Library with your ownership.
+  </Step>
+
+  <Step title="Attach to an agent">
+    Open the agent you want to extend. In the Skills tab, click Add Skill and pick from your Library.
+  </Step>
+
+  <Step title="Use it">
+    Start a chat session with that agent. The skill is in the catalog from the first turn.
+  </Step>
+</Steps>
+
+## Authoring a skill
+
+Skills are plain markdown with a lightweight frontmatter contract.
+
+<Steps>
+  <Step title="Pick a slug">
+    Stable kebab-case identifier. Example: `react-component-review`.
+  </Step>
+
+  <Step title="Write a one-line description">
+    This is what the agent reads to decide whether to load the body. Make it concrete. "Checklist for reviewing React components for accessibility and performance" beats "reviews code".
+  </Step>
+
+  <Step title="Write the body">
+    Treat it like documentation for a junior engineer who needs to follow your methodology exactly. Include examples, anti-patterns, and edge cases. Markdown code fences and tables are fine.
+  </Step>
+
+  <Step title="Publish">
+    Open the Library, create a new skill, paste the body, save. Optionally submit it to the marketplace.
+  </Step>
+</Steps>
+
+### What makes a good skill body
+
+<AccordionGroup>
+  <Accordion icon="bullseye" title="Concrete and actionable">
+    "Run `npm test -- --coverage` and fail the review if coverage drops below 80%" beats "make sure there are enough tests".
+  </Accordion>
+
+  <Accordion icon="list-check" title="Step-ordered">
+    The agent executes top to bottom. Structure the body as a numbered or bulleted sequence the agent can walk through.
+  </Accordion>
+
+  <Accordion icon="code" title="Include examples">
+    Paste short code samples or CLI transcripts showing what correct output looks like. LLMs pattern-match examples better than abstract instructions.
+  </Accordion>
+
+  <Accordion icon="ban" title="Include anti-patterns">
+    Spelling out what not to do is as valuable as what to do. "Never use `any` in TypeScript code" is a skill rule that saves turns.
+  </Accordion>
+
+  <Accordion icon="feather" title="Keep it focused">
+    One skill per capability. If the body grows past a few hundred lines or covers multiple methodologies, split it into multiple skills.
+  </Accordion>
+</AccordionGroup>
+
+## Tesslate skills vs open-source skills
+
+<Tabs>
+  <Tab title="Tesslate (built-in)">
+    Shipped with the platform. Authored by the Tesslate team. Available to every agent without any attachment. Live-rendered: marker tokens like `{{TESSLATE_CONFIG_SCHEMA}}` or `{{SERVICE_CATALOG}}` are substituted with current values from the code, so skill bodies never drift from the actual platform behavior.
+
+    Examples:
+    - `project-architecture` (how OpenSail projects are structured)
+    - Config schema skills that reflect the live `.tesslate/config.json` definition
+  </Tab>
+
+  <Tab title="Open-source">
+    Authored by you or the community. Published under a license of your choice. Users browse, install, attach, fork. Open-source skills are editable after fork.
+
+    Typical examples:
+    - Code review checklists
+    - Research methodologies
+    - Writing style guides
+    - Integration playbooks for specific APIs
+    - QA testing scripts
+  </Tab>
+</Tabs>
+
+## Project-file skills
+
+Any agent working in a project picks up skills from `.agents/skills/SKILL.md` automatically. This is how you ship project-specific know-how with the repo itself.
+
+```
+your-project/
+├── .agents/
+│   └── skills/
+│       ├── run-migrations.md
+│       ├── deployment-checklist.md
+│       └── review-pr.md
+├── src/
+└── package.json
+```
+
+Commit these files to git. Anyone working in the project with any agent gets the same skills. No install step required.
+
+## Publishing a skill
+
+<Steps>
+  <Step title="Write and test">
+    Use the skill on real work across multiple projects. Refine the body based on where the agent gets stuck or drifts.
+  </Step>
+
+  <Step title="Submit">
+    Open the skill in your Library and click Publish. Fill in the marketplace description, tags, and category.
+  </Step>
+
+  <Step title="Set visibility">
+    Private, team, or public. Public goes through the approval pipeline.
+  </Step>
+
+  <Step title="Iterate">
+    Ship updates as new versions. Installers can pin a version or auto-update.
+  </Step>
+</Steps>
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion icon="file-lines" title="Descriptions are load-gates">
+    The agent only knows the description. If your description is vague, your skill won't get loaded when it's needed. Make it specific and action-oriented.
+  </Accordion>
+
+  <Accordion icon="scissors" title="Keep bodies lean">
+    Long bodies burn context once loaded. Aim for the shortest body that fully captures the methodology. If multiple sub-methods are inside, consider splitting.
+  </Accordion>
+
+  <Accordion icon="layer-group" title="Compose over nest">
+    A single agent can load many skills in one session. Prefer several small focused skills to one giant skill covering everything.
+  </Accordion>
+
+  <Accordion icon="book" title="Test across agents">
+    Skills that work with one agent's system prompt may conflict with another's. If you publish a skill, test it against the default agents users will pair it with.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Customizing Agents" icon="sliders" href="/guides/customizing-agents">
+    Attach skills to your own custom agents
+  </Card>
+  <Card title="Connectors (MCP)" icon="plug" href="/guides/connectors-mcp">
+    Pair skills with connectors for end-to-end workflows
+  </Card>
+  <Card title="Using Agents" icon="comments" href="/guides/using-agents">
+    Watch the load_skill tool in action
+  </Card>
+  <Card title="Marketplace" icon="store" href="/guides/marketplace">
+    Browse published skills
+  </Card>
+</CardGroup>

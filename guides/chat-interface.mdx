@@ -1,371 +1,188 @@
 ---
 title: 'Chat Interface'
-description: 'Communicate with AI agents using real-time streaming, tool calls, and approval flows'
+description: 'The chat panel is where you drive the agent: streaming output, inline tool calls, approval cards, agent and model selectors, file picker, attachments, and a full session history.'
 ---
 
-## Overview
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-The chat interface is how you interact with AI agents to build, modify, and debug your application. You describe what you want in natural language, and the agent writes code, creates files, runs commands, and updates your project in real time.
+## What the chat does
+
+The chat panel is your primary interface to the agent. You type what you want, the agent plans, calls tools, writes files, runs commands, and streams its work back in real time. Every tool call is visible, every dangerous write pauses for approval, and every session persists so you can pick up later.
+
+Chat ships in two surfaces: the project-builder sidebar (`ChatContainer`) and the standalone `/chat` page (not scoped to a project).
 
 <CardGroup cols={2}>
-  <Card title="Natural Language" icon="message">
-    Describe features, fixes, and changes in plain English
+  <Card title="Streaming" icon="water">
+    Token-by-token between tool calls. See reasoning as it happens.
   </Card>
-  <Card title="Real-Time Streaming" icon="water">
-    Watch the agent's response generate token by token
+  <Card title="Inline tool calls" icon="wrench">
+    Every tool invocation expands to show parameters, result, and duration.
   </Card>
-  <Card title="Tool Execution" icon="wrench">
-    Agents read files, write code, run shell commands, and fetch web content
+  <Card title="Approval cards" icon="shield-check">
+    Dangerous writes surface an inline card: Allow Once, Allow All, Stop.
   </Card>
-  <Card title="Project-Aware" icon="brain">
-    Agents understand your full project structure and existing code
+  <Card title="Session history" icon="clock-rotate-left">
+    Named sessions per project. Switch, rename, search, delete.
   </Card>
 </CardGroup>
 
-## Chat Layout
-
-The chat panel is part of the project builder workspace. Its position can be customized through user preferences (left, center, or right). A typical layout looks like this:
-
-```
-+-----------------------------------+
-|   Code Editor / Preview           |
-|                                   |
-+-----------------------------------+
-|   Chat History                    |
-|   +---------------------------+   |
-|   | You: Build a login form   |   |
-|   | Agent: [streaming...]     |   |
-|   +---------------------------+   |
-|                                   |
-|   [Agent Selector] [Message Input]|
-+-----------------------------------+
-```
-
-## Sending Messages
-
-<Steps>
-  <Step title="Select an Agent">
-    Choose which AI agent to use from the dropdown. Each agent has a different system prompt, tool set, and AI model. The selection persists per project (stored in localStorage).
-  </Step>
-  <Step title="Type Your Message">
-    Describe what you want to build, change, or fix. Be specific about the desired behavior, technologies, and visual design.
-  </Step>
-  <Step title="Send">
-    Press `Enter` to send the message (use `Shift + Enter` for a new line). The agent begins processing immediately.
-  </Step>
-  <Step title="Watch the Agent Work">
-    The agent streams its response in real time. You will see text output, tool calls (file reads, writes, shell commands), and the results of each tool execution.
-  </Step>
-  <Step title="Review the Results">
-    Check the generated code in the editor and the updated preview. Continue the conversation to refine or extend.
-  </Step>
-</Steps>
-
-## How Streaming Works
-
-When you send a message, the frontend establishes a streaming connection to the backend. The agent's response arrives as a series of Server-Sent Events (SSE), each containing a typed payload.
-
-### Message Types
-
-| Event Type | Description |
-|------------|-------------|
-| `agent_response` | A chunk of the agent's text response (streamed token by token) |
-| `agent_tool_start` | The agent is calling a tool (for example, `write_file` or `execute_command`) |
-| `agent_tool_result` | The result of a tool call (file content, command output, etc.) |
-| `agent_stream_end` | The agent has finished its response |
-| `agent_error` | An error occurred during processing |
-
-### Streaming Flow
-
-<Steps>
-  <Step title="Message Sent">
-    Your message is sent over the WebSocket connection with the project ID, agent ID, container ID, and view context.
-  </Step>
-  <Step title="Agent Starts Thinking">
-    A typing indicator appears while the agent processes the request.
-  </Step>
-  <Step title="Text Streams In">
-    `agent_response` events arrive with text tokens. These are displayed character by character in the chat panel.
-  </Step>
-  <Step title="Tool Calls Execute">
-    When the agent needs to read a file, write code, or run a command, `agent_tool_start` events appear. The UI shows which tool is running and on which file.
-  </Step>
-  <Step title="Tool Results Return">
-    `agent_tool_result` events contain the outcome (file contents, command output). The agent uses these results to decide its next action.
-  </Step>
-  <Step title="Stream Completes">
-    An `agent_stream_end` event signals that the agent has finished. The chat is ready for your next message.
-  </Step>
-</Steps>
-
-<Info>
-  The streaming connection uses native `fetch()` with `getAuthHeaders()` for SSE. An `AbortSignal` is passed for cancellation, so you can stop a response mid-stream by clicking the cancel button.
-</Info>
-
-## Agent Selection
-
-### Choosing the Right Agent
-
-Different agents excel at different tasks:
-
-<Tabs>
-  <Tab title="StreamAgent">
-    **Best for**: UI components, visual design, CSS styling, and fast iteration.
-
-    **How it works**: Streams responses in real time with interleaved tool calls. Produces output quickly, making it ideal for small to medium changes.
-  </Tab>
-
-  <Tab title="IterativeAgent">
-    **Best for**: Complex logic, multi-file refactoring, API integration, debugging, and tasks that require step-by-step reasoning.
-
-    **How it works**: Plans a multi-step approach before executing. Uses a reasoning loop that evaluates results after each tool call and adjusts its plan accordingly.
-  </Tab>
-</Tabs>
-
-### Container and View Context
-
-When you send a message, the chat includes context about which container you are working in and which view mode is active. This allows agents to scope their file operations to the correct container directory and adjust their tool usage based on the current context.
-
-## Edit Mode
-
-The chat supports two modes for how the agent applies changes:
-
-<Tabs>
-  <Tab title="Ask Mode">
-    The agent generates a response and applies changes directly. This is the default mode and is best for straightforward requests where you trust the agent's output.
-  </Tab>
-  <Tab title="Edit Mode">
-    The agent proposes changes but requires your approval before applying them. This is useful for sensitive code or production-critical files where you want to review every change before it takes effect.
-  </Tab>
-</Tabs>
-
-## Tool Approval Flow
-
-Some tool executions require explicit approval before they run. This is a safety mechanism for potentially destructive operations.
-
-### How Approval Works
-
-<Steps>
-  <Step title="Agent Requests a Tool">
-    The agent decides to use a tool that requires approval (for example, deleting a file or running a shell command).
-  </Step>
-  <Step title="Approval Card Appears">
-    An `ApprovalRequestCard` component renders in the chat, showing the tool name, parameters, and what the operation will do.
-  </Step>
-  <Step title="You Approve or Reject">
-    Click **Approve** to let the tool execute, or **Reject** to skip it. The agent will adjust its plan based on your decision.
-  </Step>
-  <Step title="Execution Continues">
-    If approved, the tool runs and the agent continues with the result. If rejected, the agent acknowledges the rejection and may propose an alternative.
-  </Step>
-</Steps>
-
-## What You Can Ask For
-
-<Tabs>
-  <Tab title="Build Features">
-    - "Create a login form with email and password fields, validation, and a submit button"
-    - "Add a responsive navigation bar with a logo on the left and menu items on the right"
-    - "Build a product card component with image, title, price, and add-to-cart button"
-    - "Create a dashboard page with a sidebar, header, and content area"
-  </Tab>
-  <Tab title="Modify Code">
-    - "Make the hero section background gradient go from blue to purple"
-    - "Add dark mode support to all components"
-    - "Refactor the API calls to use a custom hook with error handling"
-    - "Make the layout responsive for mobile screens under 640px"
-  </Tab>
-  <Tab title="Debug Issues">
-    - "The form is not submitting. Can you check the onSubmit handler?"
-    - "There is a TypeScript error in UserProfile.tsx on line 42"
-    - "The API call returns a 404. Debug the endpoint URL"
-    - "The page crashes when I click the delete button"
-  </Tab>
-  <Tab title="Ask Questions">
-    - "How does the routing work in this project?"
-    - "Explain the state management pattern used here"
-    - "What dependencies does this project use?"
-    - "Can you document the Header component's props?"
-  </Tab>
-</Tabs>
-
-## Agent Responses
-
-Agents can respond with several types of content:
-
-<CardGroup cols={2}>
-  <Card title="Code Generation" icon="file-code">
-    Creates new files or modifies existing ones. Code blocks show syntax-highlighted output with the target file path.
-  </Card>
-  <Card title="Explanations" icon="comment">
-    Describes what was changed and why. Useful for understanding the agent's reasoning.
-  </Card>
-  <Card title="Shell Commands" icon="terminal">
-    Runs commands like `npm install`, `pip install`, or custom scripts. Output is displayed inline.
-  </Card>
-  <Card title="File Reads" icon="file-lines">
-    Reads existing files to understand context before making changes. The agent often reads several files before writing.
-  </Card>
-</CardGroup>
-
-## Chat History
-
-Your conversation is preserved per project:
-
-- **Persistence**: Chat history is saved in the database and survives browser refreshes
-- **Context**: Agents maintain conversation context, so they remember what was discussed earlier
-- **Per-agent threads**: Each agent has its own conversation history within a project
-- **Scroll back**: Scroll up to review previous messages and tool calls
-
-### Managing History
+## Anatomy
 
 <AccordionGroup>
-  <Accordion icon="eraser" title="Clear Chat">
-    Start a fresh conversation. The agent loses all context from previous messages. Useful when switching to a completely different task.
+  <Accordion icon="comments" title="Message list">
+    User and agent bubbles with markdown, GFM, code blocks, and syntax highlighting. Every agent message shows its `AgentStep` list inline (tool name, parameters, result summary, duration). Click a step to expand for full details.
   </Accordion>
-
-  <Accordion icon="copy" title="Copy Code Blocks">
-    Click the copy button on any code block to copy the code to your clipboard. Useful for saving snippets or sharing solutions.
+  <Accordion icon="keyboard" title="Input box">
+    Message input with attachment picker, slash command dropdown, model and agent pills, edit-mode button, file-picker (`@filename`) dropdown, up/down arrow history, and chip mode when a slash command matches exactly.
+  </Accordion>
+  <Accordion icon="bolt" title="Top bar">
+    Session title, session popover (switch, rename, create, delete), project connector (for standalone chat), and the usage ribbon showing credits remaining.
+  </Accordion>
+  <Accordion icon="sidebar" title="Sessions sidebar">
+    Standalone chat gets a dedicated left sidebar with the full session list. Project chat uses a popover invoked from the top bar. Both support search, new, rename, delete, and collapse.
   </Accordion>
 </AccordionGroup>
 
-## Writing Effective Prompts
+## Agent and model selectors
 
-### Be Specific
+<Tabs>
+  <Tab title="Agent selector">
+    Dropdown that switches the active agent. Shows icon, name, model. Search filters the list. "Navigate to library" opens `/library?tab=agents` where you can install or create more.
+
+    The selected agent persists per project in localStorage.
+  </Tab>
+  <Tab title="Model selector">
+    Model picker rendered via `createPortal` so it escapes transform parents. Search, check for active model, caret for future sort options. Populated from `marketplaceApi.getModels`.
+
+    Switching models mid-session is allowed. Compaction adapts automatically to the new context window.
+  </Tab>
+</Tabs>
+
+## Edit modes
+
+The mode pill in the input cycles between three states. The active mode controls what tools run without prompting.
+
+<Tabs>
+  <Tab title="Ask (default)">
+    Read-only tools run without interruption. Writes, shell commands, and git pushes surface an `ApprovalRequestCard`. Three buttons:
+
+    - **Allow Once** run this call, prompt again next time
+    - **Allow All** stop prompting for this tool for the rest of the session
+    - **Stop** cancel the call and return control to the user
+  </Tab>
+  <Tab title="Allow">
+    Fully autonomous. All tools run immediately. Use when you trust the agent fully.
+  </Tab>
+  <Tab title="Plan">
+    Read-only. The agent gathers context and produces a structured markdown plan instead of mutating anything. Activate with the mode button or `/plan` slash command.
+  </Tab>
+</Tabs>
+
+## Attachments
+
+Drop files into the input or click the attachment button. Supported:
+
+- **Images** PNG, JPG, WebP, GIF (agent uses vision-capable models to read them)
+- **Code and text files** any text MIME; content inlines in the next message
+- **Project files** type `@filename` and the file picker dropdown autocompletes from the project
+
+Attachment chips appear above the input. `AttachmentStrip` renders them with preview, filename, and remove buttons. Persisted attachments (from the database) and pre-upload attachments share a single component.
+
+## Slash commands
+
+Built-ins:
+
+| Command | Action |
+|---------|--------|
+| `/clear` | Delete every message in the current session |
+| `/undo` | Undo the last user and agent exchange |
+| `/retry` | `/undo` then re-send the removed user message |
+
+Installed skills also appear as slash commands (for example `/docker-dev` if the `docker-dev` skill is attached). Commands disable while the agent is running or waiting for approval.
+
+## Streaming events
+
+The chat consumes WebSocket and SSE events in a fixed protocol:
+
+| Event | Purpose |
+|-------|---------|
+| `text_delta` | Real-time token-by-token streaming between tool calls |
+| `agent_step` | A completed agent iteration (tool calls and result summary) |
+| `agent_task_started` | Execution kicked off from another origin (for example the API) |
+| `agent_task_completed` | Final response ready |
+| `agent_task_error` | Execution failed |
+| `approval_required` | Show an `ApprovalRequestCard` |
+| `approval_response` | Client reply to approval |
+| `complete` | Stream finished |
+
+Key invariants kept by the UI:
+
+- `text_delta` creates a streaming message with id `${thinkingMessageId}-stream` inserted before the thinking indicator; subsequent deltas append
+- Tool iteration messages use id `${thinkingMessageId}-iter-${iteration}` to deduplicate parallel tool calls
+- `isMountedRef` guards every setState inside WS/SSE callbacks, so the backend keeps running even after navigation
+
+## Sessions
+
+Every project has its own chat sessions. Sessions keep their own history, their own active agent, and their own model selection.
+
+<Steps>
+  <Step title="Create">
+    The `+` button in the session popover or sidebar creates a new session.
+  </Step>
+  <Step title="Rename">
+    Click the title to rename. Good names help you find them later.
+  </Step>
+  <Step title="Switch">
+    Use the popover (project chat) or the sidebar (standalone chat) to jump between sessions.
+  </Step>
+  <Step title="Delete">
+    Right-click (or the kebab menu) to delete. Confirmation required.
+  </Step>
+</Steps>
+
+Standalone chat (`/chat`) also has a `ProjectConnector` widget so you can attach a session to any project, inherit its context, and detach later.
+
+## MCP integrations
+
+When an agent calls an MCP tool:
+
+- **Citations** Results tagged with `_mcp_structured.citation` render as `CitationCard` with external-link buttons
+- **Re-auth prompts** Tools that return `_mcp_reauth_required` trigger a yellow `ReauthBanner` linking to `/settings/connectors`
+- **Structured outputs** MCP spec 2025-06-18+ structured payloads render in a dedicated viewer
+
+## Thinking indicator
+
+`TypingIndicator` animates three dots while the agent is streaming or running a tool. The indicator disappears as soon as the first `agent_step` completes for a given message.
+
+## Tool debug modal
+
+Developers can invoke tools manually through `ToolDebugModal` (rendered via `createPortal`). Pick a tool, supply JSON parameters, see the result, timing, and errors. Useful for writing custom agents and testing new tool configurations.
+
+## Copy and regenerate
+
+Every agent message has a copy button and a regenerate button. Regenerate re-runs the same user message from the previous turn with the same agent and model selection. Undo and retry are also available via slash commands.
+
+## Usage and limits
+
+`UsageRibbon` sits at the top of chat with credit balance and a Get More CTA. When credits run out, inputs disable and the user is prompted to upgrade or add BYOK keys. BYOK-configured models bypass platform wallets entirely.
+
+## Mobile
+
+On small viewports, the chat collapses to a bottom sheet with a drag handle. Full functionality is available, but multi-column layouts (editor + chat + preview) give way to one at a time.
+
+## Related
 
 <CardGroup cols={2}>
-  <Card title="Good" icon="check">
-    "Create a blue primary button component with rounded corners (8px radius), white text, and a darker blue hover effect. Use Tailwind CSS classes."
+  <Card title="Agents" icon="robot" href="/guides/agents">
+    The agent loop that drives chat.
   </Card>
-  <Card title="Too Vague" icon="xmark">
-    "Make a button"
+  <Card title="Code editor" icon="code" href="/guides/code-editor">
+    The files the agent edits from chat.
   </Card>
-</CardGroup>
-
-### Include Technical Details
-
-<CardGroup cols={2}>
-  <Card title="Good" icon="check">
-    "Add a navigation bar with the logo on the left, menu items (Home, About, Pricing, Contact) centered, and a Login button on the right. Use flexbox for layout and Tailwind CSS for styling."
+  <Card title="Skills" icon="graduation-cap" href="/guides/skills">
+    How `/docker-dev` and other slash-command skills work.
   </Card>
-  <Card title="Too Vague" icon="xmark">
-    "Add navigation"
-  </Card>
-</CardGroup>
-
-### Break Down Complex Tasks
-
-Instead of asking for an entire e-commerce site in one message, break it into steps:
-
-1. "Create a ProductCard component with image, title, price, and an Add to Cart button"
-2. "Now create a ProductGrid that renders multiple ProductCards in a responsive grid"
-3. "Add a search bar above the grid that filters products by title"
-4. "Create a ShoppingCart sidebar that shows selected items with quantities"
-
-Each step gives the agent a focused task, which produces better results than a single massive request.
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Enter` | Send message |
-| `Shift + Enter` | New line in message |
-| `Ctrl/Cmd + K` | Open command palette |
-| `Esc` | Blur chat input |
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion icon="circle-xmark" title="Agent Not Responding">
-    **Cause**: WebSocket connection lost, API key issue, or the AI model is unavailable.
-
-    **What to try**:
-    - Check your internet connection
-    - Verify your API keys are configured in Settings
-    - Refresh the page to re-establish the WebSocket connection
-    - Try switching to a different AI model
-  </Accordion>
-
-  <Accordion icon="ban" title="Code Not Appearing in Files">
-    **Cause**: The agent generated code in its text response but did not use the write_file tool.
-
-    **What to try**:
-    - Ask the agent specifically: "Write that code to src/components/Button.tsx"
-    - Check if the container is running (agents cannot write files to stopped containers)
-    - Verify the agent has the write_file tool enabled
-  </Accordion>
-
-  <Accordion icon="triangle-exclamation" title="Agent Generates Wrong Code">
-    **Cause**: Ambiguous prompt or the agent lacks context about your project.
-
-    **What to try**:
-    - Be more specific about what you want
-    - Reference specific files: "In src/App.tsx, change the header color to blue"
-    - Provide examples of the desired output
-    - Try a different agent (IterativeAgent for complex tasks, StreamAgent for UI work)
-    - Clear the chat and start fresh if the context has become confusing
-  </Accordion>
-
-  <Accordion icon="rotate" title="Streaming Stuck or Frozen">
-    **Cause**: Network interruption or server-side timeout.
-
-    **What to try**:
-    - Click the cancel/stop button to abort the current stream
-    - Refresh the page
-    - Send your message again
-    - If the problem persists, check if the backend is responding (try loading the Dashboard)
-  </Accordion>
-</AccordionGroup>
-
-## Best Practices
-
-<AccordionGroup>
-  <Accordion icon="comments" title="Iterate Gradually">
-    Start with basic structure, then add complexity one step at a time. Test after each change. This produces much better results than trying to build everything in a single prompt.
-  </Accordion>
-
-  <Accordion icon="eye" title="Review Generated Code">
-    Always read through what the agent produced. Understand the patterns it used, check for edge cases, and verify that the code aligns with your project's conventions.
-  </Accordion>
-
-  <Accordion icon="arrows-rotate" title="Switch Agents by Task">
-    Use StreamAgent for UI work and fast iteration. Switch to IterativeAgent for complex logic, multi-file refactors, and debugging. Each agent maintains its own context within the project.
-  </Accordion>
-
-  <Accordion icon="message-question" title="Ask Follow-Up Questions">
-    If something is unclear or not quite right, ask the agent to explain, fix, or adjust. The conversation context means follow-up requests are often more effective than starting from scratch.
-  </Accordion>
-</AccordionGroup>
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card
-    title="Manage Your Library"
-    icon="books"
-    href="/guides/library"
-  >
-    Customize agents, create your own, and manage AI models
-  </Card>
-  <Card
-    title="Code Editor"
-    icon="code"
-    href="/guides/code-editor"
-  >
-    Manually edit and refine AI-generated code
-  </Card>
-  <Card
-    title="Live Preview"
-    icon="eye"
-    href="/guides/live-preview"
-  >
-    See changes in real time as the agent builds
-  </Card>
-  <Card
-    title="Marketplace"
-    icon="store"
-    href="/guides/marketplace"
-  >
-    Discover specialized agents for your workflow
+  <Card title="Connectors (MCP)" icon="plug" href="/guides/connectors-mcp">
+    MCP tool results rendering in chat.
   </Card>
 </CardGroup>

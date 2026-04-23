@@ -1,634 +1,346 @@
 ---
 title: 'Customizing Agents'
-description: 'Create custom agents, write system prompts, configure tools, and understand the factory pattern'
+description: 'Create a custom agent with a system prompt, bound skills, bound MCP connectors, a preferred model, and an approval policy'
 ---
 
-## Why Customize Agents?
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
-Custom agents let you encode your preferences, frameworks, coding standards, and workflows into a reusable AI assistant. Instead of repeating instructions in every chat, you bake them into the agent's system prompt and configuration.
+## Why customize
+
+An agent in OpenSail is a `tesslate-agent` instance plus a system prompt, a bound skill catalog, a bound MCP connector set, a model preference, and an approval policy. Customization is how you turn a generic coding agent into a specialist: a Tailwind UI builder, a FastAPI API author, a security reviewer, a product-ops bot that lives in Slack.
 
 <CardGroup cols={2}>
-  <Card title="Enforce Standards" icon="ruler">
-    Ensure consistent coding style, naming conventions, and patterns
+  <Card title="Encode standards" icon="ruler">
+    Lock in coding conventions, frameworks, and patterns once, reuse forever
   </Card>
-  <Card title="Specialize Behavior" icon="bullseye">
-    Focus the agent on specific frameworks, languages, or domains
+  <Card title="Scope capabilities" icon="lock">
+    Restrict tools, skills, and MCP connectors so the agent does one thing well
   </Card>
-  <Card title="Control Tool Access" icon="lock">
-    Restrict which tools the agent can use for security or focus
+  <Card title="Ship it" icon="truck">
+    Publish to your team or the public marketplace as an immutable agent version
   </Card>
-  <Card title="Share with Others" icon="share-nodes">
-    Publish to the marketplace for your team or the community
+  <Card title="Keep control" icon="shield-halved">
+    Approval policies travel with the agent, so dangerous actions still gate the same way
   </Card>
 </CardGroup>
 
-## What You Can Customize
+## The five levers
 
 <Tabs>
-  <Tab title="System Prompt">
-    **The core instructions** that define agent behavior. This is the single most important customization.
-
-    - Role definition (what the agent is)
-    - Coding style and standards
-    - Framework and library preferences
-    - Behavioral guidelines and constraints
-    - Dynamic markers for runtime context
+  <Tab title="System prompt">
+    The character sheet for the agent: role, tone, rules, tech stack, and anti-patterns. System prompts support runtime markers like `{mode_instructions}`, `{project_name}`, and `{git_branch}` that are substituted before each model call.
   </Tab>
 
-  <Tab title="Agent Type">
-    **The underlying architecture.** Choose from:
-
-    - **StreamAgent**: Single-pass streaming, no tools
-    - **IterativeAgent**: Multi-step with JSON tool calls
-    - **ReActAgent**: Explicit reasoning with structured observations
-    - **TesslateAgent**: Native function calling with full features
-
-    Set at creation time.
+  <Tab title="Bound skills">
+    Skills are reusable markdown capabilities (a code-review checklist, a research methodology, a report template). You attach skills to an agent via the Library. The agent sees the catalog at session start and loads full bodies on demand. See `/guides/skills`.
   </Tab>
 
-  <Tab title="AI Model">
-    **The LLM powering the agent.** For open-source agents, you can choose:
-
-    - GPT-4 (strong reasoning, higher cost)
-    - Claude (thoughtful code, excellent documentation)
-    - Qwen (fast, cost-effective)
-    - Custom models via OpenRouter (100+ options)
+  <Tab title="Bound MCP connectors">
+    Model Context Protocol connectors expose third-party tools (Slack, Gmail, Linear, GitHub) to the agent. You install a connector on your account, attach it to the agent, and its tools get bridged into the agent's registry at runtime. See `/guides/connectors-mcp`.
   </Tab>
 
-  <Tab title="Tool Permissions">
-    **Which tools the agent can access.** Options include:
-
-    - Full access to all tools (default)
-    - Restricted to specific tools (e.g., only file ops)
-    - Custom tool descriptions and examples per agent
+  <Tab title="Model preference">
+    The LiteLLM-routed model used for each session. Pick Anthropic, OpenAI, DeepSeek, Qwen, Google, or any other supported provider. Users can override at runtime if the agent allows it. See `/guides/model-management`.
   </Tab>
 
-  <Tab title="Metadata">
-    **Identity and discoverability:**
-
-    - Name and slug
-    - Icon/avatar
-    - Description and category
-    - Tags for marketplace search
-    - Pricing model (free, subscription, one-time)
-    - Source type (open or closed)
+  <Tab title="Approval policy">
+    The default edit mode (Ask Before Edit, Allow All Edits, or Plan Mode) baked into the agent. Mode is enforced at the tool registry so it applies uniformly regardless of the system prompt text.
   </Tab>
 </Tabs>
 
-## Creating a Custom Agent
+## Creating an agent
 
-### Method 1: Fork an Existing Agent
+### Fork an existing one
 
-The easiest path. Start with a working agent and modify it.
+The fastest path. You start with a working system prompt and adjust.
 
 <Steps>
-  <Step title="Find an Open-Source Agent">
-    Browse your library or the marketplace for an open-source agent that is close to what you want.
+  <Step title="Find a base">
+    Open the Marketplace or the Library and find an agent close to what you want.
   </Step>
 
-  <Step title="Click Fork">
-    Click the **Fork** button on the agent detail page. This creates a copy in your library.
+  <Step title="Fork">
+    Click Fork. A copy lands in your Library with your ownership.
   </Step>
 
-  <Step title="Customize the System Prompt">
-    Edit the system prompt to match your preferences. Add your coding standards, framework choices, and behavioral guidelines.
+  <Step title="Edit the prompt">
+    Rewrite the system prompt to match your conventions. Keep `{mode_instructions}` somewhere in the prompt so edit-mode behavior stays consistent.
   </Step>
 
-  <Step title="Adjust Tool Access (Optional)">
-    Restrict or customize the tools available to your agent.
+  <Step title="Attach skills and MCPs">
+    Go to the agent's detail page. Add skills from the Library tab. Add MCP connectors from the MCP tab.
   </Step>
 
-  <Step title="Choose a Model (Optional)">
-    Select a different AI model if the default does not suit your needs.
+  <Step title="Pick a model">
+    Set a default model. Choose something faster for quick iteration, something stronger for reasoning-heavy tasks.
   </Step>
 
-  <Step title="Test and Iterate">
-    Use the agent in a test project. Refine the system prompt based on the results.
+  <Step title="Test">
+    Open a test project, run the agent against a representative task, and iterate on the prompt.
   </Step>
 </Steps>
 
-<Info>
-  Forking is the recommended approach for beginners. You start with a proven system prompt and modify it incrementally.
-</Info>
-
-### Method 2: Create from Scratch
-
-Build a fully custom agent.
+### Create from scratch
 
 <Steps>
-  <Step title="Open Your Library">
-    Navigate to Library and select the Agents tab.
+  <Step title="Open the Library">
+    Library then the Agents tab. Click Create New Agent.
   </Step>
 
-  <Step title="Create New Agent">
-    Click **Create New Agent**.
+  <Step title="Name and metadata">
+    Give it a slug, a display name, an icon, a category, and a short description. These power marketplace search.
   </Step>
 
-  <Step title="Choose Agent Type">
-    Select the architecture: StreamAgent, IterativeAgent, ReActAgent, or TesslateAgent. This determines how the agent processes requests.
+  <Step title="System prompt">
+    Write the prompt. Keep it focused: one role, one stack, one set of rules.
   </Step>
 
-  <Step title="Set Metadata">
-    Enter name, description, icon, and category.
+  <Step title="Skills">
+    Attach the skills this agent needs. Leave off anything speculative: skills are lazy-loaded and only cost context window on use.
   </Step>
 
-  <Step title="Write System Prompt">
-    Craft the system prompt that defines the agent's behavior. See the section below for guidance.
+  <Step title="MCP connectors">
+    Attach the connectors this agent must have. Connectors are per-user, so installers attach their own credentials after install.
   </Step>
 
-  <Step title="Configure Tools">
-    Choose which tools the agent can access. Leave empty for full access, or specify a list.
+  <Step title="Model and policy">
+    Set the default model and the default approval policy.
   </Step>
 
-  <Step title="Select Model">
-    Pick the AI model to power the agent.
-  </Step>
-
-  <Step title="Test Thoroughly">
-    Create a test project and try various prompts. Iterate on the system prompt until the agent behaves as expected.
+  <Step title="Save and test">
+    Save. Open a project and run through real tasks.
   </Step>
 </Steps>
 
-## Writing System Prompts
+## Writing system prompts
 
-The system prompt is the most critical part of agent customization. It defines the agent's role, capabilities, constraints, and style.
-
-### Prompt Structure
-
-A well-structured system prompt includes five sections:
+A good system prompt has five sections: role, guidelines, stack, constraints, runtime markers.
 
 <AccordionGroup>
-  <Accordion icon="user" title="1. Role Definition">
-    Define who the agent is:
+  <Accordion icon="user" title="Role">
+    One line. Who the agent is and what it does.
 
     ```
-    You are an expert React developer specializing in TypeScript,
-    accessibility, and modern best practices. You build performant,
-    maintainable user interfaces.
+    You are an expert TypeScript and React developer. You build accessible, responsive components using Tailwind and React Hook Form.
     ```
   </Accordion>
 
-  <Accordion icon="list-check" title="2. Capabilities and Guidelines">
-    What the agent should do and how:
+  <Accordion icon="list-check" title="Guidelines">
+    How the agent should work.
 
     ```
-    Guidelines:
-    - Use functional components with hooks
-    - Implement proper TypeScript types for all props and state
-    - Follow WCAG 2.1 AA accessibility standards
-    - Use Tailwind CSS for all styling
-    - Write semantic HTML with ARIA labels where needed
-    - Keep components under 200 lines; split larger ones
+    Always:
+    - Read the target file before editing
+    - Use named exports
+    - Type every prop and return value
+    - Follow the patterns already in the project
     ```
   </Accordion>
 
-  <Accordion icon="cube" title="3. Technology Stack">
-    Specific libraries and preferences:
+  <Accordion icon="cubes" title="Stack">
+    Preferred libraries.
 
     ```
-    Technology preferences:
-    - React 18+ with TypeScript
-    - Tailwind CSS 3+ (never use inline styles)
-    - React Hook Form for forms
-    - Zod for validation
-    - Lucide React for icons
+    Stack:
+    - React 18+ with TypeScript strict mode
+    - Tailwind CSS, no CSS-in-JS
+    - React Hook Form + Zod
     - React Query for server state
     ```
   </Accordion>
 
-  <Accordion icon="ban" title="4. Constraints">
-    What NOT to do:
+  <Accordion icon="ban" title="Constraints">
+    What to avoid.
 
     ```
     Avoid:
-    - Class components (always use hooks)
-    - CSS-in-JS or CSS modules (use Tailwind only)
-    - Default exports (use named exports)
-    - Hardcoded values (use constants or environment variables)
-    - Large monolithic components (split into composable pieces)
+    - Class components
+    - Default exports
+    - Hardcoded colors outside the Tailwind palette
+    - Monolithic components; split above 200 lines
     ```
   </Accordion>
 
-  <Accordion icon="gear" title="5. Dynamic Markers">
-    Runtime placeholders that get substituted automatically:
+  <Accordion icon="gear" title="Runtime markers">
+    Dynamic context injected at each call.
 
     ```
-    {mode_instructions}
-
-    Current project: {project_name}
-    Available tools: {tool_list}
-
-    Always read files before modifying them.
-    ```
-  </Accordion>
-</AccordionGroup>
-
-### Available Markers
-
-System prompts support dynamic markers that are replaced at runtime with actual values:
-
-| Marker | Replaced With | Example |
-|--------|---------------|---------|
-| `{mode}` | Current edit mode | `allow`, `ask`, `plan` |
-| `{mode_instructions}` | Full mode-specific behavior instructions | `[FULL EDIT MODE] You have full access...` |
-| `{project_name}` | Project display name | `My E-Commerce App` |
-| `{project_description}` | Project description | `React e-commerce application` |
-| `{project_path}` | Container project path | `/app` |
-| `{git_branch}` | Current git branch | `feature/auth` |
-| `{tool_list}` | Comma-separated available tools | `read_file, write_file, bash_exec` |
-| `{timestamp}` | Current ISO timestamp | `2025-01-15T10:30:00` |
-| `{user_name}` | User's display name | `Jane Smith` |
-
-### Mode Instructions
-
-The `{mode_instructions}` marker is especially important. It injects behavior-specific instructions based on the current edit mode:
-
-<Tabs>
-  <Tab title="Allow Mode">
-    ```
-    [FULL EDIT MODE]
-    You have full access to all tools including file modifications
-    and shell commands. Execute changes directly as needed to
-    accomplish the user's goals.
-    ```
-  </Tab>
-
-  <Tab title="Ask Mode">
-    ```
-    [ASK BEFORE EDIT MODE]
-    You can propose file modifications and shell commands, but they
-    require user approval. The user will be prompted to approve each
-    dangerous operation before execution. Read operations proceed
-    without approval.
-    ```
-  </Tab>
-
-  <Tab title="Plan Mode">
-    ```
-    [PLAN MODE ACTIVE]
-    You are in read-only planning mode. You MUST NOT execute any file
-    modifications or shell commands. Instead, create a detailed
-    markdown plan explaining what changes you would make. All read
-    operations are allowed and encouraged for gathering context.
-    ```
-  </Tab>
-</Tabs>
-
-<Info>
-  Always include `{mode_instructions}` in your system prompt. This ensures your agent respects the user's chosen edit mode regardless of what other instructions say.
-</Info>
-
-### Example System Prompts
-
-<Tabs>
-  <Tab title="Tailwind Specialist">
-    ```
-    You are a React + Tailwind CSS specialist. Your job is to create
-    beautiful, responsive components using only Tailwind utility classes.
-
-    Guidelines:
-    - Use only Tailwind classes (never inline styles or CSS files)
-    - Make all components fully responsive (mobile-first)
-    - Use Tailwind's color palette (e.g., blue-500, gray-100)
-    - Apply consistent spacing using Tailwind scale
-    - Include hover, focus, and active states
-    - Use Tailwind's transition classes for animations
-
-    Default color scheme:
-    - Primary: orange-500
-    - Background: gray-50
-    - Text: gray-900
-    - Border: gray-200
-
-    {mode_instructions}
-
-    Project: {project_name}
-    Available tools: {tool_list}
-
-    Always read the target file before making changes.
-    ```
-  </Tab>
-
-  <Tab title="Backend API Developer">
-    ```
-    You are a backend API developer specializing in FastAPI and
-    PostgreSQL.
-
-    Guidelines:
-    1. Use RESTful conventions (GET, POST, PUT, DELETE)
-    2. Validate all input with Pydantic models
-    3. Return appropriate HTTP status codes
-    4. Write comprehensive error messages
-    5. Include type hints on all functions
-    6. Use async/await for database operations
-
-    Patterns to follow:
-    - Router files in /routers with clear naming
-    - Service layer for business logic
-    - Repository pattern for database access
-    - Pydantic schemas for request/response
-
-    {mode_instructions}
-
-    Project: {project_name}
-    ```
-  </Tab>
-
-  <Tab title="Full-Stack Builder">
-    ```
-    You are a full-stack developer building modern web applications
-    with React, TypeScript, and Node.js.
-
-    Frontend standards:
-    - React 18+ with TypeScript
-    - Tailwind CSS for styling
-    - React Query for server state
-    - React Hook Form + Zod for forms
-
-    Backend standards:
-    - Express or FastAPI
-    - PostgreSQL with Prisma or SQLAlchemy
-    - JWT authentication
-    - Input validation on all endpoints
-
-    Code quality:
-    - TypeScript strict mode
-    - Named exports
-    - Descriptive variable names
-    - Comments on complex logic
-    - Error boundaries in React
-
     {mode_instructions}
 
     Project: {project_name}
     Branch: {git_branch}
+    Available tools: {tool_list}
     ```
-  </Tab>
-</Tabs>
+  </Accordion>
+</AccordionGroup>
 
-## Configuring Tool Access
+### Common markers
 
-By default, agents have access to all tools in the global registry. You can restrict this for focused or security-conscious agents.
-
-### Restricting to Specific Tools
-
-Specify a tool list to limit what the agent can do:
-
-```python
-# Example: Read-only analysis agent
-tools = ["read_file", "get_project_info", "todo_read"]
-
-# Example: File-focused agent (no shell access)
-tools = ["read_file", "write_file", "patch_file", "multi_edit"]
-
-# Example: Full development agent
-tools = ["read_file", "write_file", "patch_file", "multi_edit",
-         "bash_exec", "shell_open", "shell_exec", "shell_close"]
-```
-
-### Custom Tool Descriptions
-
-You can override tool descriptions and examples for your agent. This helps the LLM understand how the tools should be used in your specific context:
-
-```python
-tool_configs = {
-    "read_file": {
-        "description": "Read React component source code",
-        "examples": [
-            '{"tool_name": "read_file", "parameters": {"file_path": "src/components/Button.tsx"}}'
-        ]
-    },
-    "bash_exec": {
-        "description": "Run npm commands and scripts",
-        "examples": [
-            '{"tool_name": "bash_exec", "parameters": {"command": "npm test"}}'
-        ]
-    }
-}
-```
-
-## Advanced: The Factory Pattern
-
-For advanced users, understanding the factory pattern helps when building integrations or debugging agent creation.
-
-### How Agent Creation Works
-
-The `create_agent_from_db_model` function is the central point for creating agents:
-
-1. **Validates** that the agent has a system prompt
-2. **Looks up** the agent type in `AGENT_CLASS_MAP` (`StreamAgent`, `IterativeAgent`, `ReActAgent`, `TesslateAgent`)
-3. **Creates a scoped tool registry** based on the agent's `tools` field (or uses the global registry)
-4. **Applies custom tool configurations** if specified
-5. **Instantiates** the correct agent class with the system prompt, tools, and model adapter
-
-### Tool Registry Scoping Priority
-
-When the factory creates a tool registry, it follows this priority:
-
-1. **tools_override** (highest): A pre-configured registry passed directly (used for view-scoped tools)
-2. **agent_model.tools**: A list of tool names from the database. The factory creates a scoped registry containing only those tools.
-3. **Global registry** (lowest): If no tool restriction is specified, the full registry is used.
-
-### View-Scoped Tools
-
-Different frontend views provide different tool sets:
-
-- **Code view**: Standard file and shell tools (read_file, write_file, patch_file, bash_exec, etc.)
-- **Graph view**: Container management tools (graph_start_container, graph_add_connection, etc.)
-
-This scoping happens automatically based on which view you are using.
-
-### Registering Custom Agent Types
-
-For developers extending the platform, new agent types can be registered at runtime:
-
-```python
-from orchestrator.app.agent.factory import register_agent_type
-from my_plugin import CustomAgent
-
-register_agent_type("CustomAgent", CustomAgent)
-```
-
-After registration, the new type can be used in marketplace agent entries.
-
-## Selecting AI Models
-
-For open-source agents, you can choose which LLM powers the agent:
-
-<Tabs>
-  <Tab title="GPT-4">
-    **Strengths:** Excellent reasoning, strong TypeScript knowledge, good architecture decisions
-
-    **Best for:** Complex features, API integration, business logic, debugging
-
-    **Cost:** Higher
-  </Tab>
-
-  <Tab title="Claude">
-    **Strengths:** Thoughtful code generation, excellent documentation, strong error handling
-
-    **Best for:** Well-documented code, complex systems, architectural planning
-
-    **Cost:** Higher
-  </Tab>
-
-  <Tab title="Qwen">
-    **Strengths:** Fast responses, solid code generation, cost-effective
-
-    **Best for:** UI components, standard patterns, quick iteration, budget-conscious projects
-
-    **Cost:** Lower
-  </Tab>
-
-  <Tab title="OpenRouter Models">
-    **Access to:** 100+ models from various providers
-
-    **Best for:** Experimenting with different models, specialized use cases, cost optimization
-
-    **Cost:** Varies by model
-  </Tab>
-</Tabs>
+| Marker | Substituted with |
+|--------|------------------|
+| `{mode_instructions}` | Full text for the current edit mode (allow, ask, plan) |
+| `{mode}` | The mode name only |
+| `{project_name}` | Current project display name |
+| `{project_description}` | Project description |
+| `{project_path}` | Workspace path inside the container |
+| `{git_branch}` | Current branch |
+| `{tool_list}` | Comma-separated tool names available this session |
+| `{user_name}` | The signed-in user's display name |
+| `{timestamp}` | ISO timestamp at call time |
 
 <Info>
-  Model adapters handle the differences between providers. Tesslate supports OpenAI, Anthropic, and other LLM providers through LiteLLM, which provides a unified interface for all models.
+  Always keep `{mode_instructions}` in your prompt. It guarantees the agent still honors Plan Mode and Ask Before Edit even if your other instructions conflict.
 </Info>
 
-## Testing Custom Agents
+## Binding skills
+
+Skills are the unit of portable know-how in OpenSail. Each skill is a markdown document with a name, a short description, and a body. The agent only sees the name and description at session start. When it decides it needs one, it calls `load_skill` and the full body is injected into the turn.
+
+Three sources feed the catalog:
+
+1. **Built-in skills** shipped with the platform (for example, `project-architecture`). Available to every agent.
+2. **Skills you installed on this agent** via the Library. You attach them explicitly.
+3. **Project-file skills** discovered at `.agents/skills/SKILL.md` in the workspace. Any agent working in that project sees them.
+
+For authoring skills, see `/guides/skills`.
+
+## Binding MCP connectors
+
+MCP (Model Context Protocol) is how OpenSail bridges third-party tool servers into the agent's tool registry. You install a connector once on your account (with your credentials, encrypted at rest), then attach it to any agent.
+
+When the agent starts a session, the worker:
+
+1. Looks up every `AgentMcpAssignment` for the agent
+2. Loads the user's `UserMcpConfig` for each (with credentials)
+3. Connects to each MCP server over streamable HTTP
+4. Bridges the server's tools, resources, and prompts into the agent's `ToolRegistry`
+
+From the agent's perspective, connector tools look identical to built-in tools. They get used the same way. For connector setup and credential management, see `/guides/connectors-mcp`.
+
+## Approval policy
+
+Every agent carries a default edit mode. Users can override per session, but your default matters because it sets the expected behavior.
+
+| Default | When to pick it |
+|---------|-----------------|
+| Ask Before Edit | Any agent that writes files or runs shell commands. Safest default. |
+| Allow All Edits | Agents meant for trusted contexts (personal projects, sandboxed environments). |
+| Plan Mode | Agents that should only plan and never execute. Useful for review agents, security scanners, architects. |
+
+## Publishing to the marketplace
 
 <Steps>
-  <Step title="Create a Test Project">
-    Make a dedicated project for testing. This keeps your real projects safe.
+  <Step title="Polish">
+    Clear system prompt, representative test runs, working skill and MCP bindings.
   </Step>
 
-  <Step title="Test Simple Requests">
-    Start with basic tasks: "Create a Button component" or "List all files in src/"
+  <Step title="Describe">
+    Fill in the marketplace description, category, and tags. Add example prompts that show the agent at its best.
   </Step>
 
-  <Step title="Test Complex Scenarios">
-    Try multi-step tasks: "Add authentication with JWT tokens, including login form, protected routes, and token refresh"
+  <Step title="Choose visibility">
+    Private (just you), team-only, or public. Public listings go through the approval pipeline.
   </Step>
 
-  <Step title="Verify Tool Usage">
-    Check that the agent uses the correct tools and follows your system prompt guidelines.
+  <Step title="Set pricing">
+    Free, one-time purchase, subscription, or API-metered. Creator payouts pay 90% to you, 10% to the platform. See `/guides/billing`.
   </Step>
 
-  <Step title="Test Edge Cases">
-    Try unusual requests to see how the agent handles ambiguity or conflicting instructions.
+  <Step title="Submit">
+    Submit for review. The approval pipeline runs automated security and manifest checks, then a sandbox evaluation, then a human review.
   </Step>
 
-  <Step title="Iterate on the Prompt">
-    Based on test results, refine your system prompt. Add rules for issues you notice, remove instructions that cause confusion.
-  </Step>
-</Steps>
-
-### What to Check
-
-<CardGroup cols={2}>
-  <Card title="Follows Guidelines" icon="check">
-    Does the agent use the libraries and patterns specified in your prompt?
-  </Card>
-  <Card title="Code Quality" icon="star">
-    Is the generated code clean, typed, and well-structured?
-  </Card>
-  <Card title="Consistency" icon="arrows-rotate">
-    Does the agent produce similar quality across different requests?
-  </Card>
-  <Card title="Error Handling" icon="triangle-exclamation">
-    Does the agent handle failures gracefully and retry when appropriate?
-  </Card>
-</CardGroup>
-
-## Publishing to the Marketplace
-
-Share your custom agent with the community:
-
-<Steps>
-  <Step title="Polish the Agent">
-    Ensure the system prompt is clear, the agent handles common tasks well, and behavior is consistent.
-  </Step>
-
-  <Step title="Write Documentation">
-    Create a detailed description: what the agent does, when to use it, which technologies it specializes in, and example use cases.
-  </Step>
-
-  <Step title="Click Publish">
-    Open agent settings and select **Publish to Marketplace**.
-  </Step>
-
-  <Step title="Set Details">
-    Choose a category, add tags, set pricing (Free or Paid), and optionally upload screenshots.
-  </Step>
-
-  <Step title="Submit for Review">
-    The Tesslate team reviews for quality and guidelines compliance.
-  </Step>
-
-  <Step title="Go Live">
-    Once approved, your agent appears in the marketplace for all users.
+  <Step title="Iterate">
+    Publish updates as new immutable versions. Installers can pin, auto-update, or manually update per their policy.
   </Step>
 </Steps>
 
 <Warning>
-  Published agents are visible to all Tesslate users. Only publish agents you want to share publicly.
+  Public marketplace agents are visible to everyone. Do not hardcode secrets or environment-specific paths into system prompts. Use runtime markers for project-specific context.
 </Warning>
 
-## Best Practices
+## The MarketplaceAgent model
+
+Agents are stored as `MarketplaceAgent` rows with `item_type="agent"`. The relevant columns for customization:
+
+| Field | Purpose |
+|-------|---------|
+| `slug` | Stable identifier |
+| `name`, `description`, `icon`, `category`, `tags` | Marketplace metadata |
+| `system_prompt` | The prompt body (markdown with runtime markers) |
+| `tools` | Optional allowlist of tool names; null means all available tools |
+| `model` | Default LiteLLM model id |
+| `approval_mode` | Default edit mode |
+| `visibility` | Private, team, or public |
+| `price` | Free, one-time, subscription, or API-metered |
+| `forkable` | Whether installers can fork the agent |
+| `is_builtin` | Reserved for platform-shipped agents; not user-writable |
+
+Attachments live in adjacent tables:
+- `AgentSkillAssignment` binds a skill to an agent
+- `AgentMcpAssignment` binds an installed MCP server to an agent
+
+## Testing your agent
+
+<Steps>
+  <Step title="Use a test project">
+    Make a dedicated workspace. Clone a typical project you'd use this agent on.
+  </Step>
+
+  <Step title="Run representative tasks">
+    Not just "hello world". Run the actual tasks users will throw at this agent.
+  </Step>
+
+  <Step title="Review every tool call">
+    Put the agent in Ask Before Edit. Review what it wants to do. Note where it picks the wrong tool or the wrong file.
+  </Step>
+
+  <Step title="Check for drift">
+    Does it follow your guidelines or ignore them under pressure? Add explicit rules for the failure modes.
+  </Step>
+
+  <Step title="Stress-test the model">
+    Long-horizon tasks reveal whether your prompt holds up. Run multi-step workflows and watch for off-pattern code.
+  </Step>
+</Steps>
+
+## Best practices
 
 <AccordionGroup>
-  <Accordion icon="target" title="Focus on One Specialty">
-    An agent that does one thing well outperforms a generic one. A "React Form Builder" agent will produce better forms than a "General Purpose Developer" agent.
+  <Accordion icon="bullseye" title="One specialty per agent">
+    Focused agents outperform generalists. "React + Tailwind UI specialist" beats "full-stack developer" on UI tasks and vice versa.
   </Accordion>
 
-  <Accordion icon="gear" title="Always Include Mode Markers">
-    Include `{mode_instructions}` in every system prompt. This ensures your agent respects edit mode settings, which is critical for user safety.
+  <Accordion icon="pen" title="Iterate the prompt">
+    Every time the agent does something wrong, add a rule that prevents it. Every time it does something right, generalize it into the prompt. Prompts are versioned like code.
   </Accordion>
 
-  <Accordion icon="lock" title="Scope Tool Access for Security">
-    A documentation agent does not need `bash_exec`. A read-only analyzer does not need `write_file`. Restrict tools to what the agent actually needs.
+  <Accordion icon="lock" title="Narrow tool access where you can">
+    A review agent does not need `bash_exec`. A docs writer does not need `multi_edit`. Narrow tools reduce drift and lower risk.
   </Accordion>
 
-  <Accordion icon="vial" title="Test with Real Tasks">
-    Do not just test with toy examples. Use your agent for real work and iterate the prompt based on actual results.
+  <Accordion icon="book-open" title="Include examples">
+    LLMs follow examples better than abstractions. Include a short code snippet in your system prompt showing the pattern you want.
   </Accordion>
 
-  <Accordion icon="pen" title="Iterate the Prompt">
-    Start simple, add rules as you find issues, and remove instructions that cause confusion or contradictions. Prompt engineering is iterative.
-  </Accordion>
-
-  <Accordion icon="book" title="Provide Examples in the Prompt">
-    If you want the agent to follow a specific pattern, include a code example directly in the system prompt. LLMs follow examples more reliably than abstract instructions.
+  <Accordion icon="hand-pointer" title="Default to Ask Before Edit">
+    Ship new agents in Ask Before Edit. Let users opt into Allow All once they trust the behavior.
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card
-    title="Agent Types"
-    icon="robot"
-    href="/guides/agent-types"
-  >
-    Understand the four agent architectures
+  <Card title="Using Agents" icon="comments" href="/guides/using-agents">
+    The user-side guide to running agents in chat
   </Card>
-  <Card
-    title="Using Agents"
-    icon="comments"
-    href="/guides/using-agents"
-  >
-    Practical guide to prompting and tool calls
+  <Card title="Skills" icon="book" href="/guides/skills">
+    Author and publish reusable agent skills
   </Card>
-  <Card
-    title="Agent Marketplace"
-    icon="store"
-    href="/guides/agent-marketplace"
-  >
-    Browse and publish agents
+  <Card title="Connectors (MCP)" icon="plug" href="/guides/connectors-mcp">
+    Wire external tools into any agent
   </Card>
-  <Card
-    title="AI Agents Overview"
-    icon="book-open"
-    href="/guides/agents"
-  >
-    Core concepts and architecture
+  <Card title="Model Management" icon="microchip" href="/guides/model-management">
+    Choose models, BYOK, or self-host
   </Card>
 </CardGroup>

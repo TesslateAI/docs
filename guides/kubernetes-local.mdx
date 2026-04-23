@@ -1,0 +1,518 @@
+---
+title: "Local Kubernetes (minikube)"
+description: "Run Tesslate OpenSail on a local Kubernetes cluster with the btrfs CSI driver, Volume Hub, NGINX Ingress, MinIO, Postgres, and Redis."
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+This guide walks you from an empty machine to a working OpenSail cluster on minikube. You will end up with the full production storage stack (btrfs CSI driver plus Volume Hub plus CAS to MinIO) and the same Ingress topology we run in AWS, but entirely on `http://localhost`.
+
+<Info>
+For the faster inner-loop dev flow without Kubernetes, use the [Docker Setup](/guides/docker-setup) guide instead. The K8s path is for contributors who need to reproduce storage, ingress, or snapshot bugs.
+</Info>
+
+<Warning>
+Every `kubectl` command in this guide includes `--context=tesslate`. That is a hard project rule: background cronjobs and other processes can flip your active context mid-session, so the context must be pinned on every call. Never use `kubectl config use-context` or any context-switching helper.
+</Warning>
+
+## 1. What you will run
+
+<CardGroup cols={2}>
+  <Card title="OpenSail workloads" icon="server">
+    Backend, frontend, worker, Postgres, and Redis in the `tesslate` namespace. Same manifests the cloud runs.
+  </Card>
+  <Card title="NGINX Ingress" icon="route">
+    Installed via the minikube `ingress` addon. Answers on `localhost` and `*.localhost` when `minikube tunnel` is running.
+  </Card>
+  <Card title="btrfs CSI + Volume Hub" icon="database">
+    Per-node btrfs subvolumes, instant snapshot-clone, and CAS sync to MinIO. Mirrors the AWS storage stack one-for-one.
+  </Card>
+  <Card title="MinIO" icon="cloud">
+    S3-compatible object store in the `minio-system` namespace. Backs content-addressable project snapshots.
+  </Card>
+</CardGroup>
+
+| Component | Namespace | Purpose |
+|-----------|-----------|---------|
+| OpenSail backend | `tesslate` | FastAPI orchestrator |
+| OpenSail frontend | `tesslate` | React UI served by NGINX |
+| PostgreSQL | `tesslate` | Primary database |
+| Redis | `tesslate` | Pub/sub and task queue |
+| MinIO | `minio-system` | S3-compatible object store |
+| btrfs CSI driver | `kube-system` | Per-node subvolumes and snapshots |
+| Volume Hub | `kube-system` | Volume orchestrator, cache placement, S3 sync |
+| Snapshot controller | `kube-system` | VolumeSnapshot CRDs |
+| NGINX Ingress | `ingress-nginx` | HTTP routing |
+
+Profile name is `tesslate`. Every `--context=tesslate` flag below refers to this profile.
+
+## 2. Prerequisites
+
+<CardGroup cols={2}>
+  <Card title="minikube 1.33+" icon="cube">
+    `brew install minikube`, `choco install minikube`, or download from [minikube.sigs.k8s.io](https://minikube.sigs.k8s.io/docs/start/).
+  </Card>
+  <Card title="kubectl 1.29+" icon="terminal">
+    `brew install kubectl` or `choco install kubernetes-cli`.
+  </Card>
+  <Card title="Docker 24.x" icon="docker">
+    [Docker Desktop](https://docs.docker.com/get-docker/) on macOS/Windows, or `docker-ce` on Linux. Used as the minikube driver.
+  </Card>
+  <Card title="System resources" icon="microchip">
+    - CPU: 4 cores available to Docker
+    - RAM: 8 GB available to Docker
+    - Disk: 40 GB free for the minikube VM
+  </Card>
+</CardGroup>
+
+### btrfs requirement
+
+The btrfs CSI driver needs btrfs inside the minikube VM. The Docker driver's base image already ships with `btrfs-progs` and the driver auto-creates its pool at `/mnt/tesslate-pool` inside the node. No host filesystem changes are required when using `--driver docker`. If you switch to kvm2 or hyperkit, make sure the guest image has `btrfs-progs` and a mountable btrfs partition.
+
+### Hosts file
+
+Add these entries:
+
+- Linux / macOS: `/etc/hosts`
+- Windows: `C:\Windows\System32\drivers\etc\hosts`
+
+```
+127.0.0.1 localhost
+127.0.0.1 minio.localhost
+```
+
+Project container URLs follow `http://<slug>-<container>.localhost` and are resolved by NGINX Ingress when `minikube tunnel --profile tesslate` is running. Modern browsers resolve `*.localhost` to `127.0.0.1` automatically; if yours does not, add the specific project host to `hosts` too.
+
+## 3. Start the cluster
+
+<CodeGroup>
+```bash Start the minikube profile
+minikube start \
+  --profile tesslate \
+  --cpus 4 \
+  --memory 8g \
+  --disk-size 40g \
+  --driver docker \
+  --addons ingress \
+  --addons storage-provisioner \
+  --addons metrics-server
+```
+
+```bash Verify the cluster
+kubectl --context=tesslate get nodes
+kubectl --context=tesslate get pods -n ingress-nginx
+```
+
+```bash Start the tunnel (leave running)
+minikube tunnel --profile tesslate
+```
+</CodeGroup>
+
+The `ingress` addon installs NGINX Ingress in the `ingress-nginx` namespace. The tunnel exposes the Ingress controller on `127.0.0.1`; keep that terminal open while you use the cluster.
+
+## 4. Install snapshot controller and btrfs CSI driver
+
+OpenSail depends on Kubernetes `VolumeSnapshot` resources for hibernation and project timeline. Install the CRDs and controller first, then build and deploy the btrfs CSI driver.
+
+<Steps>
+  <Step title="Install the snapshot controller CRDs">
+    ```bash
+    SNAP_VERSION=v8.2.0
+    CRD_BASE="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAP_VERSION}/client/config/crd"
+    CTRL_BASE="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAP_VERSION}/deploy/kubernetes/snapshot-controller"
+
+    kubectl --context=tesslate apply -f ${CRD_BASE}/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+    kubectl --context=tesslate apply -f ${CRD_BASE}/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+    kubectl --context=tesslate apply -f ${CRD_BASE}/snapshot.storage.k8s.io_volumesnapshots.yaml
+
+    kubectl --context=tesslate apply -f ${CTRL_BASE}/rbac-snapshot-controller.yaml
+    kubectl --context=tesslate apply -f ${CTRL_BASE}/setup-snapshot-controller.yaml
+    ```
+  </Step>
+
+  <Step title="Build and load the btrfs CSI image">
+    ```bash
+    docker build -t tesslate-btrfs-csi:latest -f services/btrfs-csi/Dockerfile services/btrfs-csi/
+    minikube -p tesslate image load tesslate-btrfs-csi:latest
+    ```
+  </Step>
+
+  <Step title="Configure CSI credentials">
+    The minikube overlay at `services/btrfs-csi/overlays/minikube/` ships an example secrets file. Copy it first:
+
+    ```bash
+    cp services/btrfs-csi/overlays/minikube/csi-credentials.example.yaml \
+       services/btrfs-csi/overlays/minikube/csi-credentials.yaml
+    ```
+
+    Edit `csi-credentials.yaml` only if you change the MinIO admin password. The default value matches the example MinIO secret you will edit in the next section. Both secrets must agree.
+  </Step>
+
+  <Step title="Deploy the CSI driver and Volume Hub">
+    ```bash
+    kubectl --context=tesslate apply -k services/btrfs-csi/overlays/minikube
+    kubectl --context=tesslate rollout status daemonset/tesslate-btrfs-csi-node -n kube-system --timeout=120s
+    kubectl --context=tesslate rollout status deployment/tesslate-volume-hub -n kube-system --timeout=120s
+    ```
+
+    This installs:
+
+    - `tesslate-btrfs-csi-node` DaemonSet (one pod per node)
+    - `tesslate-volume-hub` Deployment (Hub plus CSI provisioner / snapshotter sidecars)
+    - `tesslate-image-precache` DaemonSet (pre-pulls the devserver image on every node)
+  </Step>
+</Steps>
+
+### What Volume Hub does
+
+Volume Hub is the storageless orchestrator that sits above the per-node btrfs CSI driver. It exposes a gRPC API at `tesslate-volume-hub.kube-system.svc:9750` and the backend talks to it through `orchestrator/app/services/hub_client.py`.
+
+| RPC | What it does |
+|-----|--------------|
+| `CreateVolume` | Pick a node with capacity, create an empty or template-cloned subvolume |
+| `EnsureCached` | Guarantee a volume is present on the node where a pod is about to be scheduled |
+| `TriggerSync` | Push CAS content to MinIO when a project hibernates |
+| `DeleteVolume` | Remove the subvolume and any S3 objects it owns |
+
+<Tip>
+The minikube overlay patches `imagePullPolicy: Never` so the locally loaded `tesslate-btrfs-csi:latest` image is always used, even if a registry rebuild changes the `:latest` digest upstream.
+</Tip>
+
+## 5. Configure secrets
+
+Each cluster secret has a `*.example.yaml` under `k8s/overlays/minikube/secrets/`. Copy and edit every file.
+
+<Steps>
+  <Step title="Copy the example secrets">
+    ```bash
+    cd k8s/overlays/minikube/secrets
+
+    cp app-secrets.example.yaml      app-secrets.yaml
+    cp postgres-secret.example.yaml  postgres-secret.yaml
+    cp s3-credentials.example.yaml   s3-credentials.yaml
+    cp minio-credentials.example.yaml minio-credentials.yaml
+
+    cd -
+    ```
+  </Step>
+
+  <Step title="Fill in required values">
+    | File | Key | Notes |
+    |------|-----|-------|
+    | `app-secrets.yaml` | `SECRET_KEY` | `python -c "import secrets; print(secrets.token_hex(32))"` |
+    | `app-secrets.yaml` | `INTERNAL_API_SECRET` | Same generator; must match `ORCHESTRATOR_INTERNAL_SECRET` in `tesslate-btrfs-csi-config` |
+    | `app-secrets.yaml` | `DATABASE_URL` | `postgresql+asyncpg://tesslate_user:<password>@postgres:5432/tesslate_dev` |
+    | `app-secrets.yaml` | `LITELLM_API_BASE`, `LITELLM_MASTER_KEY` | Your LiteLLM proxy or OpenAI-compatible endpoint |
+    | `postgres-secret.yaml` | `POSTGRES_PASSWORD` | Must match the password embedded in `DATABASE_URL` |
+    | `s3-credentials.yaml` | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Must match `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
+    | `minio-credentials.yaml` | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | MinIO admin credentials |
+
+    Leave OAuth, Stripe, and SMTP blank unless you need those flows during local development. The backend boots fine with empty values.
+  </Step>
+
+  <Step title="Optional: Llama API secret for seeded apps">
+    The seeded `crm-demo` and `nightly-digest` apps reference a cluster secret called `llama-api-credentials`. Without it, those pods fail to start.
+
+    ```bash
+    kubectl --context=tesslate -n tesslate create secret generic llama-api-credentials \
+      --from-literal=api_key='<your-llama-api-key>'
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+OAuth callbacks in the example secrets point at `http://localhost/api/auth/<provider>/callback`. Providers that enforce HTTPS callbacks will not work against pure minikube. Use Cloudflare Tunnel (`k8s/overlays/minikube/cloudflare-tunnel/`) if you need to exercise them.
+</Warning>
+
+## 6. Deploy OpenSail
+
+<Steps>
+  <Step title="Build and load application images">
+    ```bash
+    docker build -t tesslate-backend:latest    -f orchestrator/Dockerfile          orchestrator/
+    docker build -t tesslate-frontend:latest   -f app/Dockerfile.prod              app/
+    docker build -t tesslate-devserver:latest  -f orchestrator/Dockerfile.devserver .
+
+    minikube -p tesslate image load tesslate-backend:latest
+    minikube -p tesslate image load tesslate-frontend:latest
+    minikube -p tesslate image load tesslate-devserver:latest
+    ```
+
+    The minikube overlay sets `K8S_DEVSERVER_IMAGE=tesslate-devserver:latest` and `K8S_IMAGE_PULL_POLICY=Never`, so the devserver image must already be inside the node before any user project starts.
+  </Step>
+
+  <Step title="Deploy MinIO">
+    ```bash
+    kubectl --context=tesslate apply -k k8s/overlays/minikube/minio
+    kubectl --context=tesslate wait --for=condition=ready pod -l app=minio -n minio-system --timeout=180s
+    ```
+
+    The init job creates two buckets: `tesslate-projects` (used by the backend) and `tesslate-btrfs-snapshots` (used by the CSI driver's CAS sync).
+  </Step>
+
+  <Step title="Apply the OpenSail overlay">
+    ```bash
+    kubectl --context=tesslate apply -k k8s/overlays/minikube
+    ```
+
+    This pulls in everything from `k8s/base/` (namespace, backend, frontend, Postgres, Redis, Ingress, security, Volume Hub references) and applies the minikube-specific patches (local images, `imagePullPolicy: Never`, HTTP-only Ingress, single replicas).
+  </Step>
+
+  <Step title="Wait for rollouts">
+    ```bash
+    kubectl --context=tesslate rollout status deployment/postgres          -n tesslate --timeout=180s
+    kubectl --context=tesslate rollout status deployment/redis             -n tesslate --timeout=120s
+    kubectl --context=tesslate rollout status deployment/tesslate-backend  -n tesslate --timeout=300s
+    kubectl --context=tesslate rollout status deployment/tesslate-frontend -n tesslate --timeout=180s
+    ```
+
+    The backend runs Alembic migrations on startup. If the first pod fails with a migration error it will retry; give it a minute before investigating.
+  </Step>
+</Steps>
+
+<Check>
+If all four rollouts succeed, OpenSail is live. Keep the `minikube tunnel` terminal open.
+</Check>
+
+## 7. Access the app
+
+With the tunnel running, NGINX Ingress answers on `localhost`. No port-forwarding needed for normal use.
+
+| URL | What it serves |
+|-----|----------------|
+| `http://localhost/` | Frontend |
+| `http://localhost/api/` | Backend API |
+| `http://<slug>-<container>.localhost/` | User project preview (for example, `http://my-app-k3x8n2-frontend.localhost`) |
+| `http://minio.localhost/` | MinIO S3 API (after the Ingress rule or via port-forward below) |
+
+Without the tunnel, use port-forwards:
+
+```bash
+kubectl --context=tesslate port-forward -n tesslate svc/tesslate-frontend-service 5000:80
+kubectl --context=tesslate port-forward -n tesslate svc/tesslate-backend-service  8000:8000
+kubectl --context=tesslate port-forward -n minio-system svc/minio 9001:9001
+```
+
+<Note>
+OpenSail does not run Traefik in Kubernetes. Traefik is only the Docker Compose dev mode router; NGINX Ingress serves the same role on minikube and in AWS.
+</Note>
+
+## 8. Seed the database
+
+<CodeGroup>
+```bash Loop through the seed scripts
+BACKEND_POD=$(kubectl --context=tesslate get pods -n tesslate \
+  -l app=tesslate-backend -o jsonpath='{.items[0].metadata.name}')
+
+for script in \
+  seed_marketplace_bases.py \
+  seed_marketplace_agents.py \
+  seed_opensource_agents.py \
+  seed_skills.py \
+  seed_themes.py \
+  seed_mcp_servers.py \
+  seed_community_bases.py
+do
+  kubectl --context=tesslate cp "scripts/seed/$script" "tesslate/${BACKEND_POD}:/tmp/$script"
+  kubectl --context=tesslate exec -n tesslate "$BACKEND_POD" -- python "/tmp/$script"
+done
+```
+
+```bash Single script
+kubectl --context=tesslate cp scripts/seed/seed_marketplace_bases.py \
+  tesslate/${BACKEND_POD}:/tmp/seed_marketplace_bases.py
+kubectl --context=tesslate exec -n tesslate ${BACKEND_POD} -- python /tmp/seed_marketplace_bases.py
+```
+</CodeGroup>
+
+Individual failures are non-fatal; the remaining scripts still run. Every seed script is idempotent, so it is safe to re-run.
+
+## 9. Create a project
+
+From `http://localhost/`, sign up and create a project. Behind the scenes the backend:
+
+1. Creates a namespace `proj-<uuid>` with a NetworkPolicy isolating it from other project namespaces.
+2. Asks Volume Hub to pick a node with capacity and provision a btrfs subvolume, cloning from the template snapshot if one exists.
+3. Creates a PVC bound to storage class `tesslate-btrfs`. PVC size defaults to `K8S_PVC_SIZE=5Gi`.
+4. Creates one Deployment and Service per container declared in the project's `.tesslate/config.json`. Multiple containers are kept on the same node via pod affinity so they share the volume without cross-node traffic.
+5. Adds an Ingress rule per exposed container on `http://<slug>-<container>.localhost`.
+
+Inspect what landed:
+
+```bash
+kubectl --context=tesslate get ns | grep proj-
+NS=<proj-uuid>
+kubectl --context=tesslate get all,pvc,ingress -n $NS
+kubectl --context=tesslate describe pod -n $NS -l app=frontend
+```
+
+## 10. Snapshots and hibernation
+
+OpenSail keeps up to `K8S_MAX_SNAPSHOTS_PER_PROJECT=5` VolumeSnapshot objects per project as a rolling timeline. Idle projects hibernate after `K8S_HIBERNATION_IDLE_MINUTES=10` minutes: the backend calls Volume Hub `TriggerSync` to push the CAS content to MinIO, then tears down the compute pod while keeping the volume cached on its node.
+
+<CodeGroup>
+```bash Watch snapshots and volume state
+NS=<proj-uuid>
+kubectl --context=tesslate get volumesnapshots     -n $NS
+kubectl --context=tesslate get volumesnapshotcontents
+kubectl --context=tesslate get pvc                 -n $NS
+```
+
+```bash Watch Volume Hub logs
+kubectl --context=tesslate logs -n kube-system deploy/tesslate-volume-hub -c hub --tail=100 -f
+```
+</CodeGroup>
+
+When you click Start on a hibernated project, Volume Hub uses the fast path if the cached subvolume is still on its node, or peer-transfers or restores from MinIO otherwise.
+
+## 11. Common commands
+
+Always include `--context=tesslate`.
+
+<CodeGroup>
+```bash Status
+kubectl --context=tesslate get pods -n tesslate
+kubectl --context=tesslate get pods -A | grep proj-
+kubectl --context=tesslate get events -n tesslate --sort-by='.lastTimestamp'
+```
+
+```bash Logs
+kubectl --context=tesslate logs -f deployment/tesslate-backend  -n tesslate
+kubectl --context=tesslate logs -f deployment/tesslate-frontend -n tesslate
+kubectl --context=tesslate logs -n kube-system deploy/tesslate-volume-hub -c hub
+```
+
+```bash Shell and port-forward
+kubectl --context=tesslate exec -it deployment/tesslate-backend -n tesslate -- /bin/bash
+kubectl --context=tesslate port-forward -n tesslate svc/tesslate-backend-service 8000:8000
+```
+
+```bash Rebuild and restart backend
+minikube -p tesslate ssh -- docker rmi -f tesslate-backend:latest
+docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
+minikube -p tesslate image load tesslate-backend:latest
+kubectl --context=tesslate delete pod -n tesslate -l app=tesslate-backend
+```
+</CodeGroup>
+
+On Windows Git Bash, prefix `kubectl` and `docker exec` calls with `MSYS_NO_PATHCONV=1` so paths are not mangled.
+
+<Tip>
+Use `kubectl delete pod` instead of `kubectl rollout restart` when swapping an image with the same tag. Rollout restart can reuse cached image layers; deleting the pod forces a fresh pull from the node's Docker cache.
+</Tip>
+
+## 12. Teardown
+
+<CodeGroup>
+```bash Remove app resources, keep the cluster
+./k8s/scripts/minikube/teardown.sh
+```
+
+```bash Manual cleanup
+kubectl --context=tesslate delete namespace tesslate      --ignore-not-found
+kubectl --context=tesslate delete namespace minio-system  --ignore-not-found
+kubectl --context=tesslate delete storageclass tesslate-block-storage --ignore-not-found
+```
+
+```bash Destroy the entire cluster
+./k8s/scripts/minikube/teardown.sh --all
+# or
+minikube delete --profile tesslate
+```
+</CodeGroup>
+
+<Warning>
+Destroying the cluster loses all user project data. PVCs survive a `minikube stop` / `minikube start` cycle; they do not survive `minikube delete`.
+</Warning>
+
+## 13. Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="database" title="btrfs not supported or CSI node pod CrashLoops">
+    The minikube VM image must have btrfs tools available. Use `--driver docker` (confirmed working) and check the init container:
+
+    ```bash
+    kubectl --context=tesslate describe pod -n kube-system -l app=tesslate-btrfs-csi-node
+    kubectl --context=tesslate logs       -n kube-system -l app=tesslate-btrfs-csi-node -c init-btrfs
+    ```
+
+    If you changed driver, the safest fix is to recreate the cluster with the Docker driver.
+  </Accordion>
+
+  <Accordion icon="camera" title="Snapshot controller missing, no VolumeSnapshot API">
+    Symptom: `no matches for kind "VolumeSnapshot" in version "snapshot.storage.k8s.io/v1"`. Re-run section 4.
+
+    ```bash
+    kubectl --context=tesslate get crds | grep snapshot.storage.k8s.io
+    kubectl --context=tesslate get pods  -n kube-system -l app=snapshot-controller
+    ```
+  </Accordion>
+
+  <Accordion icon="globe" title="DNS resolution for *.localhost fails">
+    1. Confirm `minikube tunnel --profile tesslate` is still running in another terminal.
+    2. `kubectl --context=tesslate get ingress -A | grep proj-` and verify the rule exists.
+    3. `kubectl --context=tesslate describe ingress -n proj-<uuid>` and look for controller errors.
+
+    If your OS does not resolve `*.localhost` automatically, add the specific host to `/etc/hosts` pointing at `127.0.0.1`.
+  </Accordion>
+
+  <Accordion icon="image" title="Pod stuck in ImagePullBackOff">
+    Local images were not loaded into the minikube node, or the tag drifted.
+
+    ```bash
+    minikube -p tesslate image ls | grep tesslate
+    minikube -p tesslate image load tesslate-backend:latest
+    kubectl --context=tesslate rollout restart deployment/tesslate-backend -n tesslate
+    ```
+  </Accordion>
+
+  <Accordion icon="bug" title="Pod in CrashLoopBackOff">
+    ```bash
+    kubectl --context=tesslate describe pod <pod> -n <namespace>
+    kubectl --context=tesslate logs <pod> -n <namespace> --previous
+    ```
+
+    Common causes: wrong `DATABASE_URL` in `app-secrets.yaml`, Postgres not ready yet, `INTERNAL_API_SECRET` mismatch between `tesslate-app-secrets` and `tesslate-btrfs-csi-config`, or missing `llama-api-credentials` for seeded apps.
+  </Accordion>
+
+  <Accordion icon="database" title="Database reset">
+    ```bash
+    kubectl --context=tesslate delete pvc postgres-pvc -n tesslate
+    kubectl --context=tesslate delete pod -l app=postgres -n tesslate
+    kubectl --context=tesslate rollout restart deployment/tesslate-backend -n tesslate
+    ```
+
+    The orchestrator re-runs Alembic migrations on the next boot and you can re-seed the database.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="AWS Production" icon="aws" href="/guides/aws-production">
+    Deploy OpenSail to EKS with NLB ingress, cert-manager, and Cloudflare DNS.
+  </Card>
+  <Card title="Docker Setup" icon="docker" href="/guides/docker-setup">
+    Faster inner-loop dev without Kubernetes. Same code paths, different orchestrator.
+  </Card>
+  <Card title="Publishing Apps" icon="box" href="/guides/publishing-apps">
+    Package and publish an app to the Tesslate marketplace from your local cluster.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/introduction">
+    High-level tour of how the orchestrator, agents, and runtimes fit together.
+  </Card>
+</CardGroup>
+
+## Getting help
+
+<CardGroup cols={3}>
+  <Card title="Discord" icon="discord" href="https://discord.gg/qmrcHGNch7">
+    Real-time help from the Tesslate community.
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/TesslateAI/opensail">
+    Source, issues, and release notes.
+  </Card>
+  <Card title="Email" icon="envelope" href="mailto:support@tesslate.com">
+    Direct support at `support@tesslate.com`.
+  </Card>
+</CardGroup>

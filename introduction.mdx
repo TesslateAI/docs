@@ -1,158 +1,125 @@
 ---
-title: "Welcome to Tesslate Studio"
-description: "Build full-stack applications with AI-powered code generation"
+title: "Welcome to OpenSail"
+description: "Build agents, apps, and automations. Run them on your infrastructure. Share them across your team."
 ---
 
 <img
-  className="block dark:hidden"
-  src="/images/hero-light.png"
-  alt="Tesslate Studio Hero Light"
-/>
-<img
-  className="hidden dark:block"
-  src="/images/hero-dark.png"
-  alt="Tesslate Studio Hero Dark"
+  src="/images/opensail-banner.png"
+  alt="Tesslate OpenSail"
 />
 
-## What is Tesslate Studio?
+## What is OpenSail?
 
-Tesslate Studio is an open-source, AI-powered development platform that lets you build complete web applications using natural language. Describe what you want to build, and AI agents generate production-ready code with live preview, all running in isolated containers.
+OpenSail is an open platform for building, running, and sharing AI-powered software. Describe a job you want done, drop in a file, and OpenSail helps turn it into a working agent, app, or workflow. Agents write code, use connected tools, remember what they learn, and continue work across many steps inside sandboxed cloud environments.
 
-You can use it on our cloud platform at [tesslate.com](https://tesslate.com) or self-host it on your own infrastructure with Docker or Kubernetes.
+You can use OpenSail on the cloud at [tesslate.com](https://tesslate.com), install it as a native desktop app, or self-host the whole stack on your own Kubernetes cluster.
 
 <CardGroup cols={2}>
-  <Card
-    title="AI Code Generation"
-    icon="wand-magic-sparkles"
-    href="/guides/agents"
-  >
-    Generate React components and full applications from natural language
-    using four specialized AI agent types
+  <Card title="Any model" icon="wand-magic-sparkles" href="/guides/model-management">
+    Anthropic, OpenAI, Google, Meta, Mistral, Qwen, DeepSeek, xAI, local Ollama, and more. Bring your own key or use ours.
   </Card>
-  <Card title="Live Preview" icon="eye" href="/guides/live-preview">
-    See your application running in real-time with instant hot module
-    replacement inside isolated containers
+  <Card title="Snapshot filesystem" icon="layer-group" href="/self-hosting/architecture">
+    Fork a running workspace in seconds. Every project sits on a btrfs subvolume with instant snapshot, clone, and restore.
   </Card>
-  <Card title="Multi-Agent System" icon="robot" href="/guides/agent-types">
-    Choose from StreamAgent, IterativeAgent, ReActAgent, and TesslateAgent,
-    each optimized for different tasks
+  <Card title="Your infrastructure" icon="server" href="/self-hosting/quickstart">
+    Desktop, Docker, or Kubernetes. On-prem, air-gapped, or any cloud. No per-seat pricing, no lock-in.
   </Card>
-  <Card title="Marketplace" icon="store" href="/guides/marketplace">
-    Discover and install AI agents, templates, and project bases from the
-    community
+  <Card title="Publish as apps" icon="store" href="/guides/publishing-apps">
+    Turn any workspace into a one-click installable app. Share privately, with a team, or to the public marketplace.
   </Card>
 </CardGroup>
 
-## Key Features
+## What you can build
+
+OpenSail treats every shipped unit as an "app." An app can be a UI, a chat interface, a scheduled cron job, a webhook handler, or an MCP tool callable by other agents. They are declared in the same manifest and built in the same workspace.
 
 <AccordionGroup>
-  <Accordion icon="code" title="Full-Stack Code Generation">
-    Generate complete React/TypeScript applications including components, state management, API integrations, and styling with Tailwind CSS. AI agents can read, write, and edit files, execute shell commands, and fetch web content. Multi-container projects let you run frontend, backend, and database services together.
+  <Accordion icon="robot" title="Agents that actually work over time">
+    Agents run in sandboxed containers, use connected tools (Slack, GitHub, databases, MCP servers), remember context across sessions, and continue work even when you close your laptop. Progressive persistence writes every step to the database as it happens, so you can resume mid-task.
   </Accordion>
 
-  <Accordion icon="browser" title="Instant Live Preview">
-    Every change (AI-generated or manual) is instantly reflected in a live browser preview with hot module replacement. Each project runs in an isolated container environment with its own dev server, so projects never interfere with each other.
+  <Accordion icon="code" title="Full-stack applications">
+    Multi-container projects with frontend, backend, database, and workers. React, Next.js, Node, Python, Go, any framework. Each project gets its own isolated namespace and volume.
   </Accordion>
 
-  <Accordion icon="comments" title="Interactive Chat Interface">
-    Chat with AI agents using natural language to describe features, request changes, or debug issues. Messages stream in real-time via SSE. Agents request approval before executing potentially risky operations like shell commands, and you can toggle between "Ask" and "Edit" modes.
+  <Accordion icon="clock" title="Scheduled automations">
+    Agents that pull metrics every Friday, draft weekly reports, monitor support channels, route leads to CRM, or process files in a queue. Natural language schedules convert to cron expressions.
   </Accordion>
 
-  <Accordion icon="layer-group" title="Project Templates and Bases">
-    Start from scratch, import from GitHub, or use pre-built bases with configured tech stacks and best practices. Support for multi-container monorepo projects with frontend, backend, and database containers.
+  <Accordion icon="comments" title="Chat and messaging bots">
+    Deploy agents to Slack, Telegram, Discord, WhatsApp, or Signal. Agents pick up requests, run work in sandboxed environments, and reply on the platform.
   </Accordion>
 
-  <Accordion icon="diagram-project" title="Architecture Visualization">
-    Visualize your project architecture with React Flow diagrams showing container dependencies, connections, and live browser previews. Drag and drop containers to build your stack visually.
-  </Accordion>
-
-  <Accordion icon="github" title="Git Integration">
-    Import repositories from GitHub, GitLab, or Bitbucket. Edit code and commit changes directly from the platform with full OAuth integration. Track sync status and manage branches without leaving the editor.
-  </Accordion>
-
-  <Accordion icon="cloud" title="Flexible Deployment">
-    Deploy to Vercel, Netlify, or Cloudflare Pages with a few clicks. Self-host the entire platform with Docker for development or Kubernetes for production. Projects can also run in managed cloud at tesslate.com.
-  </Accordion>
-
-  <Accordion icon="credit-card" title="Credits and Marketplace">
-    A multi-source credit system (daily, bundled, signup bonus, and purchased credits) keeps costs predictable. Browse and install agents and bases from the marketplace. Creators earn 90% of revenue from their published agents.
+  <Accordion icon="plug" title="MCP tools for other agents">
+    Publish an agent as an MCP tool server so external coding agents (Claude Code, Cursor, Codex) can call it, get sandboxed compute, and use it as infrastructure.
   </Accordion>
 </AccordionGroup>
 
-## Technology Stack
-
-| Layer | Technologies |
-|-------|-------------|
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, Monaco Editor, XYFlow |
-| **Backend** | FastAPI, Python 3.11, SQLAlchemy, Pydantic |
-| **Database** | PostgreSQL (asyncpg) |
-| **AI/LLM** | LiteLLM gateway supporting OpenAI, Anthropic, Google, Ollama, and 100+ models |
-| **Containers** | Docker Compose (development), Kubernetes (production) |
-| **Storage** | AWS S3 / MinIO for project file storage |
-| **Routing** | Traefik (Docker mode), NGINX Ingress (Kubernetes mode) |
-| **Payments** | Stripe subscriptions and credit purchases |
-
-## How It Works
+## How it works
 
 <Steps>
-  <Step title="Create a Project">
-    Start with a blank template, import from GitHub, or use a pre-built base from the marketplace. Your project gets its own isolated container environment.
+  <Step title="Describe the job">
+    Tell OpenSail what you want to build, or drop in a file. The agent plans the work, wires up the right tools, and asks clarifying questions.
   </Step>
 
-  <Step title="Chat with AI">
-    Describe what you want to build in plain English. The AI agent generates complete, working code. It can create files, install packages, run commands, and iterate on its own work.
+  <Step title="Work in a real IDE">
+    Monaco editor, a real terminal, a file tree, live preview with hot reload, git with branches and blame, a kanban board. The agent sees what you see.
   </Step>
 
-  <Step title="See It Live">
-    Your application runs instantly in a live preview with hot module replacement. Changes appear immediately as files are created or modified.
+  <Step title="Run in sandboxes">
+    Every project runs in a three-tier compute model on Kubernetes. File ops and reasoning are near-free. Shell runs in warm pools. Full dev environments wake on demand and hibernate when idle.
   </Step>
 
-  <Step title="Iterate and Deploy">
-    Continue chatting with the AI to add features, fix bugs, and refine your application. When you are ready, deploy to Vercel, Netlify, Cloudflare Pages, or commit to GitHub.
+  <Step title="Ship anywhere">
+    Draw an edge from a container to a deploy target. 22 providers supported: Vercel, AWS, Cloudflare Pages, Fly.io, and many more. Or publish as a one-click installable app.
   </Step>
 </Steps>
 
-## What You Can Build
+## Technology
 
-Tesslate Studio is great for:
+| Layer | What |
+|-------|------|
+| Frontend | React 19, TypeScript, Vite, Tailwind, Monaco Editor, XYFlow |
+| Desktop shell | Tauri v2 (Rust), local SQLite, Stronghold token store |
+| Backend | FastAPI, Python 3.11, SQLAlchemy, LiteLLM |
+| Agent runner | `tesslate-agent` (Python), 33 built-in tools across 8 categories |
+| Database | PostgreSQL (cloud), SQLite (desktop) |
+| Task queue | Redis + ARQ (cloud), asyncio + apscheduler (desktop) |
+| Storage | btrfs CSI driver, Volume Hub orchestrator, S3-backed CAS |
+| Containers | Docker Compose (dev), Kubernetes (prod), subprocesses (desktop) |
+| Routing | Traefik (Docker), NGINX Ingress (Kubernetes) |
 
-- **Landing Pages**: Create beautiful, responsive marketing sites
-- **Web Applications**: Build full-featured SaaS applications with React + Vite
-- **Full-Stack Apps**: Multi-container projects with frontend, backend, and database
-- **Dashboards**: Generate data visualization and admin panels
-- **E-commerce**: Create shopping experiences and product catalogs
-- **Portfolios**: Build personal websites and project showcases
-- **Prototypes**: Rapidly prototype ideas and validate concepts
-- **API Services**: Backend containers with FastAPI, Express, Go, or any framework
+## Three ways to run
 
-## Deployment Options
-
-<CardGroup cols={2}>
-  <Card title="Cloud Hosted" icon="cloud" href="https://tesslate.com">
-    Use our managed cloud platform at tesslate.com. No setup required. Sign up and start building.
+<CardGroup cols={3}>
+  <Card title="Cloud" icon="cloud" href="https://tesslate.com">
+    Managed at tesslate.com. Sign up and build.
   </Card>
-  <Card title="Self-Hosted" icon="server" href="/self-hosting/quickstart">
-    Deploy on your own infrastructure with Docker or Kubernetes. Full control over your data, AI models, and configuration.
+  <Card title="Desktop" icon="desktop" href="/guides/desktop-install">
+    Native Tauri app for macOS, Windows, Linux.
+  </Card>
+  <Card title="Self-hosted" icon="server" href="/self-hosting/quickstart">
+    Docker or Kubernetes on your own hardware.
   </Card>
 </CardGroup>
 
-## Next Steps
+## Why open source
+
+Workspace agents are powerful. They touch your data, your tools, your processes. You should be able to see exactly what they are doing, run them on your own infrastructure, and not be locked to a single model provider. OpenSail runs on any model, deploys on any cloud, and keeps your data where you put it.
+
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
-    Get up and running in 5 minutes
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first agent in five minutes.
   </Card>
-  <Card
-    title="Create Your First Project"
-    icon="folder-plus"
-    href="/guides/creating-projects"
-  >
-    Learn how to create and manage projects
+  <Card title="Install on Docker" icon="docker" href="/guides/docker-setup">
+    Clone, configure, boot. Twenty minutes from zero to running.
   </Card>
-  <Card title="Explore Agents" icon="robot" href="/guides/agents">
-    Understand AI agents and how to use them
+  <Card title="Install on Desktop" icon="desktop" href="/guides/desktop-install">
+    macOS, Windows, Linux. No cluster needed.
   </Card>
-  <Card title="Browse Marketplace" icon="store" href="/guides/marketplace">
-    Discover agents, bases, and templates
+  <Card title="Publish an app" icon="store" href="/guides/publishing-apps">
+    Turn a workspace into a one-click installable app.
   </Card>
 </CardGroup>

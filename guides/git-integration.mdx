@@ -1,0 +1,250 @@
+---
+title: 'Git Integration'
+description: 'GitHub, GitLab, and Bitbucket OAuth; clone, commit, push, branch from inside OpenSail. Every project is a real git repo, every agent can read and write git state.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## Overview
+
+Every OpenSail project is a real git repository. You can import from GitHub, GitLab, or Bitbucket; push commits back; open PRs; and watch branches all from inside the studio. The agent has read access to git state through its git tools and write access through the shell, so it can create commits and push on your behalf (with approval).
+
+<CardGroup cols={2}>
+  <Card title="Three providers" icon="code-branch">
+    GitHub, GitLab, Bitbucket, all with OAuth and a unified API.
+  </Card>
+  <Card title="Import or init" icon="download">
+    Clone an existing repo, or start blank and push to a new remote.
+  </Card>
+  <Card title="Agent-aware git" icon="robot">
+    `git_status`, `git_log`, `git_blame`, `git_diff` are built-in agent tools.
+  </Card>
+  <Card title="In-container ops" icon="cube">
+    Every git command runs inside the project container, so `.gitignore`, LFS, and hooks all work.
+  </Card>
+</CardGroup>
+
+## Connecting a provider
+
+<Steps>
+  <Step title="Open Settings">
+    Go to Settings, then Git Providers.
+  </Step>
+  <Step title="Connect">
+    Click Connect on GitHub, GitLab, or Bitbucket. You'll be redirected to the provider's OAuth consent page.
+  </Step>
+  <Step title="Authorize">
+    OpenSail requests the minimum scopes needed for the provider:
+    - GitHub: `repo`, `user:email`, `read:user`
+    - GitLab: `api`, `read_user`
+    - Bitbucket: `repository`, `account`
+  </Step>
+  <Step title="Done">
+    The token is stored encrypted in `GitProviderCredential` and refreshed automatically when it expires.
+  </Step>
+</Steps>
+
+<Info>
+  You can connect more than one provider. OpenSail matches the right credential to the repo based on the host in the clone URL.
+</Info>
+
+## Importing a repo
+
+<Steps>
+  <Step title="Create a new project">
+    Dashboard, then New Project.
+  </Step>
+  <Step title="Pick Import">
+    Choose GitHub, GitLab, or Bitbucket as the source.
+  </Step>
+  <Step title="Choose a repo">
+    Browse your repos (including orgs you belong to). Filter by org, search by name.
+  </Step>
+  <Step title="Pick a branch">
+    Default branch is auto-selected. Override if you want to start from a feature branch.
+  </Step>
+  <Step title="Create">
+    OpenSail clones into a new project container and runs setup.
+  </Step>
+</Steps>
+
+The clone happens in a background task. The UI shows progress while the container initializes.
+
+## Branching and committing
+
+<Tabs>
+  <Tab title="From the UI">
+    The Git panel shows the current branch, ahead/behind count, uncommitted changes, and remotes. Buttons:
+    - Create branch
+    - Commit (stages and commits tracked changes)
+    - Push
+    - Pull
+    - Switch branch
+  </Tab>
+
+  <Tab title="From the terminal">
+    Open the in-project terminal and use git normally:
+
+    ```bash
+    git checkout -b feature/add-billing
+    git add .
+    git commit -m "Add billing page"
+    git push -u origin feature/add-billing
+    ```
+
+    The terminal runs inside the project container, so your provider credentials are pre-authenticated for you.
+  </Tab>
+
+  <Tab title="From the agent">
+    Ask the agent to commit and push. It uses shell tools for writes and git-read tools to verify. In Ask Before Edit mode (default), it pauses for approval before `git push`.
+
+    Example: "commit everything as 'rework onboarding' and push".
+  </Tab>
+</Tabs>
+
+## Agent-side git
+
+The agent has four read-only git tools built in:
+
+| Tool | Use |
+|------|-----|
+| `git_status` | What's staged, what's modified, what's untracked |
+| `git_log` | Commit history for the current branch |
+| `git_blame` | Per-line authorship on a file |
+| `git_diff` | Unified diff for working tree or between refs |
+
+Writes go through the shell (`bash_exec`). This means normal git hooks, LFS, and `.gitignore` rules all apply. The approval system gates destructive commands: `git push --force`, `git reset --hard`, and similar are gated in Ask Before Edit mode.
+
+## Multi-provider support
+
+OpenSail abstracts the three providers behind a single API:
+
+| Provider | Clone URL | OAuth |
+|----------|-----------|-------|
+| GitHub | `https://github.com/user/repo.git` | GitHub App |
+| GitLab | `https://gitlab.com/user/repo.git` (and self-hosted) | GitLab OAuth |
+| Bitbucket | `https://bitbucket.org/user/repo.git` | Bitbucket OAuth |
+
+When the agent or the UI runs `git clone` or `git push`, the credential matcher looks at the host and selects the right stored token automatically.
+
+## Pushing to a new remote
+
+Starting from a blank template and want to create a new remote?
+
+<Steps>
+  <Step title="Pick a provider">
+    Git panel, then Create Remote. Pick GitHub, GitLab, or Bitbucket.
+  </Step>
+  <Step title="Name the repo">
+    Enter the name and visibility (public or private).
+  </Step>
+  <Step title="Create and push">
+    OpenSail calls the provider API to create the repo with your token, wires it as `origin`, and pushes the initial branch.
+  </Step>
+</Steps>
+
+## Pull requests
+
+PRs are not created automatically on push. Open them from the provider UI. OpenSail's Git panel has a Open on GitHub/GitLab/Bitbucket button that takes you straight to the compare view for the current branch.
+
+<Info>
+  PR automation (creating PRs from the studio, commenting, approving) is on the roadmap. Today you manage PRs on the provider site.
+</Info>
+
+## Merging and syncing
+
+<AccordionGroup>
+  <Accordion icon="code-merge" title="Pull before you push">
+    The Git panel shows behind count when the remote has moved ahead. Click Pull to fast-forward or merge. Conflicts surface in Monaco with inline markers.
+  </Accordion>
+
+  <Accordion icon="code-branch" title="Sync a long-running branch">
+    Open the terminal and run `git fetch origin && git merge origin/main`. The agent can also do this on request.
+  </Accordion>
+
+  <Accordion icon="triangle-exclamation" title="Resolve conflicts">
+    Monaco highlights conflict markers. Edit to resolve, save, then commit. The agent can also handle small conflicts: paste the conflict output and ask for help.
+  </Accordion>
+</AccordionGroup>
+
+## .gitignore and large files
+
+Standard `.gitignore` works. The default template adds `node_modules`, `dist`, `.env`, `.tesslate/cache`. The Tesslate config file (`.tesslate/config.json`) is committed so the graph travels with the repo.
+
+For large files, use Git LFS. `git lfs install` inside the terminal once, then `git lfs track` normally. The CSI volume has plenty of room for LFS objects; they persist with the workspace snapshot.
+
+## Secrets, tokens, and safety
+
+<Warning>
+  Never commit secrets. `.env` is in the default `.gitignore`. Use environment variables in project settings or a secrets manager connector (see [Connectors (MCP)](/guides/connectors-mcp)).
+</Warning>
+
+OAuth tokens for connected providers are encrypted at rest and never exposed to the agent. When the agent runs git commands, it sees only pre-populated credential helpers, not the raw token.
+
+## Revoking a provider
+
+<Steps>
+  <Step title="Settings, Git Providers">
+    Find the connected provider.
+  </Step>
+  <Step title="Disconnect">
+    Click Disconnect. The token is deleted from `GitProviderCredential`.
+  </Step>
+  <Step title="Revoke upstream">
+    Visit the provider's OAuth apps list and revoke the OpenSail app to be extra safe.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="lock" title="Permission denied on push">
+    Token likely expired or the repo scopes changed. Reconnect the provider and retry.
+  </Accordion>
+
+  <Accordion icon="file-shield" title="Cannot clone a private repo">
+    Make sure the OAuth app has access to that org. On GitHub, check the GitHub App installation and grant access to the org.
+  </Accordion>
+
+  <Accordion icon="square-xmark" title="Commits show up as the OpenSail bot">
+    Configure `git config user.name` and `git config user.email` inside the project terminal. The agent will also ask if the author is missing before committing.
+  </Accordion>
+
+  <Accordion icon="clock-rotate-left" title="Clone hangs on a big monorepo">
+    Large repos take longer. You can shallow-clone with `--depth=1` via the terminal. The default clone gets full history.
+  </Accordion>
+</AccordionGroup>
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Branch per feature" icon="code-branch">
+    The agent works best with a clean branch. Start a branch per task, PR when done.
+  </Card>
+  <Card title="Commit the config" icon="file-code">
+    Check in `.tesslate/config.json`. Teammates and forks get the same graph.
+  </Card>
+  <Card title="Let the agent read, you write" icon="pen">
+    Ask the agent to run `git_diff` before writing a commit message. It writes better messages when it sees the diff.
+  </Card>
+  <Card title="Use hooks" icon="link">
+    Pre-commit hooks run normally (inside the container). Use them to enforce linting and tests.
+  </Card>
+</CardGroup>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Creating Projects" icon="plus" href="/guides/creating-projects">
+    Import from git as part of project creation.
+  </Card>
+  <Card title="Code Editor" icon="code" href="/guides/code-editor">
+    Where conflicts get resolved.
+  </Card>
+  <Card title="Using Agents" icon="robot" href="/guides/using-agents">
+    Let the agent drive commits and branches.
+  </Card>
+  <Card title="API Keys" icon="key" href="/guides/api-keys">
+    Run git operations through the external agent API.
+  </Card>
+</CardGroup>

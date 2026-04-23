@@ -1,0 +1,301 @@
+---
+title: 'Deployment Targets'
+description: 'Ship containers to 22 external providers from the Architecture Panel with a single edge connection, per-target environments, and independent rollback.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## Overview
+
+In OpenSail, a **deployment target** is a first-class node on the Architecture Panel canvas. You draw a dashed orange edge from a container node (frontend, backend, worker) to a target node, and the orchestrator handles the rest: build, package, authenticate with the provider, and stream status back. The same container can fan out to many targets, each with its own environment, env-var overrides, deployment history, and rollback.
+
+<CardGroup cols={2}>
+  <Card title="22 external targets" icon="plug">
+    Serverless, static, container push, and registry export providers, all wired into the same canvas flow.
+  </Card>
+  <Card title="A/B variants" icon="code-branch">
+    Drop a second target, point production at Vercel, preview at Cloudflare Pages, staging at Fly.io.
+  </Card>
+  <Card title="Per-target environment" icon="layer-group">
+    Cycle `production`, `staging`, `preview` on the target header. Env-var merge runs in four layers.
+  </Card>
+  <Card title="Independent rollback" icon="clock-rotate-left">
+    Every deployment row keeps its provider URL, logs, and metadata. Roll back any target without touching the others.
+  </Card>
+</CardGroup>
+
+## What a target owns
+
+Each `DeploymentTarget` row tracks:
+
+- Provider (`vercel`, `netlify`, `fly`, and so on).
+- Environment label (`production`, `staging`, `preview`).
+- Env-var overrides in the `deployment_env` JSON column.
+- Deployment history with per-version rollback.
+- Live credential binding so the canvas node can render "Not Connected" when no credential exists yet.
+
+Source references: `orchestrator/app/models.py` defines `DeploymentTarget`, `DeploymentTargetConnection`, `Deployment`, and `DeploymentCredential`. The canvas components are `app/src/components/DeploymentTargetNode.tsx` and `app/src/components/edges/DeploymentEdge.tsx`.
+
+## Provider catalog
+
+OpenSail ships 22 targets grouped by deploy type. Classification lives in `orchestrator/app/services/deployment/manager.py` and is mirrored in `app/src/components/DeploymentTargetNode.tsx`.
+
+### Serverless and full-stack (11)
+
+| Provider | Slug | Auth | Notes |
+|---|---|---|---|
+| Vercel | `vercel` | OAuth | Source mode default, framework detection |
+| Netlify | `netlify` | OAuth | Pre-built upload via Netlify Files API |
+| Cloudflare Pages and Workers | `cloudflare` | API token | Pre-built, `account_id` required |
+| DigitalOcean App Platform (source) | `digitalocean` | API token | Requires git remote on project |
+| Railway | `railway` | API token | Requires git remote |
+| Fly.io | `fly` | API token | Container push to Fly Machines |
+| Heroku | `heroku` | API key | Source tarball upload |
+| Render | `render` | API key | Requires git remote |
+| Koyeb | `koyeb` | API token | Serverless, optional `org_slug` |
+| Zeabur | `zeabur` | API key | ZIP upload, `region` optional |
+| Northflank | `northflank` | API token | Requires git remote |
+
+### Static hosting (4)
+
+| Provider | Slug | Auth | Notes |
+|---|---|---|---|
+| GitHub Pages | `github-pages` | GitHub PAT | `repo` scope, static only |
+| Surge | `surge` | Email + token | Run `surge token` in the CLI to fetch |
+| Deno Deploy | `deno-deploy` | Access token | `org_id` required |
+| Firebase Hosting | `firebase` | Service-account JSON | `site_id` required |
+
+### Container push (4)
+
+| Provider | Slug | Auth | Notes |
+|---|---|---|---|
+| AWS App Runner | `aws-apprunner` | Access key + secret | Pushes to ECR, then App Runner |
+| GCP Cloud Run | `gcp-cloudrun` | Service-account JSON | Pushes to Artifact Registry |
+| Azure Container Apps | `azure-container-apps` | Tenant, client, secret, subscription | Pushes to ACR |
+| DigitalOcean Container Apps | `do-container` | API token | Pushes to DOCR |
+
+### Registry and export (3)
+
+| Provider | Slug | Auth | Notes |
+|---|---|---|---|
+| Docker Hub | `dockerhub` | Username + PAT | Registry push only, no runtime |
+| GitHub Container Registry | `ghcr` | Username + PAT (`write:packages`) | Registry push only |
+| Download and Export | `download` | None | Zip archive delivered to the browser |
+
+## Connecting a provider
+
+Open **Settings > Deployments** (`app/src/pages/settings/DeploymentSettings.tsx`). Each provider card reads its requirements from `/api/deployment-credentials/providers` served by `DeploymentManager.list_available_providers()`.
+
+<Tabs>
+  <Tab title="OAuth">
+    Vercel and Netlify use OAuth. Click **Connect** on the provider card and a popup kicks off the authorize route:
+
+    - `/api/deployment-oauth/vercel/authorize`
+    - `/api/deployment-oauth/netlify/authorize`
+
+    The callback handler in `orchestrator/app/routers/deployment_oauth.py` exchanges the code, encrypts the token with the Fernet key in `deployment_encryption.py`, and persists a `DeploymentCredential` row. Vercel uses PKCE; pass `team_id` in metadata for team accounts.
+  </Tab>
+  <Tab title="API token">
+    Every other provider takes a long-lived API token or service-account JSON. Field labels and per-field help strings come from `app/src/lib/deployment-providers.ts` (`PROVIDER_CREDENTIAL_HELP`). The same strings render as hover tooltips on the canvas node while the target is still unconnected.
+
+    Credentials are user-scoped by default. Pass `project_id` on the create request to pin a credential to a single project. The resolver in `get_credential_for_deployment` (`routers/deployments.py`) prefers the project-scoped credential over the user default.
+  </Tab>
+</Tabs>
+
+<Info>
+  Rotate a credential by reconnecting from the same Settings card. The old row is updated in place, so any targets already bound to it stay connected.
+</Info>
+
+## Architecture Panel usage
+
+<Steps>
+  <Step title="Open the Architecture Panel">
+    Open your project, switch to the Architecture tab, and confirm your containers are visible.
+  </Step>
+  <Step title="Drop a Deployment Target">
+    Drag a **Deployment Target** from the node palette, pick a provider from the list of 22, and drop it on the canvas. The orchestrator creates a `DeploymentTarget` row via `POST /api/projects/{slug}/deployment-targets`.
+  </Step>
+  <Step title="Draw the deployment edge">
+    Connect a container node's right handle to the target node's left handle. The edge POSTs to `/api/projects/{slug}/deployment-targets/{target_id}/connect/{container_id}`, which inserts a `DeploymentTargetConnection` row.
+  </Step>
+  <Step title="Cycle the environment">
+    Click the environment label (`production`, `staging`, `preview`) on the target header to cycle values. This writes back to `DeploymentTarget.environment`.
+  </Step>
+  <Step title="Edit overrides">
+    Double-click the target (or use the card menu) to set env-var overrides, a custom build command, or a display name. Per-edge overrides live in `DeploymentTargetConnection.deployment_settings`.
+  </Step>
+  <Step title="Inspect history">
+    The Deployment History panel on the node pulls the last 10 rows from `/deployment-targets/{target_id}/history`.
+  </Step>
+</Steps>
+
+For a full walkthrough of the canvas, see the [Architecture Panel guide](/guides/architecture-panel).
+
+## Triggering a deploy
+
+Three entry points, one pipeline:
+
+<CardGroup cols={3}>
+  <Card title="Target node Deploy button" icon="rocket">
+    `POST /api/projects/{slug}/deployment-targets/{target_id}/deploy`. Loops over every connected container in one request. This is the standard path.
+  </Card>
+  <Card title="Deploy modal" icon="window-restore">
+    `POST /api/deployments/{project_slug}/deploy` with `provider`, `deployment_mode`, `env_vars`, and `custom_domain`. Powers the top-right Deploy button.
+  </Card>
+  <Card title="Agent tool" icon="robot">
+    The agent can deploy on your behalf. See the [agent tool reference](https://github.com/TesslateAI/tesslate-agent).
+  </Card>
+</CardGroup>
+
+## What happens server-side
+
+When a deploy fires in source or file mode, `routers/deployments.py::deploy_project` (or `routers/deployment_targets.py::deploy_target`) runs this pipeline:
+
+1. RBAC check via `get_project_with_access(Permission.DEPLOYMENT_CREATE)`.
+2. Resolve the credential with project-override precedence.
+3. Decrypt the token with `get_deployment_encryption_service()`.
+4. Insert a `Deployment` row with `status="building"` so the UI shows progress.
+5. Pick the primary build container and ensure it is running.
+6. If `deployment_mode == "source"`, skip the local build (the provider builds remotely). Otherwise invoke `get_deployment_builder().trigger_build()` which runs `npm run build` (or the container-specific build) inside the live container.
+7. Collect files with `builder.collect_deployment_files()`, honoring `container.output_directory`.
+8. Hand files to the provider via `DeploymentManager.get_provider(name, creds)`. Source-mode providers call `provider.deploy(files, config)`. Container-push providers go through `provider.push_image()` then `provider.deploy_image()`.
+9. Update the `Deployment` row with `status`, `deployment_url`, `logs`, `completed_at`, and `deployment_metadata`.
+10. Poll or stream provider status where supported (Vercel, Netlify, cloud providers). Otherwise the initial response carries the final state.
+
+<Check>
+  Deployment tokens never leave the server. The frontend only receives `deployment_url`, `status`, and `logs`.
+</Check>
+
+## A/B deploys
+
+Because each target is an independent node, one container can connect to many targets. Drop a second Vercel target set to `preview` and a third Netlify target set to `staging`, then wire the same frontend container into all three. Each target keeps its own `Deployment` history, so URLs, rollback, and env-var overrides stay isolated.
+
+Recommended patterns:
+
+- Split traffic between Vercel (production) and Cloudflare Pages (preview).
+- Deploy the same static build to GitHub Pages and Surge for redundancy.
+- Keep `staging.myapp.com` on Fly.io while production runs on AWS App Runner.
+
+## Environment matrix
+
+Env vars flow through a four-layer merge in `routers/deployment_targets.py::_build_source_env_vars`. Later layers win.
+
+| Layer | Source | Typical use |
+|---|---|---|
+| 1. Auto-derived | `project.git_remote_url` becomes `_TESSLATE_REPO_URL` | Git-required providers |
+| 2. Target-level | `DeploymentTarget.deployment_env` JSON | Values shared by every container on the target (`NODE_ENV=production`) |
+| 3. Connection-level | `DeploymentTargetConnection.deployment_settings["env_vars"]` | Per-container differences against the same target |
+| 4. Request-level | `env_vars` passed in the deploy call | One-off overrides from the modal or agent |
+
+<Warning>
+  Internal keys prefixed with `_TESSLATE_` (see `services/deployment/base.py`, `INTERNAL_ENV_PREFIX`) are stripped before anything hits the provider. The `environment` column is metadata only, so set `NODE_ENV` or `VERCEL_ENV` yourself on the target's `deployment_env` if your runtime needs it.
+</Warning>
+
+## Per-provider caveats
+
+<AccordionGroup>
+  <Accordion title="Vercel">
+    Defaults to `source` mode so Vercel builds on its own infrastructure. Pass `team_id` in metadata for team accounts. OAuth flows through `/api/deployment-oauth/vercel/authorize` with PKCE.
+  </Accordion>
+  <Accordion title="Netlify">
+    The file-upload API does not trigger a remote build, so OpenSail defaults to `pre-built`. The local build must complete before the upload starts.
+  </Accordion>
+  <Accordion title="Cloudflare Pages and Workers">
+    `pre-built` only. The provider upload uses the dispatch namespace in metadata if set. `account_id` is mandatory.
+  </Accordion>
+  <Accordion title="Fly.io">
+    Deploys to Fly Machines, not the legacy Nomad stack. Set `org_slug` for multi-org accounts. Volumes are not auto-created, so declare them in the container's `fly.toml`.
+  </Accordion>
+  <Accordion title="AWS App Runner">
+    Requires ECR access. The provider pushes the image to a per-region ECR repository using the supplied IAM key, then creates an App Runner service pointing at the pushed tag.
+  </Accordion>
+  <Accordion title="GitHub Pages">
+    Static only. The token needs the `repo` scope. The provider publishes to the `gh-pages` branch.
+  </Accordion>
+  <Accordion title="Docker Hub and GHCR">
+    Registry only. No runtime, no URL, no health checks. The button label switches to "Export".
+  </Accordion>
+  <Accordion title="Download and Export">
+    Bundles the build output as a zip and returns a signed URL. No credentials needed. Great for offline handoffs.
+  </Accordion>
+  <Accordion title="DigitalOcean">
+    Two slugs share the same backend class. `digitalocean` is the source-mode alias (git deploy). `do-container` is the image-push alias (DOCR + App Platform container spec).
+  </Accordion>
+</AccordionGroup>
+
+## Rolling back
+
+From the target node's deployment history, click **Rollback** on any prior successful row. The UI calls:
+
+```
+POST /api/projects/{slug}/deployment-targets/{target_id}/rollback/{deployment_id}
+```
+
+The orchestrator creates a new `Deployment` row with `version="{prev}-rollback"`, linked via `deployment_metadata.rollback_from`. Full provider-API rollback (Vercel alias swap, Fly release pin) is tracked in the same handler and rolls forward as each provider implements it.
+
+## Credential security
+
+<CardGroup cols={2}>
+  <Card title="Fernet at rest" icon="lock">
+    Every `access_token_encrypted` column is Fernet-encrypted with the backend key. Decryption happens only inside the deployment pipeline, never in the API response.
+  </Card>
+  <Card title="Team-scoped defaults" icon="users">
+    Credentials are scoped to `user_id`. Add `project_id` for an override that only applies to that project (useful for team members with different Vercel accounts).
+  </Card>
+  <Card title="Token never returned" icon="eye-slash">
+    `GET /api/deployment-credentials` returns metadata and the `is_default` flag. The token field is never serialized back to the client.
+  </Card>
+  <Card title="In-place rotation" icon="rotate">
+    Reconnect from Settings. Revoked tokens start returning 401 from the provider. The next credential sync flips the target node back to "Not Connected".
+  </Card>
+</CardGroup>
+
+<Warning>
+  `provider_metadata` JSON stores team IDs, registry names, and regions in plaintext. Do not put secondary secrets there. Always use the encrypted token field.
+</Warning>
+
+## Common errors
+
+<AccordionGroup>
+  <Accordion title="No credentials found for {provider}">
+    No `DeploymentCredential` exists for this user and project. Connect the provider in Settings > Deployments, or pass `project_id` when creating the credential for a project-scoped override.
+  </Accordion>
+  <Accordion title="Please connect your {provider} account first">
+    The target exists on the canvas but credential lookup returned None. The node shows a yellow "Not Connected" banner until a credential is bound. Reconnect from the same Settings card.
+  </Accordion>
+  <Accordion title="Container {name} is not running">
+    The orchestrator cannot exec a build in a stopped container. Start the project from the canvas, wait for green status, then retry. Source-mode providers (Vercel, DigitalOcean) skip the local build step and do not hit this error.
+  </Accordion>
+  <Accordion title="Build failed: {stderr}">
+    The container build command failed. Check `container.build_command`, install missing dependencies, and read the logs attached to the `Deployment` row. For long builds, split the project into smaller containers or switch to source mode.
+  </Accordion>
+  <Accordion title="This provider deploys from a git repository...">
+    Git-required providers (`railway`, `render`, `digitalocean`, `github-pages`, `northflank`) need a git remote on the project. Link a repo via the Git panel and retry.
+  </Accordion>
+  <Accordion title="OAuth scope or 401 from Vercel / Netlify">
+    The token expired or its scope was revoked from the provider side. Reconnect the provider in Settings and the next credential sync flips the target node back to green.
+  </Accordion>
+  <Accordion title="External provider deployments are not available in desktop mode">
+    The desktop sidecar tried to hit cloud providers. Deploy from cloud OpenSail instead; desktop only runs `local` and `docker` runtimes.
+  </Accordion>
+  <Accordion title="Provider 403 quota exceeded">
+    Free-tier limits hit (projects, bandwidth, build minutes). Upgrade the provider plan or deploy to a second target of a different provider.
+  </Accordion>
+  <Accordion title="Build timeout">
+    A long build blocks the sync request. Split into smaller containers, or use source mode where the provider builds remotely and OpenSail only uploads code.
+  </Accordion>
+</AccordionGroup>
+
+## Where to next
+
+<CardGroup cols={3}>
+  <Card title="Publish an app" icon="box" href="/guides/publishing-apps">
+    Turn a deployed project into a distributable Tesslate App with versioning, approval, and billing.
+  </Card>
+  <Card title="Communication gateways" icon="comments" href="/guides/communication-gateways">
+    Wire a deployed backend to Telegram, Slack, Discord, or WhatsApp via the gateway.
+  </Card>
+  <Card title="Architecture Panel" icon="diagram-project" href="/guides/architecture-panel">
+    Learn the full canvas: containers, connections, env injection, and deployment edges.
+  </Card>
+</CardGroup>

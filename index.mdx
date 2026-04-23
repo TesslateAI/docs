@@ -1,131 +1,60 @@
 ---
-title: 'Welcome to Tesslate Studio'
-description: 'Build full-stack web applications with AI-powered code generation'
+title: 'OpenSail'
+description: 'Build agents, apps, and automations. Run them on your infrastructure.'
 ---
 
-## What is Tesslate Studio?
+<img
+  src="/images/opensail-banner.png"
+  alt="Tesslate OpenSail"
+/>
 
-Tesslate Studio is an AI-powered development platform that helps you build complete web applications using natural language. Simply describe what you want to build, and our AI agents will generate production-ready React code with live preview.
+OpenSail is an open platform for building, running, and sharing AI-powered software. It turns a workspace into agents, apps, scheduled jobs, webhook handlers, and MCP tools that other agents can call.
 
 <CardGroup cols={2}>
-  <Card
-    title="AI Code Generation"
-    icon="wand-magic-sparkles"
-    href="/features/ai-code-generation"
-  >
-    Generate React components and full applications from natural language descriptions
+  <Card title="Install in twenty minutes" icon="rocket" href="/guides/docker-setup">
+    Clone the repo, configure, boot. Full stack running on Docker on any OS.
   </Card>
-  <Card
-    title="Live Preview"
-    icon="eye"
-    href="/features/live-preview"
-  >
-    See your application running in real-time with instant hot module replacement
+  <Card title="Native desktop app" icon="desktop" href="/guides/desktop-install">
+    Tauri v2 shell with local SQLite. macOS, Windows, Linux. No cluster needed.
   </Card>
-  <Card
-    title="Multi-Agent System"
-    icon="robot"
-    href="/features/multi-agent"
-  >
-    Choose from specialized AI agents optimized for different tasks
+  <Card title="Production on AWS EKS" icon="aws" href="/guides/aws-production">
+    Terraform, EKS, ECR, btrfs CSI, Volume Hub. Beta and production environments.
   </Card>
-  <Card
-    title="Marketplace"
-    icon="store"
-    href="/features/marketplace"
-  >
-    Discover and install AI agents, templates, and project bases
+  <Card title="Publish an app" icon="store" href="/guides/publishing-apps">
+    Turn any workspace into a one-click installable app for your team or the public.
   </Card>
 </CardGroup>
 
-## Key Features
-
-<AccordionGroup>
-  <Accordion icon="code" title="Full-Stack Code Generation">
-    Generate complete React/TypeScript applications including components, state management, API integrations, and styling with Tailwind CSS.
-  </Accordion>
-
-  <Accordion icon="browser" title="Instant Live Preview">
-    Every change you make or code the AI generates is instantly reflected in a live browser preview with hot module replacement.
-  </Accordion>
-
-  <Accordion icon="comments" title="Interactive Chat Interface">
-    Chat with AI agents using natural language to describe features, request changes, or debug issues. Agents respond with working code.
-  </Accordion>
-
-  <Accordion icon="layer-group" title="Project Templates & Bases">
-    Start from scratch, import from GitHub, or use pre-built bases with configured tech stacks and best practices.
-  </Accordion>
-
-  <Accordion icon="diagram-project" title="Architecture Visualization">
-    Auto-generate architecture diagrams showing component relationships and data flow in your application.
-  </Accordion>
-
-  <Accordion icon="github" title="GitHub Integration">
-    Import repositories, edit code, and commit changes back to GitHub directly from the platform.
-  </Accordion>
-</AccordionGroup>
-
-## How It Works
-
-<Steps>
-  <Step title="Create a Project">
-    Start with a blank template, import from GitHub, or use a pre-built base from the marketplace.
-  </Step>
-
-  <Step title="Chat with AI">
-    Describe what you want to build in plain English. The AI agent generates complete, working code.
-  </Step>
-
-  <Step title="See It Live">
-    Your application runs instantly in a live preview with hot module replacement. Changes appear immediately.
-  </Step>
-
-  <Step title="Iterate & Deploy">
-    Continue chatting with the AI to add features, fix bugs, and refine your application until it's ready to deploy.
-  </Step>
-</Steps>
-
-## What You Can Build
-
-Tesslate Studio is perfect for:
-
-- **Landing Pages**: Create beautiful, responsive marketing sites
-- **Web Applications**: Build full-featured SaaS applications
-- **Dashboards**: Generate data visualization and admin panels
-- **E-commerce**: Create shopping experiences and product catalogs
-- **Portfolios**: Build personal websites and project showcases
-- **Prototypes**: Rapidly prototype ideas and validate concepts
-
-## Next Steps
+## Learn the platform
 
 <CardGroup cols={2}>
-  <Card
-    title="Quickstart Guide"
-    icon="rocket"
-    href="/quickstart"
-  >
-    Get up and running in 5 minutes
+  <Card title="What is OpenSail" icon="compass" href="/introduction">
+    A tour of the platform, what you can build, and how it fits together.
   </Card>
-  <Card
-    title="Create Your First Project"
-    icon="folder-plus"
-    href="/guides/creating-projects"
-  >
-    Learn how to create and manage projects
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Sign up, create a project, ship your first agent in five minutes.
   </Card>
-  <Card
-    title="Explore Agents"
-    icon="robot"
-    href="/guides/agents"
-  >
-    Understand AI agents and how to use them
+  <Card title="FAQ" icon="circle-question" href="/faq">
+    Licensing, pricing, models, data privacy, and common questions.
   </Card>
-  <Card
-    title="Browse Marketplace"
-    icon="store"
-    href="/guides/marketplace"
-  >
-    Discover agents, bases, and templates
+  <Card title="Self-hosting architecture" icon="diagram-project" href="/self-hosting/architecture">
+    Orchestrator, agent runner, storage, queue, and container model.
+  </Card>
+</CardGroup>
+
+## Ship and share
+
+<CardGroup cols={2}>
+  <Card title="Deployment targets" icon="cloud-arrow-up" href="/guides/deployment-targets">
+    22 providers: Vercel, AWS, Cloudflare, Fly.io, Railway, and more.
+  </Card>
+  <Card title="Communication gateways" icon="comments" href="/guides/communication-gateways">
+    Deploy agents to Slack, Telegram, Discord, WhatsApp, Signal, CLI.
+  </Card>
+  <Card title="Model management" icon="wand-magic-sparkles" href="/guides/model-management">
+    Any provider via LiteLLM. BYOK. Self-hosted Ollama and vLLM supported.
+  </Card>
+  <Card title="MCP connectors" icon="plug" href="/guides/connectors-mcp">
+    Slack, Gmail, Google Drive, Linear, GitHub, databases, internal APIs.
   </Card>
 </CardGroup>

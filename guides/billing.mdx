@@ -1,409 +1,272 @@
 ---
-title: 'Billing & Subscriptions'
-description: 'Subscription tiers, credit system, usage tracking, and Stripe integration in Tesslate Studio'
+title: 'Billing'
+description: 'Credits, subscription tiers, app billing dimensions, and creator payouts in OpenSail'
 ---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
 ## Overview
 
-Tesslate Studio uses a 4-tier subscription model with a multi-source credit system for AI usage billing. All payments are processed through Stripe with webhook-based fulfillment and idempotent processing to prevent duplicate charges.
+OpenSail uses a multi-source credit system for AI usage, a four-tier subscription model for platform access, and a per-app, per-dimension billing engine for published apps on the marketplace. Payments run through Stripe with idempotent webhook fulfillment.
 
 <CardGroup cols={2}>
-  <Card title="4 Subscription Tiers" icon="layer-group">
-    Free, Basic, Pro, and Ultra with increasing limits and features
+  <Card title="Four credit pools" icon="coins">
+    Daily, bundled, signup bonus, and purchased, consumed in priority order
   </Card>
-  <Card title="Multi-Source Credits" icon="coins">
-    Four credit pools (daily, bundled, signup bonus, purchased) consumed in priority order
+  <Card title="Four tiers" icon="layer-group">
+    Free, Basic, Pro, Ultra, with increasing limits and BYOK on Pro+
   </Card>
-  <Card title="Per-Token Pricing" icon="calculator">
-    Dynamic model pricing calculated in real time from provider rates
+  <Card title="Per-dimension app billing" icon="calculator">
+    Three dimensions (AI, compute, platform fee), four modes per dimension
   </Card>
-  <Card title="Stripe Powered" icon="credit-card">
-    Secure checkout, webhook fulfillment, and customer portal via Stripe
+  <Card title="Creator payouts" icon="hand-holding-dollar">
+    90% to creator, 10% platform, via Stripe Connect
   </Card>
 </CardGroup>
 
-## Subscription Tiers
+## Credits
 
-| Feature | Free | Basic ($20/mo) | Pro ($49/mo) | Ultra ($149/mo) |
-|---------|------|----------------|--------------|-----------------|
-| **Monthly Bundled Credits** | 0 | 500 | 2,000 | 8,000 |
-| **Daily Credits** | 5/day | 0 | 0 | 0 |
-| **Max Projects** | 3 | 7 | 15 | 40 |
-| **Max Deployments** | 1 | 3 | 5 | 20 |
-| **BYOK (Bring Your Own Key)** | No | No | Yes | Yes |
-| **Support** | Community | Email | Priority | Priority |
-| **Annual Billing** | N/A | Available | Available | Available |
+Credits are the unified currency for AI usage. One credit equals one US cent. Costs are calculated in cents with Decimal arithmetic so no rounding drift compounds over long runs.
 
-<Info>
-  All paid tiers support annual billing at a discount. BYOK allows you to use your own AI provider API keys, bypassing platform credit costs entirely.
-</Info>
+### The four credit pools
 
-### Signup Bonus
+| Pool | Source | Expiration | Priority |
+|------|--------|------------|----------|
+| **Daily** | Free-tier allowance, 5 credits per day | Resets at UTC midnight | 1st (consumed first) |
+| **Bundled** | Monthly allowance from your subscription tier | Resets every 30 days on your billing date | 2nd |
+| **Signup bonus** | One-time gift at registration, 15,000 credits | Expires after 60 days | 3rd |
+| **Purchased** | Credit packages you buy | Never expire | 4th (consumed last) |
 
-New users receive **15,000 bonus credits** that expire after **60 days**. These are tracked separately and consumed after daily and bundled credits but before purchased credits.
+Deduction priority is ordered to maximize the value of your purchased credits. Free pool gets used first, then bundled, then expiring bonus, then permanent purchased.
 
-## Credit System
-
-Credits are the unified currency for AI usage in Tesslate Studio. **1 credit = $0.01 USD**.
-
-### Credit Sources
-
-Credits come from four sources, each with different characteristics:
-
-| Credit Type | Source | Expiration | Priority |
-|-------------|--------|------------|----------|
-| **Daily** | Free-tier allowance (5/day) | Resets at UTC midnight | 1st (consumed first) |
-| **Bundled** | Subscription monthly allowance | Resets on billing date (every 30 days) | 2nd |
-| **Signup Bonus** | Registration gift (15,000 credits) | Expires after 60 days | 3rd |
-| **Purchased** | Credit packages bought separately | Never expires | 4th (consumed last) |
-
-### Credit Deduction Flow
-
-When you use an AI model, credits are deducted in this exact order to maximize the value of your purchased credits:
+### How deduction works
 
 <Steps>
-  <Step title="Pre-Request Check">
-    The `check_credits(user, model_name)` function verifies you have sufficient credits (or a BYOK key) before the AI request proceeds. BYOK models always pass this check.
+  <Step title="Pre-request check">
+    Before the agent calls the model, `check_credits(user, model_name)` verifies you have sufficient credits. BYOK routes always pass this check since no platform credits are charged.
   </Step>
 
-  <Step title="AI Request Executes">
-    The request is processed through the LiteLLM gateway, and the model generates a response.
+  <Step title="Request runs">
+    The model responds, token counts come back.
   </Step>
 
-  <Step title="Cost Calculation">
-    `calculate_cost_cents(model, tokens_in, tokens_out)` computes the cost using dynamic pricing data. The formula uses Decimal arithmetic for financial precision:
-
-    ```
-    cost = ceil(tokens_in/1M * input_price * 100) + ceil(tokens_out/1M * output_price * 100)
-    ```
+  <Step title="Cost calculation">
+    `calculate_cost_cents(model, tokens_in, tokens_out)` looks up the current per-token prices (fetched live from LiteLLM, cached 5 minutes), multiplies, and rounds up with ceiling arithmetic. Non-zero usage always costs at least 1 cent.
   </Step>
 
-  <Step title="Credit Deduction">
-    Credits are deducted in priority order: daily, then bundled, then signup bonus, then purchased. The deduction uses `SELECT FOR UPDATE` to lock the user row and prevent race conditions from concurrent requests.
+  <Step title="Deduction">
+    `deduct_credits` pulls from pools in priority order under a `SELECT FOR UPDATE` lock. Concurrent requests are serialized; the balance never goes negative.
   </Step>
 
-  <Step title="Usage Logging">
-    A `UsageLog` entry is created with model, tokens, cost, agent ID, and project ID. BYOK requests log with `is_byok=True` and `billed_status="exempt"`.
+  <Step title="Usage logged">
+    A `UsageLog` row records model, tokens, cost, agent, project, and BYOK status.
   </Step>
 </Steps>
 
-### Credit Packages
+### Credit packages
 
-Purchase additional credits that never expire:
+Buy credits that never expire:
 
 | Package | Credits | Price |
 |---------|---------|-------|
-| **Small** | 500 | $5 |
-| **Medium** | 2,500 | $25 |
-| **Large** | 10,000 | $100 |
-| **Team** | 50,000 | $500 |
+| Small | 500 | $5 |
+| Medium | 2,500 | $25 |
+| Large | 10,000 | $100 |
+| Team | 50,000 | $500 |
 
-The credit-to-cents ratio is 1:1. Purchasing 500 credits for $5 gives you $5 worth of AI usage.
+Purchases complete through Stripe Checkout. Fulfillment is idempotent, so webhook replays don't double-credit.
 
-## Managing Your Subscription
+## Subscription tiers
 
-### Viewing Current Plan
+| Feature | Free | Basic ($20/mo) | Pro ($49/mo) | Ultra ($149/mo) |
+|---------|------|----------------|--------------|-----------------|
+| Monthly bundled credits | 0 | 500 | 2,000 | 8,000 |
+| Daily credits | 5 | 0 | 0 | 0 |
+| Max projects | 3 | 7 | 15 | 40 |
+| Max deployments | 1 | 3 | 5 | 20 |
+| BYOK | No | No | Yes | Yes |
+| Support | Community | Email | Priority | Priority |
+| Annual billing | N/A | Available | Available | Available |
+
+<Info>
+  Exact tier pricing and credit allocations are configured in the platform and can vary per deployment. Self-hosted instances can set their own tier structure.
+</Info>
+
+### Upgrading
 
 <Steps>
-  <Step title="Open Billing Settings">
-    Click your profile icon, then **Settings > Billing**
+  <Step title="Open Settings, Billing">
+    The unified billing hub lives at Settings, Billing.
   </Step>
 
-  <Step title="View Plan Details">
-    Your billing page shows:
-    - Current tier and price
-    - Bundled credits remaining vs. monthly allowance
-    - Purchased credits balance
-    - Total credits available
-    - Credits reset date
-    - Active subscription status
+  <Step title="Pick a plan">
+    Click Upgrade on the tier you want. Choose monthly or annual.
+  </Step>
+
+  <Step title="Stripe Checkout">
+    You're redirected to Stripe's secure checkout. Card details never touch OpenSail servers.
+  </Step>
+
+  <Step title="Automatic activation">
+    After payment succeeds, your tier updates, bundled credits are granted, the reset date is set 30 days out, and BYOK unlocks (if Pro or Ultra).
   </Step>
 </Steps>
 
-### Upgrading Your Plan
+### Canceling
 
-<Steps>
-  <Step title="Open Billing Settings">
-    Navigate to **Settings > Billing**
-  </Step>
+Cancellation takes effect at the end of the current period. You keep all tier benefits until then. Purchased credits are never affected by tier changes; they persist forever.
 
-  <Step title="Select a Plan">
-    Click **Upgrade** on the desired tier (Basic, Pro, or Ultra)
-  </Step>
+## Team billing
 
-  <Step title="Choose Billing Interval">
-    Select monthly or annual billing
-  </Step>
+Teams have their own billing scope: a separate subscription tier, a separate credit balance, and a separate Stripe customer. Team admins manage billing at Settings, Team Billing. Individual team members use the team's credits when running agents on team-owned projects, and their personal credits for personal projects.
 
-  <Step title="Complete Stripe Checkout">
-    You are redirected to Stripe's secure checkout page to enter payment details. Card information never touches Tesslate's servers.
-  </Step>
+For teams with billing admins separate from platform admins, the permissions system (`orchestrator/app/permissions.py`) scopes billing actions to the admin role.
 
-  <Step title="Automatic Activation">
-    After payment, your tier upgrades immediately:
-    - Subscription tier updates in your account
-    - Bundled credits are granted for the new tier
-    - Credits reset date is set to 30 days from now
-    - BYOK access activates (Pro and Ultra)
-    - Project and deployment limits increase
-  </Step>
-</Steps>
+## App billing: three dimensions, four modes
 
-### Canceling Your Subscription
+Published apps on the Tesslate Apps marketplace have their own billing model, separate from platform credits. When a user installs your app, the creator decides who pays for what.
 
-<Steps>
-  <Step title="Open Billing Settings">
-    Navigate to **Settings > Billing**
-  </Step>
-
-  <Step title="Click Cancel">
-    Click **Cancel Subscription**. By default, cancellation takes effect at the end of the current billing period.
-  </Step>
-
-  <Step title="Retain Access">
-    You keep all tier benefits until the period ends. Your bundled credits remain available until they reset.
-  </Step>
-
-  <Step title="Downgrade">
-    At the end of the period, your account downgrades to the Free tier:
-    - Bundled credits reset to 0
-    - Daily credits activate (5/day)
-    - **Purchased credits are NOT affected** (they never expire)
-    - Project and deployment limits reduce to Free tier levels
-  </Step>
-</Steps>
-
-### Renewing a Canceled Subscription
-
-If you cancel but change your mind before the period ends, click **Renew Subscription** to remove the cancellation. Your subscription continues as normal.
-
-### Customer Portal
-
-Click **Manage Payment** to access the Stripe Customer Portal where you can:
-- Update payment methods
-- View and download invoices
-- Manage billing details
-
-## Usage Tracking
-
-### Viewing Usage
-
-The billing dashboard provides detailed AI usage analytics:
+### The three dimensions
 
 <Tabs>
-  <Tab title="Summary View">
-    Overview for the current billing period:
-    - Total cost in cents and USD
-    - Total input and output tokens
-    - Total request count
-    - Breakdown by model
-    - Breakdown by agent
+  <Tab title="AI compute">
+    All model calls the app's bundled agents make during execution. Priced per token, calculated through the same dynamic LiteLLM pricing used by the core credit system.
   </Tab>
 
-  <Tab title="Detailed Logs">
-    Per-request usage logs with:
-    - Model used
-    - Input and output token counts
-    - Cost in cents
-    - Agent and project ID
-    - Billed status (paid, unbilled, exempt)
-    - Timestamp
+  <Tab title="General compute">
+    Non-AI runtime costs: container time, file operations, snapshot storage. Billed based on active runtime and persistent volume usage.
+  </Tab>
+
+  <Tab title="Platform fee">
+    A percentage of total revenue that covers marketplace infrastructure, approval pipeline costs, and payout rails. Default is 10% (creators net 90%).
   </Tab>
 </Tabs>
 
-### Low Balance Warnings
+### The four modes per dimension
 
-The credit status API monitors your balance and provides warnings:
+Each dimension can be set to one of four modes, independently:
 
-| Condition | Triggered When |
-|-----------|---------------|
-| `is_low` | Total credits fall to 20% or less of your monthly allowance |
-| `is_empty` | Total credits reach 0 |
+| Mode | Who pays | When to use |
+|------|----------|-------------|
+| **Creator pays** | The app creator pays this dimension | Free-to-try apps, lead-gen apps, demos |
+| **Installer pays** | The user installing pays this dimension | Standard marketplace apps |
+| **Platform subsidized** | Tesslate covers this dimension | Featured apps, promotional launches |
+| **BYOK (bring your own key)** | Installer uses their own provider key, bypassing routing entirely | Power users, enterprise installations |
 
-The frontend displays a warning indicator when your balance is low, prompting you to purchase additional credits or upgrade your tier.
+A creator might set AI compute to "installer pays", general compute to "creator pays" (absorbing hosting), and the platform fee to "installer pays". Or BYOK for AI compute so enterprise customers route through their own keys, while the creator still absorbs general compute.
 
-## Stripe Integration Details
+### Promotional budgets
 
-### Dual-Path Fulfillment
+Creators can sponsor the first N installers by funding a promotional budget. While the fund lasts, all three dimensions are free to the installer. When the fund runs out, billing flips to whatever mode the creator configured.
 
-Tesslate uses a dual-path idempotent fulfillment pattern for maximum reliability:
+This is the go-to pattern for launches: free for the first 1,000 installers, then installer-pays. Installers get a taste, creators get distribution.
 
-1. **Stripe Webhook**: When Stripe sends a `checkout.session.completed` event, the backend fulfills the order
-2. **Verify Checkout**: When the frontend redirects back from Stripe, it calls `POST /api/billing/verify-checkout` as a fallback
+### Caps and overage
 
-Whichever path fires first completes the fulfillment. The second path is a safe no-op, thanks to idempotency checks using the `stripe_payment_intent` as a unique key.
+Each dimension has its own caps and overage behavior configurable per app:
 
-### Webhook Events Handled
+- Hard cap: stop executing when the cap is hit
+- Soft cap: warn, prompt for an override, continue
+- No cap: run until the subscriber's credits are exhausted
 
-| Event | Action |
-|-------|--------|
-| `checkout.session.completed` | Routes to subscription, credit, agent purchase, or deploy purchase handler |
-| `customer.subscription.created` | Logged for audit |
-| `customer.subscription.updated` | Logged for audit |
-| `customer.subscription.deleted` | Downgrades user to Free tier or deactivates agent subscription |
-| `invoice.payment_succeeded` | Marks usage logs as paid |
-| `invoice.payment_failed` | Logged for follow-up |
+Caps protect both creators (from runaway installer usage when creator-pays) and installers (from runaway agents when installer-pays).
 
-### Security Measures
+## Creator payouts
 
-| Measure | Description |
-|---------|-------------|
-| **Webhook Signature Verification** | All Stripe webhooks verified using `STRIPE_WEBHOOK_SECRET` |
-| **Idempotent Fulfillment** | `stripe_payment_intent` checked to prevent duplicate processing |
-| **Amount Cross-Validation** | Credit purchases verify `session.amount_total` matches `metadata.amount_cents` |
-| **Session Ownership** | Verify-checkout confirms `metadata.user_id` matches the authenticated user |
-| **PCI Compliance** | Card details never touch the server; Stripe Checkout handles all payment input |
-| **Race Condition Safety** | `IntegrityError` catch on commit handles webhook and verify-checkout races |
+<Tabs>
+  <Tab title="Revenue share">
+    | Recipient | Share |
+    |-----------|-------|
+    | Creator | 90% |
+    | Platform | 10% |
 
-## Marketplace Purchases
+    Revenue share applies to everything a creator sells: marketplace agents, published apps, paid skills, paid connectors. One-time purchases, subscriptions, and API-metered usage all split the same way.
+  </Tab>
 
-### Buying Agents
+  <Tab title="Stripe Connect">
+    Payouts go through Stripe Connect Express accounts. Creators onboard through a one-time Stripe flow (KYC, bank account, tax info). After onboarding, every sale that clears credits the creator's Stripe balance, which pays out to the creator's bank on Stripe's default schedule.
+  </Tab>
 
-Purchase premium AI agents from the Marketplace:
+  <Tab title="Payout visibility">
+    Creators see earnings per app, per period, in Settings, Billing, Earnings. Stripe provides detailed transaction logs including payouts-in-flight.
+  </Tab>
+</Tabs>
 
-1. Browse the Marketplace and find an agent
-2. Click **Purchase** (one-time or monthly subscription)
-3. Complete Stripe checkout
-4. The agent is added to your Library immediately
+## Usage tracking
 
-### Creator Payouts
+<Steps>
+  <Step title="Open billing">
+    Settings, Billing.
+  </Step>
 
-If you sell agents on the Marketplace:
+  <Step title="Summary view">
+    See total cost, tokens in/out, request count for the current billing period, broken down by model and by agent.
+  </Step>
 
-| Split | Recipient |
-|-------|-----------|
-| **90%** | Creator (via Stripe Connect) |
-| **10%** | Platform fee |
+  <Step title="Detail view">
+    Click into usage logs for per-request records with model, tokens, cost, agent, project, BYOK status, and timestamp.
+  </Step>
 
-Creators receive payouts through Stripe Connect Express accounts. Revenue split is configurable via `creator_revenue_share` and `platform_revenue_share` in the platform config.
+  <Step title="Low-balance warning">
+    At 20% of your monthly allowance remaining, the header shows a warning badge. At 0 credits, an out-of-credits modal prompts you to purchase or upgrade.
+  </Step>
+</Steps>
 
-## Billing API Reference
+## Stripe reliability
 
-### Subscription Endpoints
+OpenSail's Stripe integration is built for idempotency and reliability under webhook replay:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/billing/subscription` | GET | Get current subscription status and limits |
-| `/api/billing/subscribe` | POST | Create Stripe checkout for tier upgrade |
-| `/api/billing/cancel` | POST | Cancel subscription at period end |
-| `/api/billing/renew` | POST | Reactivate a canceled subscription |
-| `/api/billing/portal` | GET | Get Stripe Customer Portal URL |
+- Every fulfillment path checks the `stripe_payment_intent` for duplicate processing
+- Verify-checkout on redirect is a safe no-op if the webhook already fulfilled
+- Subscription updates, tier changes, and cancellations all log to the audit table
+- Transfer and invoice creation include `idempotency_key` to prevent upstream replay
 
-### Credit Endpoints
+If a payment succeeds in Stripe but your credits don't update within 30 seconds, check Transaction History. Support can reconcile from the Stripe session ID.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/billing/credits` | GET | Get detailed credit balance |
-| `/api/billing/credits/status` | GET | Get low balance warning status |
-| `/api/billing/credits/purchase` | POST | Create Stripe checkout for credit package |
-| `/api/billing/credits/history` | GET | Get credit purchase history |
+## Test cards (for self-hosted and dev)
 
-### Usage Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/billing/usage` | GET | Usage summary for a date range |
-| `/api/billing/usage/logs` | GET | Detailed per-request usage logs |
-| `/api/billing/usage/sync` | POST | Manually sync usage from LiteLLM |
-
-### Other Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/billing/transactions` | GET | Combined transaction history |
-| `/api/billing/earnings` | GET | Creator earnings (for marketplace sellers) |
-| `/api/billing/connect` | POST | Create Stripe Connect onboarding link |
-| `/api/billing/config` | GET | Public billing configuration (no auth required) |
-
-## Testing (Development)
-
-### Test Cards
-
-| Card Number | Result |
-|-------------|--------|
-| `4242 4242 4242 4242` | Payment succeeds |
-| `4000 0000 0000 0002` | Card declined |
-| `4000 0025 0000 3155` | Requires authentication (3D Secure) |
+| Card | Behavior |
+|------|----------|
+| `4242 4242 4242 4242` | Succeeds |
+| `4000 0000 0000 0002` | Declined |
+| `4000 0025 0000 3155` | Requires 3D Secure |
 | `4000 0000 0000 9995` | Insufficient funds |
 
-### Local Webhook Testing
-
-```bash
-# Install Stripe CLI
-brew install stripe/stripe-cli/stripe
-
-# Login to Stripe
-stripe login
-
-# Forward webhooks to your local server
-stripe listen --forward-to localhost:8000/api/billing/webhooks/stripe
-
-# Copy the webhook signing secret to your .env
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
+Use these to test the full checkout flow locally.
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="credit-card" title="Payment Failed">
-    **Common causes:**
-    - Insufficient funds
-    - Card expired
-    - Bank declined the transaction
-
-    **Solution:** Update your payment method in **Settings > Billing** or through the Stripe Customer Portal.
+  <Accordion icon="credit-card" title="Payment declined">
+    Card declined at the bank. Update payment method in Settings, Billing, or through the Stripe Customer Portal.
   </Accordion>
 
-  <Accordion icon="circle-exclamation" title="Credits Not Added After Purchase">
-    Credits should be added immediately after payment. If not:
-    1. Refresh the page (the verify-checkout fallback may need to trigger)
-    2. Check **Settings > Billing > Transaction History** for the purchase status
-    3. Wait up to 30 seconds for the Stripe webhook to process
-    4. Contact support if the transaction shows as completed but credits are missing
+  <Accordion icon="circle-exclamation" title="Credits didn't post after purchase">
+    Wait 30 seconds for the webhook to fire. Refresh the page (verify-checkout fallback). Check Transaction History for status. Contact support with the Stripe session ID if still missing.
   </Accordion>
 
-  <Accordion icon="ban" title="Subscription Not Updating After Checkout">
-    **Possible causes:**
-    - Webhook endpoint is not accessible
-    - Webhook secret mismatch
-    - Database error during fulfillment
-
-    **Solutions:**
-    1. The frontend's verify-checkout should handle this automatically on redirect
-    2. Check that `STRIPE_WEBHOOK_SECRET` matches the value in your Stripe dashboard
-    3. Contact support with your Stripe session ID for manual resolution
+  <Accordion icon="rotate" title="Bundled credits didn't reset">
+    The daily reset loop runs hourly. Free-tier users reset at UTC midnight. Paid-tier users reset on their billing date; the Stripe webhook is the primary trigger, with a safety-net hourly sweep.
   </Accordion>
 
-  <Accordion icon="chart-line" title="Credits Depleting Too Fast">
-    **Solutions:**
-    - Check your usage breakdown by model in **Settings > Billing > Usage**
-    - Switch to less expensive models for simple tasks (GPT-3.5, Claude Haiku)
-    - Add your own API keys (BYOK) on Pro or Ultra tiers to bypass credit costs
-    - Set per-run cost limits on your agents to prevent runaway usage
-    - Purchase a larger credit package for better value
-  </Accordion>
-
-  <Accordion icon="dollar-sign" title="Low Balance Warning Not Showing">
-    **Check:**
-    - The threshold is set to 20% of your monthly allowance
-    - Verify the `GET /api/billing/credits/status` endpoint returns `is_low: true`
-    - Refresh the page to re-fetch credit status
+  <Accordion icon="chart-line" title="Credits depleting fast">
+    Check usage by model in Settings, Billing, Usage. Switch heavy tasks to cheaper models (Haiku, Flash, Qwen-Coder). Add BYOK on Pro or Ultra to bypass credits entirely. Set per-run cost limits on specific agents.
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Model Management" icon="brain" href="/guides/model-management">
-    Understand AI model pricing and choose cost-effective models
+  <Card title="Model Management" icon="microchip" href="/guides/model-management">
+    Pick cost-effective models and understand BYOK
   </Card>
   <Card title="API Keys" icon="key" href="/guides/api-keys">
-    Set up BYOK to use your own AI provider keys
+    Add BYOK provider keys and external API keys
+  </Card>
+  <Card title="Publishing Apps" icon="rocket" href="/guides/publishing-apps">
+    Set up the three billing dimensions and promotional budgets
   </Card>
   <Card title="Marketplace" icon="store" href="/guides/marketplace">
-    Browse and purchase premium agents
-  </Card>
-  <Card title="External Deployments" icon="rocket" href="/guides/external-deployments">
-    Deploy projects and manage deployment slots
+    Browse apps and see pricing in the wild
   </Card>
 </CardGroup>

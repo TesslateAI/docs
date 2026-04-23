@@ -1,878 +1,131 @@
 ---
-title: 'Production Deployment'
-description: 'Deploy Tesslate Studio to production using Docker Compose, Kubernetes with Minikube, or AWS EKS with Terraform'
+title: 'Deployment'
+description: 'Overview of the three production paths for OpenSail: Docker Compose, Kubernetes on Minikube, and AWS EKS with Terraform'
 ---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
 
 ## Overview
 
-This guide covers two primary deployment paths for Tesslate Studio:
+OpenSail has three supported deployment paths. This page summarizes what each path is good for and links to the detailed walkthroughs. For the install-path decision matrix, see the [self-hosting quickstart](/self-hosting/quickstart).
 
-1. **Docker Compose** for single-server deployments (development teams, small organizations).
-2. **Kubernetes** for production-scale deployments with auto-scaling, per-project namespace isolation, and EBS VolumeSnapshot persistence.
+<Info>
+  Prefer a managed service? [tesslate.com](https://tesslate.com) runs OpenSail for you with zero setup.
+</Info>
 
-Each path includes step-by-step instructions, from provisioning infrastructure to verifying a healthy deployment.
+## Pick your path
 
-<Warning>
-  This guide assumes you have completed the [Self-Hosting Quickstart](/self-hosting/quickstart) and are familiar with the basics. If not, start there first.
-</Warning>
-
-## Choosing a Deployment Path
-
-| Factor | Docker Compose | Kubernetes (Minikube) | Kubernetes (AWS EKS) |
-|--------|---------------|----------------------|---------------------|
-| **Best for** | Single server, small teams | Local K8s testing | Production, multi-user |
-| **Scaling** | Vertical only (bigger server) | Not designed for scale | Horizontal (node autoscaling) |
-| **Project isolation** | Docker networks | Namespace per project | Namespace + NetworkPolicy |
-| **Storage** | Local filesystem | PVC (hostpath) | EBS VolumeSnapshots |
-| **SSL/TLS** | Traefik + Let's Encrypt | HTTP only | cert-manager + Cloudflare |
-| **Complexity** | Low | Medium | High |
-| **Monthly cost** | $20 to $120 (server) | Free (local) | ~$280 to $320 (AWS baseline) |
-
-## Path 1: Docker Compose (Single Server)
-
-This path deploys all services on a single Linux server with Docker Compose, Traefik for reverse proxying, and optional Let's Encrypt for SSL.
-
-### Prerequisites
-
-<CardGroup cols={2}>
-  <Card title="Server" icon="server">
-    - Cloud VM or dedicated server
-    - 16 GB RAM recommended
-    - 50 GB+ disk space
-    - Ubuntu 22.04 LTS (or similar)
+<CardGroup cols={3}>
+  <Card title="Docker Compose" icon="docker" href="/guides/docker-setup">
+    Single-server install with Postgres, Redis, Traefik, the orchestrator, and the app in Compose. Best for dev laptops and single-VM deployments.
   </Card>
 
-  <Card title="Domain" icon="globe">
-    - Custom domain (e.g., `studio.yourcompany.com`)
-    - DNS access to create A records
-    - Wildcard DNS support (`*.studio.yourcompany.com`)
+  <Card title="Kubernetes (Minikube)" icon="cube" href="/guides/kubernetes-local">
+    Full Kubernetes pipeline on your own machine: per-project namespaces, btrfs CSI, Volume Hub, snapshots. The staging ground before production.
+  </Card>
+
+  <Card title="AWS EKS" icon="cloud" href="/guides/aws-production">
+    Production deployment via Terraform. EKS, ECR, managed Postgres, S3-backed CAS, wildcard TLS, and Cloudflare DNS.
   </Card>
 </CardGroup>
 
-### Step-by-Step Setup
-
-<Steps>
-  <Step title="Provision and prepare the server">
-    ```bash
-    # Connect to your server
-    ssh root@your-server-ip
-
-    # Update system packages
-    apt update && apt upgrade -y
-
-    # Install Docker
-    curl -fsSL https://get.docker.com | sh
-    systemctl enable docker
-    systemctl start docker
-
-    # Create a non-root user
-    adduser tesslate
-    usermod -aG docker tesslate
-    usermod -aG sudo tesslate
-
-    # Set up firewall
-    sudo ufw allow 22/tcp
-    sudo ufw allow 80/tcp
-    sudo ufw allow 443/tcp
-    sudo ufw enable
-
-    # Switch to the new user
-    su - tesslate
-    ```
-  </Step>
-
-  <Step title="Configure DNS">
-    Add these DNS records at your provider:
-
-    | Type | Name | Value | TTL |
-    |------|------|-------|-----|
-    | A | `studio` | `your-server-ip` | 300 |
-    | A | `*.studio` | `your-server-ip` | 300 |
-
-    Wait 5 to 10 minutes, then verify:
-    ```bash
-    dig studio.yourcompany.com
-    ```
-  </Step>
-
-  <Step title="Clone and configure">
-    ```bash
-    cd /home/tesslate
-    git clone https://github.com/TesslateAI/Studio.git
-    cd Studio
-    cp .env.example .env
-    ```
-
-    Edit `.env` with production values:
-
-    ```env
-    # Domain
-    APP_DOMAIN=studio.yourcompany.com
-    COOKIE_DOMAIN=.studio.yourcompany.com
-    COOKIE_SECURE=true
-    CORS_ORIGINS=https://studio.yourcompany.com
-
-    # Security (generate strong keys)
-    SECRET_KEY=<generate-with-python>
-
-    # AI
-    LITELLM_API_BASE=https://your-litellm-proxy.com/v1
-    LITELLM_MASTER_KEY=sk-<your-key>
-
-    # Database (change default password)
-    POSTGRES_PASSWORD=STRONG_PASSWORD_HERE
-    DATABASE_URL=postgresql+asyncpg://tesslate:STRONG_PASSWORD_HERE@postgres:5432/tesslate
-
-    # Logging
-    LOG_LEVEL=INFO
-    ```
-  </Step>
-
-  <Step title="Configure SSL with Let's Encrypt (Traefik)">
-    Update your `docker-compose.yml` Traefik service for production SSL:
-
-    ```yaml
-    services:
-      traefik:
-        image: traefik:v3.1
-        command:
-          - "--api.dashboard=false"
-          - "--providers.docker=true"
-          - "--entrypoints.web.address=:80"
-          - "--entrypoints.websecure.address=:443"
-          - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-          - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-          - "--certificatesresolvers.letsencrypt.acme.email=admin@yourcompany.com"
-          - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-          - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-        ports:
-          - "80:80"
-          - "443:443"
-        volumes:
-          - /var/run/docker.sock:/var/run/docker.sock:ro
-          - ./letsencrypt:/letsencrypt
-    ```
-
-    Create the certificate storage directory:
-    ```bash
-    mkdir -p letsencrypt
-    ```
-  </Step>
-
-  <Step title="Build the devserver image and start services">
-    ```bash
-    # Build the devserver image (required for user project containers)
-    docker build -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
-
-    # Start all services
-    docker compose up --build -d
-
-    # Monitor startup
-    docker compose logs -f
-    ```
-  </Step>
-
-  <Step title="Verify the deployment">
-    ```bash
-    # Check all services are running
-    docker compose ps
-
-    # Test the health endpoint
-    curl https://studio.yourcompany.com/api/health
-    # Expected: {"status": "healthy"}
-    ```
-
-    Open `https://studio.yourcompany.com` in your browser. You should see a valid SSL certificate and the Tesslate Studio login page.
-  </Step>
-</Steps>
-
-### Database Backups
-
-Create an automated backup script at `/home/tesslate/backup.sh`:
-
-```bash
-#!/bin/bash
-BACKUP_DIR="/home/tesslate/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/tesslate_$DATE.sql.gz"
-
-mkdir -p $BACKUP_DIR
-docker compose exec -T postgres pg_dump -U tesslate tesslate_db | gzip > $BACKUP_FILE
-find $BACKUP_DIR -type f -mtime +7 -delete
-
-echo "Backup completed: $BACKUP_FILE"
-```
-
-Schedule it with cron (daily at 2 AM):
-```bash
-chmod +x /home/tesslate/backup.sh
-crontab -e
-# Add: 0 2 * * * /home/tesslate/backup.sh
-```
-
-### Performance Tuning
-
-<Accordion title="PostgreSQL optimization">
-  Add tuning parameters to your `docker-compose.yml` postgres service:
-
-  ```yaml
-  services:
-    postgres:
-      command:
-        - "postgres"
-        - "-c"
-        - "shared_buffers=256MB"
-        - "-c"
-        - "effective_cache_size=1GB"
-        - "-c"
-        - "maintenance_work_mem=128MB"
-        - "-c"
-        - "checkpoint_completion_target=0.9"
-        - "-c"
-        - "wal_buffers=16MB"
-  ```
-</Accordion>
-
-<Accordion title="Docker resource limits">
-  ```yaml
-  services:
-    orchestrator:
-      deploy:
-        resources:
-          limits:
-            cpus: '2.0'
-            memory: 4G
-          reservations:
-            cpus: '1.0'
-            memory: 2G
-
-    app:
-      deploy:
-        resources:
-          limits:
-            cpus: '1.0'
-            memory: 2G
-  ```
-</Accordion>
-
-<Accordion title="Log rotation">
-  ```yaml
-  services:
-    orchestrator:
-      logging:
-        driver: "json-file"
-        options:
-          max-size: "10m"
-          max-file: "3"
-  ```
-</Accordion>
-
----
-
-## Path 2: Kubernetes (Production)
-
-Kubernetes mode provides per-project namespace isolation, EBS VolumeSnapshot-based persistence, NetworkPolicy security, automatic SSL, and horizontal scaling. This section covers both Minikube (local testing) and AWS EKS (production).
-
-### Kubernetes Architecture
-
-```
-+-----------------------------------------------------------+
-|  Kubernetes Cluster                                        |
-+-----------------------------------------------------------+
-|  Namespace: tesslate                                       |
-|  +-------------+  +--------------+  +--------------+      |
-|  |  Frontend   |  | Orchestrator |  |  PostgreSQL  |      |
-|  |    Pod      |  |     Pod      |  |     Pod      |      |
-|  +-------------+  +--------------+  +--------------+      |
-|                                                            |
-|  Namespace: proj-{uuid-1}                                  |
-|  +--------------------------------------------------+     |
-|  |  File Manager Pod + Dev Container Pods            |     |
-|  |  PVC (10Gi EBS)   |   NetworkPolicy (isolated)    |     |
-|  +--------------------------------------------------+     |
-|                                                            |
-|  Namespace: proj-{uuid-2}                                  |
-|  +--------------------------------------------------+     |
-|  |  File Manager Pod + Dev Container Pods            |     |
-|  +--------------------------------------------------+     |
-|                                                            |
-|  Namespace: ingress-nginx                                  |
-|  +--------------------------------------------------+     |
-|  |  NGINX Ingress Controller (SSL termination)       |     |
-|  +--------------------------------------------------+     |
-+-----------------------------------------------------------+
-```
-
-Each user project gets its own Kubernetes namespace (`proj-{uuid}`) with:
-- A dedicated PVC for block storage
-- A file manager pod (always running, handles file operations)
-- Dev container pods (frontend, backend, database as needed)
-- An Ingress resource for subdomain routing
-- A NetworkPolicy enforcing zero cross-project communication
-
-### Option A: Minikube (Local Kubernetes Testing)
-
-Use Minikube to test the full Kubernetes deployment locally before going to production.
-
-<Steps>
-  <Step title="Install prerequisites">
-    | Software | Install Command |
-    |----------|----------------|
-    | Docker Desktop | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
-    | Minikube | `brew install minikube` (macOS) or `choco install minikube` (Windows) |
-    | kubectl | `brew install kubernetes-cli` (macOS) or `choco install kubernetes-cli` (Windows) |
-  </Step>
-
-  <Step title="Create the Minikube cluster">
-    ```bash
-    minikube start -p tesslate --driver=docker --memory=4096 --cpus=2
-    minikube -p tesslate addons enable ingress
-    ```
-  </Step>
-
-  <Step title="Build and load all images">
-    Minikube runs its own Docker daemon. Build images on your host, then load them into Minikube:
-
-    ```bash
-    # Build all three images
-    docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
-    docker build --no-cache -t tesslate-frontend:latest -f app/Dockerfile.prod app/
-    docker build --no-cache -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
-
-    # Load into Minikube
-    minikube -p tesslate image load tesslate-backend:latest
-    minikube -p tesslate image load tesslate-frontend:latest
-    minikube -p tesslate image load tesslate-devserver:latest
-    ```
-
-    <Warning>
-      **Minikube caches images by tag.** If you rebuild an image with the same tag, you must delete the old image from Minikube first:
-      ```bash
-      minikube -p tesslate ssh -- docker rmi -f tesslate-backend:latest
-      ```
-      Then rebuild and reload.
-    </Warning>
-  </Step>
-
-  <Step title="Configure secrets">
-    ```bash
-    cp k8s/.env.example k8s/.env.minikube
-    # Edit k8s/.env.minikube with your SECRET_KEY, LITELLM keys, etc.
-    ```
-
-    Required values:
-    - `SECRET_KEY` (random string for JWT)
-    - `DATABASE_URL` (default works for in-cluster PostgreSQL)
-    - `LITELLM_API_BASE` and `LITELLM_MASTER_KEY`
-  </Step>
-
-  <Step title="Deploy">
-    ```bash
-    kubectl apply -k k8s/overlays/minikube
-
-    # Wait for pods to start
-    kubectl rollout status deployment/postgres -n tesslate --timeout=120s
-    kubectl rollout status deployment/tesslate-backend -n tesslate --timeout=120s
-    kubectl rollout status deployment/tesslate-frontend -n tesslate --timeout=120s
-    ```
-  </Step>
-
-  <Step title="Access the application">
-    **Option 1: Tunnel** (in a separate terminal)
-    ```bash
-    minikube -p tesslate tunnel
-    ```
-    Then open `http://localhost` in your browser.
-
-    **Option 2: Port-forward**
-    ```bash
-    kubectl port-forward -n tesslate svc/tesslate-frontend-service 5000:80
-    kubectl port-forward -n tesslate svc/tesslate-backend-service 8000:8000
-    ```
-    Then open `http://localhost:5000`.
-  </Step>
-</Steps>
-
-<Accordion title="Minikube limitations compared to production">
-  | Feature | Minikube | AWS EKS |
-  |---------|----------|---------|
-  | VolumeSnapshots / Timeline | Not supported | EBS snapshots |
-  | Hibernation with snapshots | Projects stop; no snapshot | Snapshot created, namespace deleted |
-  | SSL/TLS | HTTP only | Automatic via cert-manager |
-  | Data persistence | PVC survives pod restarts; lost if cluster deleted | Snapshot-based, survives cluster changes |
-</Accordion>
-
-### Option B: AWS EKS (Production)
-
-For production deployments, use AWS EKS with Terraform for Infrastructure as Code.
-
-#### Infrastructure Provisioning with Terraform
-
-Terraform provisions all required AWS resources: VPC, EKS cluster, ECR repositories, S3 bucket, IAM roles, and Helm charts.
-
-<Steps>
-  <Step title="Install prerequisites">
-    ```bash
-    # Terraform
-    brew install terraform    # macOS
-    choco install terraform   # Windows
-
-    # AWS CLI
-    brew install awscli       # macOS
-    choco install awscli      # Windows
-
-    # kubectl
-    brew install kubernetes-cli
-    ```
-  </Step>
-
-  <Step title="Configure AWS credentials">
-    ```bash
-    aws configure
-    # AWS Access Key ID: [your-access-key]
-    # AWS Secret Access Key: [your-secret-key]
-    # Default region: us-east-1
-    # Default output format: json
-    ```
-  </Step>
-
-  <Step title="Configure Terraform variables">
-    ```bash
-    cd k8s/terraform/aws
-    cp terraform.tfvars.example terraform.tfvars
-    ```
-
-    Edit `terraform.tfvars`:
-    ```hcl
-    project_name            = "tesslate"
-    environment             = "production"
-    domain_name             = "studio.yourcompany.com"
-
-    # EKS
-    eks_cluster_version     = "1.28"
-    eks_node_instance_types = ["t3.large"]
-    eks_node_min_size       = 1
-    eks_node_max_size       = 10
-    eks_node_desired_size   = 2
-
-    # VPC
-    vpc_cidr               = "10.0.0.0/16"
-    availability_zones     = ["us-east-1a", "us-east-1b"]
-
-    # S3
-    s3_bucket_prefix       = "tesslate-projects"
-
-    tags = {
-      Project     = "Tesslate Studio"
-      Environment = "Production"
-      ManagedBy   = "Terraform"
-    }
-    ```
-  </Step>
-
-  <Step title="Provision infrastructure">
-    ```bash
-    terraform init
-    terraform plan
-    terraform apply
-    ```
-
-    This takes approximately 15 to 20 minutes. Terraform creates:
-
-    | Resource | Details |
-    |----------|---------|
-    | **VPC** | Public and private subnets across 2 AZs, NAT gateway |
-    | **EKS Cluster** | Managed control plane with IRSA enabled |
-    | **Node Groups** | Primary (on-demand t3.large) and optional Spot group |
-    | **EKS Add-ons** | CoreDNS, kube-proxy, VPC CNI, EBS CSI Driver |
-    | **ECR Repositories** | tesslate-backend, tesslate-frontend, tesslate-devserver |
-    | **S3 Bucket** | Versioned, encrypted, lifecycle-managed project storage |
-    | **IAM Roles** | IRSA roles for S3 access and EBS provisioning |
-    | **Storage Class** | `tesslate-block-storage` (EBS gp3, encrypted) |
-  </Step>
-
-  <Step title="Configure kubectl">
-    ```bash
-    aws eks update-kubeconfig --region us-east-1 --name tesslate-cluster
-    kubectl get nodes
-    ```
-  </Step>
-
-  <Step title="Build and push images to ECR">
-    ```bash
-    # Login to ECR
-    aws ecr get-login-password --region us-east-1 | \
-      docker login --username AWS --password-stdin \
-      <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-
-    # Build and push backend
-    docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
-    docker tag tesslate-backend:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-backend:latest
-    docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-backend:latest
-
-    # Build and push frontend
-    docker build --no-cache -t tesslate-frontend:latest -f app/Dockerfile.prod app/
-    docker tag tesslate-frontend:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-frontend:latest
-    docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-frontend:latest
-
-    # Build and push devserver
-    docker build --no-cache -t tesslate-devserver:latest -f orchestrator/Dockerfile.devserver orchestrator/
-    docker tag tesslate-devserver:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
-    docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-devserver:latest
-    ```
-
-    <Info>
-      Always use `--no-cache` when building images for deployment. This ensures all code changes are included in the image.
-    </Info>
-  </Step>
-
-  <Step title="Create Kubernetes secrets">
-    ```bash
-    kubectl create secret generic tesslate-app-secrets -n tesslate \
-      --from-literal=SECRET_KEY=your-production-secret \
-      --from-literal=DATABASE_URL=postgresql+asyncpg://tesslate:STRONG_PASS@postgres:5432/tesslate \
-      --from-literal=LITELLM_API_BASE=https://your-litellm.com/v1 \
-      --from-literal=LITELLM_MASTER_KEY=sk-your-key
-    ```
-  </Step>
-
-  <Step title="Deploy Kubernetes manifests">
-    ```bash
-    kubectl apply -k k8s/overlays/aws
-
-    # Wait for pods
-    kubectl rollout status deployment/tesslate-backend -n tesslate --timeout=300s
-    kubectl rollout status deployment/tesslate-frontend -n tesslate --timeout=300s
-    ```
-  </Step>
-
-  <Step title="Verify">
-    ```bash
-    # Check pods
-    kubectl get pods -n tesslate -o wide
-
-    # Check ingress
-    kubectl get ingress -n tesslate
-
-    # Check certificates
-    kubectl get certificate -n tesslate
-    ```
-  </Step>
-</Steps>
-
-#### EBS VolumeSnapshot Persistence
-
-In production Kubernetes mode, user projects are persisted using EBS VolumeSnapshots (not S3). Here is how the lifecycle works:
-
-<Steps>
-  <Step title="Project opens (restore)">
-    The orchestrator creates a namespace (`proj-{uuid}`) and a PVC. If a VolumeSnapshot exists from a previous session, the PVC is created with a `dataSource` pointing to the snapshot. EBS lazy-loads data on first access, so startup is near-instant (under 10 seconds).
-  </Step>
-
-  <Step title="Runtime (fast local I/O)">
-    All file edits happen on the PVC, which provides EBS block storage speeds. All containers in the project share the same PVC via pod affinity (scheduled on the same node).
-
-    Users can manually create snapshots via the Timeline UI (up to 5 per project).
-  </Step>
-
-  <Step title="Hibernation (snapshot and cleanup)">
-    When a project is idle for longer than `K8S_HIBERNATION_IDLE_MINUTES` (default: 10), a cleanup CronJob triggers:
-    1. Creates a VolumeSnapshot from the PVC (takes under 5 seconds to initiate)
-    2. Waits for the snapshot to be ready
-    3. Deletes the namespace (cascading to all resources)
-
-    The snapshot remains in EBS for fast restoration.
-  </Step>
-
-  <Step title="Deletion (soft delete with 30-day retention)">
-    When a user deletes a project, snapshots are soft-deleted with a 30-day expiry. A daily cleanup CronJob (3 AM UTC) permanently deletes expired snapshots.
-  </Step>
-</Steps>
-
-#### AWS Cost Estimation
-
-| Resource | Monthly Cost |
-|----------|-------------|
-| EKS Cluster (control plane) | ~$73 |
-| EC2 Nodes (2 x t3.large on-demand) | ~$121 |
-| EBS Volumes (~100 GB total) | ~$10 |
-| S3 Storage (~10 GB) | ~$0.23 |
-| NAT Gateway (2 AZs) | ~$66 |
-| Data Transfer | ~$10 to $50 |
-| **Total baseline** | **~$280 to $320** |
-
-<Accordion title="Cost optimization tips">
-  - **Spot instances for user containers:** Add a Spot node group (90% savings on compute for dev containers).
-  - **Cluster autoscaling:** Scale down during off-hours.
-  - **S3 lifecycle policies:** Move old versions to Infrequent Access (30 days) then Glacier (90 days).
-  - **EBS gp3:** Already used by default; 20% cheaper than gp2.
-  - **Right-size nodes:** Use `t3.medium` if resource usage is low.
-</Accordion>
-
-### Kustomize Manifest Structure
-
-Tesslate Studio uses Kustomize for Kubernetes manifest management:
-
-```
-k8s/
-  base/                        # Environment-agnostic manifests
-    kustomization.yaml
-    namespace/                 # tesslate namespace
-    core/                      # Backend, frontend, cleanup CronJobs
-    database/                  # PostgreSQL deployment
-    ingress/                   # Main platform ingress
-    security/                  # RBAC, NetworkPolicies, resource quotas
-    storage/                   # VolumeSnapshotClass
-    minio/                     # Local S3 (Minikube only)
-
-  overlays/
-    minikube/                  # Local dev: local images, no TLS, MinIO
-      kustomization.yaml
-      backend-patch.yaml
-      secrets/
-
-    aws/                       # Production: ECR images, TLS, native S3
-      kustomization.yaml
-      backend-patch.yaml
-      secrets/
-```
-
-**Deploy commands:**
-```bash
-# Preview generated manifests (dry run)
-kubectl kustomize k8s/overlays/minikube
-
-# Apply Minikube overlay
-kubectl apply -k k8s/overlays/minikube
-
-# Apply AWS overlay
-kubectl apply -k k8s/overlays/aws
-
-# Check diff before applying
-kubectl diff -k k8s/overlays/aws
-```
-
-### Updating a Running Deployment
+## What each path gives you
+
+| Capability | Docker | Minikube | AWS EKS |
+|------------|:------:|:--------:|:-------:|
+| Orchestrator + agent + app | Yes | Yes | Yes |
+| Postgres | In-cluster | In-cluster | RDS |
+| Redis | In-cluster | In-cluster | ElastiCache |
+| LiteLLM gateway | External or local | External | External |
+| Per-project namespaces | No | Yes | Yes |
+| NetworkPolicy isolation | No | Yes | Yes |
+| btrfs CSI + Volume Hub | No | Yes | Yes |
+| CAS bundles on S3 | No | MinIO | S3 |
+| Snapshot timeline (5 per project) | No | Yes | Yes |
+| Hibernation with restore | No | Yes | Yes |
+| Wildcard TLS | Traefik + LE | HTTP only | cert-manager + Cloudflare |
+| Horizontal scaling | No | Demo only | Yes |
+
+## Overview of each path
 
 <Tabs>
-  <Tab title="Minikube">
-    ```bash
-    # 1. Delete old image from Minikube (critical; it caches by tag)
-    minikube -p tesslate ssh -- docker rmi -f tesslate-backend:latest
+  <Tab title="Docker Compose">
+    The Compose stack brings up every service on a single host:
 
-    # 2. Rebuild
-    docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
+    | Service | Purpose |
+    |---------|---------|
+    | `orchestrator` | FastAPI backend |
+    | `frontend` (dev) | Vite + React |
+    | `postgres` | Database |
+    | `redis` | Task queue + pub/sub |
+    | `traefik` | `*.localhost` routing (dev) or Let's Encrypt (prod) |
+    | `worker` | ARQ agent worker |
 
-    # 3. Load new image
-    minikube -p tesslate image load tesslate-backend:latest
+    `DEPLOYMENT_MODE=docker` selects `DockerComposeOrchestrator`, which provisions per-project containers from `.tesslate/config.json` and wires them into the Traefik network.
 
-    # 4. Restart pod
-    kubectl delete pod -n tesslate -l app=tesslate-backend
-
-    # 5. Wait for ready
-    kubectl rollout status deployment/tesslate-backend -n tesslate --timeout=120s
-    ```
+    Start here: [Docker setup guide](/guides/docker-setup).
   </Tab>
 
-  <Tab title="AWS EKS">
-    ```bash
-    # 1. Login to ECR
-    aws ecr get-login-password --region us-east-1 | \
-      docker login --username AWS --password-stdin \
-      <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+  <Tab title="Kubernetes (Minikube)">
+    Minikube mirrors the production stack end to end so you can validate the K8s path without cloud cost.
 
-    # 2. Build and push
-    docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
-    docker tag tesslate-backend:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-backend:latest
-    docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tesslate-backend:latest
+    | Component | Source |
+    |-----------|--------|
+    | Base manifests | `k8s/base/` |
+    | Minikube overlay | `k8s/overlays/minikube/` |
+    | btrfs CSI + Volume Hub | `services/btrfs-csi/` |
+    | Namespaces | one per project (`proj-{uuid}`) |
+    | Storage | `tesslate-btrfs` StorageClass |
+    | Snapshots | `tesslate-btrfs-snapshots` class |
 
-    # 3. Restart pod (forces pull of new image)
-    kubectl delete pod -n tesslate -l app=tesslate-backend
+    Apply with `kubectl apply -k k8s/overlays/minikube` then pair env with `k8s/.env.minikube`. Everything runs HTTP.
 
-    # 4. Restart NGINX Ingress (clears endpoint cache)
-    kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx
+    Start here: [Kubernetes on Minikube](/guides/kubernetes-local).
+  </Tab>
 
-    # 5. Verify
-    kubectl get pods -n tesslate
-    kubectl logs -n tesslate deployment/tesslate-backend --tail=50
-    ```
+  <Tab title="AWS EKS (production)">
+    Terraform provisions the platform and environment stacks under `k8s/terraform/aws/` and `k8s/terraform/shared/`. Kustomize applies to the resulting EKS cluster.
+
+    | Layer | Resource |
+    |-------|----------|
+    | Networking | VPC, private subnets, NAT, VPN |
+    | Cluster | EKS 1.29 with managed nodegroups (btrfs-capable) |
+    | Registry | ECR for `tesslate-orchestrator`, `tesslate-frontend`, `tesslate-devserver` |
+    | Database | RDS Postgres |
+    | Cache | ElastiCache Redis |
+    | Object store | S3 bucket for CAS + snapshots |
+    | Ingress | NGINX Ingress + cert-manager + Cloudflare DNS |
+    | Secrets | AWS-managed; auto-mounted via `envFrom` in `k8s/overlays/aws-base/backend-patch.yaml` |
+
+    Start here: [AWS production deployment](/guides/aws-production).
   </Tab>
 </Tabs>
 
----
+## Shared operational surface
 
-## Security Hardening
+Regardless of path:
 
-<Steps>
-  <Step title="Disable root SSH login">
-    Edit `/etc/ssh/sshd_config`:
-    ```
-    PermitRootLogin no
-    PasswordAuthentication no
-    ```
-    Then restart SSH: `sudo systemctl restart ssh`
-  </Step>
+- The orchestrator reads config from environment variables. See [Configuration](/self-hosting/configuration) for the full reference.
+- Agents run via the `tesslate-agent` package (`packages/tesslate-agent/`), either inline (desktop, Docker) or under an ARQ worker (K8s).
+- Project volumes are provisioned through `orchestrator/app/services/volume_manager.py`, which talks to the Volume Hub on Kubernetes or the local filesystem on Docker and desktop.
+- Authentication and RBAC are consistent across paths. See [Authentication](/authentication).
 
-  <Step title="Install Fail2Ban">
-    ```bash
-    sudo apt install fail2ban
-    sudo systemctl enable fail2ban
-    sudo systemctl start fail2ban
-    ```
-  </Step>
-
-  <Step title="Enable automatic security updates">
-    ```bash
-    sudo apt install unattended-upgrades
-    sudo dpkg-reconfigure -plow unattended-upgrades
-    ```
-  </Step>
-
-  <Step title="Change default database password">
-    Update `POSTGRES_PASSWORD` and `DATABASE_URL` in your `.env` or Kubernetes secrets.
-  </Step>
-</Steps>
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion icon="lock" title="SSL certificate not issued (Docker Compose / Traefik)">
-    **Check Traefik logs:**
-    ```bash
-    docker compose logs traefik | grep -i acme
-    ```
-
-    **Common causes:**
-    - DNS records not propagated yet (wait 10 to 15 minutes)
-    - Port 80 blocked by firewall
-    - Rate limit hit (Let's Encrypt allows 5 certificates per week per domain)
-
-    **Force renewal:**
-    ```bash
-    rm -rf letsencrypt/acme.json
-    docker compose restart traefik
-    ```
-  </Accordion>
-
-  <Accordion icon="lock" title="SSL certificate not issued (Kubernetes / cert-manager)">
-    ```bash
-    kubectl get certificate -n tesslate
-    kubectl describe certificate tesslate-wildcard-tls -n tesslate
-    kubectl logs -n cert-manager deployment/cert-manager --tail=50
-    ```
-    Ensure the Cloudflare API token has Zone:Zone:Read and Zone:DNS:Edit permissions.
-  </Accordion>
-
-  <Accordion icon="image" title="Image not updating after rebuild (Minikube)">
-    **Cause:** Minikube caches images by tag and does not overwrite.
-
-    **Fix:** Always delete the old image before loading the new one:
-    ```bash
-    minikube -p tesslate ssh -- docker rmi -f tesslate-backend:latest
-    docker build --no-cache -t tesslate-backend:latest -f orchestrator/Dockerfile orchestrator/
-    minikube -p tesslate image load tesslate-backend:latest
-    kubectl delete pod -n tesslate -l app=tesslate-backend
-    ```
-  </Accordion>
-
-  <Accordion icon="image" title="ImagePullBackOff on user project pods (AWS EKS)">
-    ```bash
-    kubectl describe pod -n proj-{uuid} | grep Image
-    # Verify it shows the correct ECR URL
-
-    kubectl exec -n tesslate deployment/tesslate-backend -- env | grep K8S_DEVSERVER
-    # Should show the full ECR URL for tesslate-devserver
-    ```
-  </Accordion>
-
-  <Accordion icon="globe" title="503 error on user project URL">
-    ```bash
-    # Check if the project pod is running
-    kubectl get pods -n proj-{uuid}
-
-    # Check dev server logs
-    kubectl logs -n proj-{uuid} {pod-name} -c dev-server
-
-    # Check ingress
-    kubectl get ingress -n proj-{uuid}
-
-    # Restart NGINX Ingress if endpoint cache is stale
-    kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx
-    ```
-  </Accordion>
-
-  <Accordion icon="database" title="Namespace stuck in Terminating state">
-    ```bash
-    # Check for finalizers
-    kubectl get ns proj-{uuid} -o yaml
-
-    # Remove stuck finalizers
-    kubectl patch ns proj-{uuid} -p '{"metadata":{"finalizers":[]}}' --type=merge
-    ```
-  </Accordion>
-
-  <Accordion icon="server" title="Site not loading after backend restart (AWS)">
-    **Cause:** NGINX Ingress Controller has a stale backend endpoint cache.
-
-    **Fix:**
-    ```bash
-    kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx
-    kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s
-    ```
-  </Accordion>
-</AccordionGroup>
-
-## Monitoring and Maintenance
-
-### Health Checks
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /health` | Backend liveness check (returns 200 if alive) |
-| `GET /api/config` | Public configuration (deployment mode, app domain) |
-
-**Kubernetes probes** (configured in `backend-deployment.yaml`):
-- **Startup probe:** `/health`, 10s initial delay, allows 2 minutes for boot
-- **Liveness probe:** `/health` every 10 seconds
-- **Readiness probe:** `/health` every 5 seconds
-
-### Useful Commands
-
-```bash
-# Docker Compose: view resource usage
-docker stats --no-stream
-
-# Kubernetes: view pod resource usage
-kubectl top pods -n tesslate
-kubectl top nodes
-
-# Kubernetes: view logs
-kubectl logs -n tesslate deployment/tesslate-backend --tail=100
-kubectl logs -n tesslate deployment/tesslate-backend -f
-
-# Kubernetes: list user project namespaces
-kubectl get ns | grep proj-
-
-# Kubernetes: clean up orphaned namespaces
-kubectl delete ns proj-{uuid}
-```
-
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Configuration Reference" icon="gear" href="/self-hosting/configuration">
-    All environment variables with detailed explanations
+  <Card title="Docker setup" icon="docker" href="/guides/docker-setup">
+    Fastest path to a running OpenSail.
   </Card>
 
-  <Card title="Architecture Overview" icon="diagram-project" href="/self-hosting/architecture">
-    Understand the system design, data flow, and security model
+  <Card title="Kubernetes on Minikube" icon="cube" href="/guides/kubernetes-local">
+    Full K8s locally to validate the production path.
   </Card>
 
-  <Card title="Quickstart" icon="rocket" href="/self-hosting/quickstart">
-    Get started with Docker Compose locally
+  <Card title="AWS production" icon="cloud" href="/guides/aws-production">
+    Terraform, EKS, RDS, S3, wildcard TLS.
   </Card>
 
-  <Card title="API Documentation" icon="book" href="/api-reference/introduction">
-    Explore the REST API
+  <Card title="Configuration" icon="gear" href="/self-hosting/configuration">
+    Env variable reference.
   </Card>
 </CardGroup>

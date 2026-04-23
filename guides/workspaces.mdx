@@ -1,0 +1,141 @@
+---
+title: 'Workspaces'
+description: 'A workspace is the full, fork-able, snapshot-based environment that backs a project. Instant snapshots, 5-entry timeline, team-shareable, local-to-cloud portable.'
+---
+
+<img src="/images/opensail-banner.png" alt="Tesslate OpenSail" />
+
+## Workspace vs project
+
+A **project** is the logical entity: name, slug, containers, config. A **workspace** is the state those logical pieces produce on disk at any given moment: the files, the installed dependencies, the database rows, the running processes.
+
+Workspaces are built on btrfs, a snapshot-based filesystem. Everything you do in a project is captured in its workspace, and workspaces fork in seconds.
+
+<CardGroup cols={2}>
+  <Card title="Fork-able" icon="code-fork">
+    Branch a running environment in seconds to try something risky.
+  </Card>
+  <Card title="Snapshot-based" icon="camera">
+    Up to 5 snapshots retained per project, plus one automatic timeline entry per major change.
+  </Card>
+  <Card title="Self-contained" icon="box">
+    Share a workspace and the recipient gets code, state, config, and dependencies.
+  </Card>
+  <Card title="Local-to-cloud portable" icon="cloud-arrow-up">
+    Build on your laptop, push to your cluster, pull results back.
+  </Card>
+</CardGroup>
+
+## Why btrfs
+
+OpenSail manages workspaces with a custom btrfs CSI driver plus a Volume Hub orchestrator (both in `services/btrfs-csi/`).
+
+Btrfs gives us:
+
+- **Copy-on-write subvolumes** so forking and snapshotting are near-instant
+- **Content-addressable sync to S3** for durable backup and cross-node transfer
+- **Per-node subvolume management** so compute can run wherever the volume cache lives
+- **Template clones** so new projects start from a warm, pre-warmed tree
+
+The orchestrator calls Volume Hub over gRPC: `CreateVolume`, `DeleteVolume`, `EnsureCached`, `TriggerSync`, `CreateServiceVolume`, `VolumeStatus`. Your project never touches btrfs directly, but this is why forks are instant and why idle projects cost almost nothing.
+
+## Instant snapshots
+
+Every project maintains a rolling timeline. You get up to 5 `ProjectSnapshot` entries, each a K8s `VolumeSnapshot` plus a CAS reference.
+
+<Steps>
+  <Step title="Trigger">
+    Snapshots fire automatically on major events (hibernation, app publish) and on demand from the Timeline panel.
+  </Step>
+  <Step title="Capture">
+    Volume Hub snapshots the btrfs subvolume and records the CAS address. Under 5 seconds in most cases.
+  </Step>
+  <Step title="Retain">
+    The oldest snapshot rolls off when you exceed 5. Retention is configurable via `K8S_MAX_SNAPSHOTS_PER_PROJECT`.
+  </Step>
+  <Step title="Restore">
+    Click any snapshot in the Timeline panel. The project restores from that exact subvolume state, containers and all.
+  </Step>
+</Steps>
+
+<Info>
+  Snapshots are different from git commits. Snapshots capture the whole workspace (installed `node_modules`, database files, running state). Git captures source history. Use both.
+</Info>
+
+## Forking a workspace
+
+Forking creates a new project with a new slug, a fresh volume cloned from the original, and copies of every Container, ContainerConnection, and BrowserPreview. The original keeps running; the fork starts in the stopped state.
+
+Common patterns:
+
+- **Experiment** Fork before a risky refactor. If it works, keep the fork. If it breaks, throw it away.
+- **Variants** Fork a working app to build a customer-specific version ("intake-base" becomes "intake-estate-planning").
+- **Collaboration** Fork a teammate's workspace to contribute without touching their copy.
+
+The app marketplace uses the same primitive: install an app and you get a fork of its source workspace as a new project, with a `forked_from` provenance link.
+
+## Sharing
+
+Because a workspace is self-contained, sharing one means sharing the full environment, not just a URL.
+
+<Tabs>
+  <Tab title="Team visibility">
+    Mark a project as team-visible and any team member with editor or admin rights can open it. Sharing uses the same volume and the same containers.
+  </Tab>
+  <Tab title="Fork and hand off">
+    Fork the workspace and transfer ownership. The recipient gets their own isolated copy with full edit rights.
+  </Tab>
+  <Tab title="Publish as app">
+    Bundle the workspace as a versioned app. Every install creates a new workspace with the same graph and source.
+  </Tab>
+</Tabs>
+
+## Desktop to cloud
+
+The OpenSail desktop app and the OpenSail cloud orchestrator run the same server code. Pair your desktop to a cloud instance and a workspace can live on either side.
+
+<Steps>
+  <Step title="Build locally">
+    Open a project on the desktop. It runs against SQLite and the local task queue. No network needed.
+  </Step>
+  <Step title="Sync up">
+    Turn on sync. Files and config push to your paired cloud instance. The cloud side creates a mirror project.
+  </Step>
+  <Step title="Run big">
+    Switch runtime to `k8s` and the cloud takes over compute. Preview, multi-container, hibernation, all of it.
+  </Step>
+  <Step title="Pull results back">
+    Results sync back to your laptop. The workspace stays authoritative wherever you are working from most recently.
+  </Step>
+</Steps>
+
+<Info>
+  The desktop is your home base; the cloud is your compute pool. Rebuilding one from the other takes seconds because the volume content is CAS-addressed in S3.
+</Info>
+
+## Compute tiers and hibernation
+
+Workspaces on Kubernetes use a three-tier compute model. Most operations (file reads, web calls, reasoning) run on Tier 0 with no compute pod at all. Shell commands run on Tier 1 warm ephemeral pods. Long-lived dev servers and multi-container stacks run on Tier 2 pods that hibernate when idle.
+
+Hibernation is volume-level. When a Tier 2 project goes idle, the orchestrator triggers an S3 sync, tears down the compute pod, and leaves the volume cached on its node. Restoring just boots new compute against the same volume.
+
+## Volume health
+
+Every project exposes a volume health signal. The `VolumeHealthBanner` surfaces cache node health, sync status, and pending migrations. If a cache node is unhealthy, Volume Hub peer-transfers the subvolume to another node automatically. You usually never notice.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Projects" icon="folder" href="/guides/projects">
+    The logical entity a workspace backs.
+  </Card>
+  <Card title="Architecture Panel" icon="diagram-project" href="/guides/architecture-panel">
+    Edit the graph that defines the workspace topology.
+  </Card>
+  <Card title="Self-hosting" icon="server" href="/self-hosting/architecture">
+    How btrfs CSI and Volume Hub deploy on your own cluster.
+  </Card>
+  <Card title="Publishing apps" icon="box-archive" href="/guides/publishing-apps">
+    Freeze a workspace into an immutable, installable bundle.
+  </Card>
+</CardGroup>
